@@ -1,0 +1,9 @@
+{
+    "model": "logistic_regression",
+    "target": "SPY_5d_direction",
+    "auc": 0.5388611827009256,
+    "accuracy": 0.5863377609108159,
+    "precision": 0.5883476599808978,
+    "recall": 0.9919484702093397,
+    "prevalence": 0.5891840607210627
+}
