@@ -1,0 +1,106 @@
+experiment_id: EXP_001_DIR_ALPHA_SPY_5D
+
+project: project_03_directional_alpha
+
+hypothesis: >
+  SPY 5-day forward returns may be predictable using momentum,
+  volatility, and mean-reversion features.
+
+target:
+  definition: "1 if 5-day forward return > 0"
+  horizon: 5
+
+universe:
+  asset: SPY
+  frequency: daily
+
+features:
+  - return_5d
+  - return_10d
+  - return_20d
+  - rsi_14
+  - rv20
+  - ma_distance_20
+  - volume_ratio
+
+model:
+  type: LogisticRegression
+
+validation:
+  method: walk_forward
+
+metrics:
+  primary: ROC_AUC
+  secondary:
+    - Brier
+    - accuracyexperiment_id: EXP_001_DIR_ALPHA_SPY_5D
+
+project: project_03_directional_alpha
+
+hypothesis: >
+  SPY 5-day forward returns may be predictable using momentum,
+  volatility, and mean-reversion features.
+
+target:
+  definition: "1 if 5-day forward return > 0"
+  horizon: 5
+
+universe:
+  asset: SPY
+  frequency: daily
+
+features:
+  - return_5d
+  - return_10d
+  - return_20d
+  - rsi_14
+  - rv20
+  - ma_distance_20
+  - volume_ratio
+
+model:
+  type: LogisticRegression
+
+validation:
+  method: walk_forward
+
+metrics:
+  primary: ROC_AUC
+  secondary:
+    - Brier
+    - accuracyexperiment_id: EXP_001_DIR_ALPHA_SPY_5D
+
+project: project_03_directional_alpha
+
+hypothesis: >
+  SPY 5-day forward returns may be predictable using momentum,
+  volatility, and mean-reversion features.
+
+target:
+  definition: "1 if 5-day forward return > 0"
+  horizon: 5
+
+universe:
+  asset: SPY
+  frequency: daily
+
+features:
+  - return_5d
+  - return_10d
+  - return_20d
+  - rsi_14
+  - rv20
+  - ma_distance_20
+  - volume_ratio
+
+model:
+  type: LogisticRegression
+
+validation:
+  method: walk_forward
+
+metrics:
+  primary: ROC_AUC
+  secondary:
+    - Brier
+    - accuracy

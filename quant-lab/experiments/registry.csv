@@ -1,2 +1,0 @@
-experiment_id,project,date,hypothesis,target,features,model,validation,primary_metric,result_summary,conclusion,status,next_action,artifact_path
-"EXP_001_DIR_ALPHA_SPY_5D,project_03_directional_alpha,2026-03-08,5-day direction prediction for SPY,1 if forward return >0,momentum+volatility,LogisticRegression,walk_forward,NA,Experiment initialized,Pending results,active,Run baseline model,experiments/active/exp_001_dir_alpha_spy_5d",,,,,,,,,,,,,
