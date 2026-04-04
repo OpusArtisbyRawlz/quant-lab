@@ -8,5 +8,5 @@ Thumbs.db
 .env
 *.log
 data/
-*.csv
+data/**/*.csv
 !data/README.md
