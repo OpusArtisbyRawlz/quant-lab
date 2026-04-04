@@ -7,3 +7,6 @@ Thumbs.db
 .vscode/
 .env
 *.log
+data/
+*.csv
+!data/README.md
