@@ -9,4 +9,5 @@ Thumbs.db
 *.log
 data/
 data/**/*.csv
-!data/README.md
+!data/README.md.ipynb_checkpoints/
+.ipynb_checkpoints/

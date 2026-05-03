@@ -1,0 +1,19 @@
+{
+    "project": "Project 05 Risk Engine",
+    "final_model": "weighted_multi_strategy_with_strategy_and_portfolio_smooth_dd",
+    "strategy_level_dd": {
+        "method": "smooth_drawdown_exposure",
+        "k": 5,
+        "floor": 0.55
+    },
+    "portfolio_level_dd": {
+        "method": "smooth_drawdown_exposure",
+        "k": 5,
+        "floor": 0.55
+    },
+    "weights": {
+        "ls_20pct_plus_sqrt_partial_normalized": 0.5,
+        "blend_60_40_ls20_plus_ls30": 0.3,
+        "ls_30pct": 0.2
+    }
+}
