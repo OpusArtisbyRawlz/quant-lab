@@ -61,7 +61,9 @@ def test_ingest_one_metrics_land_in_experiments_table(tmp_path, tmp_db):
     assert abs(row["sharpe"] - 1.23) < 1e-6
 
 
-def test_ingest_one_uses_best_variant_sharpe_when_no_metrics(tmp_path, tmp_db):
+def test_ingest_one_named_columns_null_when_no_metrics(tmp_path, tmp_db):
+    """Ingestion is neutral: named metric columns stay NULL when metrics.json is absent.
+    Variant selection is the Critic/Risk Agent's responsibility, not ingestion's."""
     from agents.storage.ledger_store import get_experiment
     _make_exp(
         tmp_path, "exp_no_metrics",
@@ -76,7 +78,13 @@ def test_ingest_one_uses_best_variant_sharpe_when_no_metrics(tmp_path, tmp_db):
     ingest_one(tmp_path / "exp_no_metrics", db_path=tmp_db)
     row = get_experiment("exp_no_metrics", db_path=tmp_db)
     assert row is not None
-    assert abs(row["sharpe"] - 1.5) < 1e-6
+    # No metrics.json → all named metric columns must be NULL
+    assert row["sharpe"] is None
+    assert row["mdd"] is None
+    assert row["cagr"] is None
+    # Both variants are still stored — ingestion did not discard any
+    variants = get_variants_for_experiment("exp_no_metrics", db_path=tmp_db)
+    assert len(variants) == 2
 
 
 def test_ingest_one_empty_folder_is_skipped(tmp_path, tmp_db):

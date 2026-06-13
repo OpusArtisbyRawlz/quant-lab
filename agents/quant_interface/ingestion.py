@@ -229,17 +229,9 @@ def _upsert_from_bundle(bundle: ArtifactBundle, db_path: Path) -> None:
     # For classification and regression: structured metrics live in raw_metrics only.
     # Named columns (sharpe, mdd, etc.) remain NULL — do not force a mapping.
 
-    # If no sharpe yet and strategy_variants exist, fall back to best variant
-    if record.get("sharpe") is None and bundle.strategy_variants:
-        best = _best_variant(bundle.strategy_variants)
-        if best:
-            record.update({
-                "sharpe":  best.sharpe,
-                "mdd":     best.mdd,
-                "cagr":    best.cagr,
-                "vol":     best.vol,
-                "calmar":  best.calmar,
-            })
+    # Ingestion is neutral on variant selection.
+    # All variants are stored in strategy_variants; choosing among them
+    # is the responsibility of the Critic/Risk Agent via variant_ranker.
 
     # Pull model from config if available
     if bundle.config:
@@ -328,13 +320,6 @@ def _upsert_variants(bundle: ArtifactBundle, db_path: Path) -> int:
         conn.commit()
 
     return written
-
-
-def _best_variant(variants: list[StrategyVariant]) -> StrategyVariant | None:
-    with_sharpe = [v for v in variants if v.sharpe is not None]
-    if not with_sharpe:
-        return None
-    return max(with_sharpe, key=lambda v: v.sharpe)  # type: ignore[arg-type]
 
 
 def _to_float(val: Any) -> float | None:
