@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -35,12 +35,25 @@ CREATE TABLE IF NOT EXISTS experiments (
     validation_method       TEXT,
     expected_improvement    TEXT,
     success_criteria        TEXT,       -- JSON object
+    -- Experiment type taxonomy
+    -- portfolio: cross-sectional long/short, return-based strategies
+    -- classification: directional prediction (AUC, accuracy, precision, recall)
+    -- regression: return magnitude prediction (MSE, MAE, R²)
+    -- risk_overlay: drawdown-aware exposure overlays (calmar, avg_exposure, MDD reduction)
+    experiment_type         TEXT,
+
+    -- Portfolio / risk overlay metrics (NULL for other types)
     primary_metric          TEXT,
     sharpe                  REAL,
     mdd                     REAL,
     cagr                    REAL,
     vol                     REAL,
     calmar                  REAL,
+
+    -- Native metrics stored as-is from metrics.json, regardless of type
+    -- e.g. {"auc": 0.54, "accuracy": 0.59} for classification experiments
+    raw_metrics             TEXT,       -- JSON object
+
     result_summary          TEXT,
     conclusion              TEXT,
     status                  TEXT,       -- active / completed / rejected
@@ -85,6 +98,34 @@ CREATE TABLE IF NOT EXISTS lessons_learned (
 )
 """
 
+_CREATE_STRATEGY_VARIANTS = """
+CREATE TABLE IF NOT EXISTS strategy_variants (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    experiment_id       TEXT NOT NULL,
+    strategy_name       TEXT NOT NULL,
+    sharpe              REAL,
+    mdd                 REAL,
+    cagr                REAL,
+    vol                 REAL,
+    calmar              REAL,
+    avg_exposure        REAL,
+    extra_metrics       TEXT,       -- JSON for any additional columns
+    promoted_to_library INTEGER NOT NULL DEFAULT 0,  -- 0/1 flag
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id),
+    UNIQUE (experiment_id, strategy_name)
+)
+"""
+
+_CREATE_MIGRATIONS = """
+CREATE TABLE IF NOT EXISTS migrations (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL UNIQUE,
+    applied_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    notes       TEXT
+)
+"""
+
 _CREATE_AGENT_CONVERSATIONS = """
 CREATE TABLE IF NOT EXISTS agent_conversations (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -100,12 +141,15 @@ CREATE TABLE IF NOT EXISTS agent_conversations (
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
+    "CREATE INDEX IF NOT EXISTS idx_experiments_type      ON experiments(experiment_type)",
     "CREATE INDEX IF NOT EXISTS idx_signal_type           ON signal_library(signal_type)",
     "CREATE INDEX IF NOT EXISTS idx_signal_keep           ON signal_library(keep_reject_retest)",
     "CREATE INDEX IF NOT EXISTS idx_lessons_experiment    ON lessons_learned(experiment_id)",
     "CREATE INDEX IF NOT EXISTS idx_lessons_category      ON lessons_learned(category)",
     "CREATE INDEX IF NOT EXISTS idx_conversations_cycle   ON agent_conversations(cycle_id)",
     "CREATE INDEX IF NOT EXISTS idx_conversations_sender  ON agent_conversations(sender)",
+    "CREATE INDEX IF NOT EXISTS idx_variants_experiment   ON strategy_variants(experiment_id)",
+    "CREATE INDEX IF NOT EXISTS idx_variants_promoted     ON strategy_variants(promoted_to_library)",
 ]
 
 
@@ -124,6 +168,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_SIGNAL_LIBRARY)
         conn.execute(_CREATE_LESSONS_LEARNED)
         conn.execute(_CREATE_AGENT_CONVERSATIONS)
+        conn.execute(_CREATE_STRATEGY_VARIANTS)
+        conn.execute(_CREATE_MIGRATIONS)
         for idx in _INDEXES:
             conn.execute(idx)
         existing = conn.execute(
