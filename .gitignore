@@ -1,13 +1,31 @@
 venv/
 __pycache__/
 *.pyc
-.ipynb_checkpoints/
+*.pyo
 .DS_Store
 Thumbs.db
 .vscode/
 .env
 *.log
+
+# Jupyter
+.ipynb_checkpoints/
+# Notebooks are tracked but must be stripped of outputs before commit.
+# To strip: jupyter nbconvert --clear-output --inplace <notebook.ipynb>
+
+# Data files — raw and processed market data are not committed
 data/
 data/**/*.csv
-!data/README.md.ipynb_checkpoints/
-.ipynb_checkpoints/
+
+# Experiment result artifacts — CSV dumps and binary outputs
+experiments/**/*.csv
+experiments/**/*.db
+experiments/completed/*/strategy_timeseries/
+
+# Research result CSVs
+research/**/results/*.csv
+
+# SQLite databases (runtime state, not source)
+storage/*.db
+agents/quant_agents.db
+*.db
