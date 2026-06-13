@@ -1,8 +1,10 @@
 """
 Experiment ledger — reads and writes the experiments table.
 
-The CSV at experiments/registry.csv remains the human-readable source of truth.
-This store provides structured query access and is the write target for new agent cycles.
+SQLite (quant_agents.db) is the single source of truth for all agent-created
+and agent-updated experiments. The CSV at experiments/registry.csv is a legacy
+artifact used only for one-time migration via import_from_csv(). It is never
+written to by agents and is not kept in sync.
 """
 
 from __future__ import annotations
@@ -145,11 +147,17 @@ def summary_stats(db_path: Path = DB_PATH) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# CSV sync — import registry.csv into DB (non-destructive, upsert)
+# Legacy migration — one-time CSV import only, do not call repeatedly
 # ---------------------------------------------------------------------------
 
 def import_from_csv(csv_path: Path = REGISTRY_CSV, db_path: Path = DB_PATH) -> int:
-    """Parse experiments/registry.csv and upsert all rows into the DB. Returns row count."""
+    """
+    One-time migration: parse experiments/registry.csv and upsert rows into SQLite.
+
+    Safe to call multiple times (upsert is idempotent), but intended to run once
+    during initial setup. After migration, all experiment writes go directly to
+    SQLite. The CSV is not updated by agents.
+    """
     if not csv_path.exists():
         return 0
     imported = 0
