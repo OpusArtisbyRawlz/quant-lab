@@ -1,0 +1,29 @@
+# agents/config/critic_defaults.toml
+#
+# Conservative default thresholds used by the Critic when
+# ExperimentSpec.success_criteria does not specify a value for a given metric.
+#
+# Precedence (highest wins):
+#   ExperimentSpec.success_criteria  →  these defaults
+#
+# All thresholds are MINIMUM values except maximum_mdd, which is a ceiling on
+# loss: the mdd metric must be >= this number (i.e. drawdown must not exceed it).
+# E.g. maximum_mdd = -0.40 means mdd >= -0.40 → a drawdown of -0.50 fails.
+#
+# Changing these values requires a code review — they are not runtime flags.
+
+[thresholds]
+minimum_sharpe  = 0.5
+maximum_mdd     = -0.40     # mdd must be >= -0.40 (max 40% drawdown)
+minimum_calmar  = 1.0
+minimum_cagr    = 0.05      # 5% annualised
+
+[decision_policy]
+# "strict"   — ALL active thresholds must pass → keep; any failure → reject
+# "majority" — more than half of active thresholds must pass → keep
+policy = "strict"
+
+# If the pipeline itself failed (RunResult.status == "failed"), emit "retest"
+# rather than "reject" on the first failure.  After this many retest decisions
+# the Critic emits "reject" instead (not auto-retried in M4 — Ledger records it).
+max_retest_attempts = 1
