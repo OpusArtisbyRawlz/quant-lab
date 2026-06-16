@@ -7,7 +7,7 @@ Phase 2+ will route them through a message bus.
 
 from __future__ import annotations
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -25,6 +25,7 @@ class ExperimentSpec:
     expected_improvement: str
     project: str = ""
     notes: str = ""
+    experiment_id: str = ""   # pre-set by caller; assigned by folder_writer if blank
 
 
 @dataclass
@@ -35,7 +36,7 @@ class ExperimentResult:
     metrics: dict[str, float]   # sharpe, mdd, cagr, vol, calmar
     artifact_path: str
     status: str                  # keep / reject / retest
-    ran_at: datetime = field(default_factory=datetime.utcnow)
+    ran_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -47,7 +48,7 @@ class CritiqueResult:
     drawdown_flag: bool
     decision: str                # keep / reject / retest
     notes: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -58,7 +59,7 @@ class AgentMessage:
     recipient: str
     message_type: str            # hypothesis / spec / result / critique / lesson / summary
     payload: dict[str, Any]
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
