@@ -47,6 +47,8 @@ class CriticThresholds:
     minimum_cagr:    float | None = None
     policy:          str          = "strict"
     max_retest_attempts: int      = 1
+    metric_basis:    str          = "net"   # "net" (default) | "gross"
+    downgrade_on_robustness_flags: bool = True
     sources: dict[str, str]       = field(default_factory=dict)
 
     # ------------------------------------------------------------------ #
@@ -84,6 +86,7 @@ class CriticThresholds:
 
         thresholds = data.get("thresholds", {})
         policy_cfg = data.get("decision_policy", {})
+        eval_cfg   = data.get("evaluation", {})
 
         sources: dict[str, str] = {}
 
@@ -99,6 +102,10 @@ class CriticThresholds:
             minimum_cagr        = _get("minimum_cagr"),
             policy              = policy_cfg.get("policy", "strict"),
             max_retest_attempts = int(policy_cfg.get("max_retest_attempts", 1)),
+            metric_basis        = eval_cfg.get("metric_basis", "net"),
+            downgrade_on_robustness_flags = bool(
+                eval_cfg.get("downgrade_on_robustness_flags", True)
+            ),
             sources             = sources,
         )
 
@@ -138,10 +145,12 @@ class CriticThresholds:
         Format: {metric_attr: {"value": v, "source": "spec"|"config"|"none"}}
         """
         attrs = ("minimum_sharpe", "maximum_mdd", "minimum_calmar", "minimum_cagr")
-        return {
+        out: dict[str, Any] = {
             attr: {
                 "value":  getattr(self, attr),
                 "source": self.sources.get(attr, "none"),
             }
             for attr in attrs
         }
+        out["metric_basis"] = self.metric_basis
+        return out

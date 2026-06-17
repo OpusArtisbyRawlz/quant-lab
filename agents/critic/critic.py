@@ -71,21 +71,42 @@ class Critic:
                 thresholds_used=thresholds.as_log_dict(),
             )
 
+        # ── Select metric basis (net by default; gross is opt-in) ──────────
+        eval_metrics = self._select_metrics(result.metrics, thresholds.metric_basis)
+
         # ── Evaluate each active threshold ─────────────────────────────────
-        checks = self._evaluate(result.metrics, thresholds)
-        drawdown_flag = self._is_drawdown_flag(result.metrics, thresholds)
+        checks = self._evaluate(eval_metrics, thresholds)
+        drawdown_flag = self._is_drawdown_flag(eval_metrics, thresholds)
 
         # ── Apply decision policy ──────────────────────────────────────────
         decision, passed = self._apply_policy(checks, thresholds.policy)
 
-        notes = self._format_notes(checks, result.metrics, thresholds)
+        notes = self._format_notes(checks, eval_metrics, thresholds)
+
+        # ── Robustness downgrade: keep → retest when flags are present ─────
+        flags = result.metrics.get("robustness_flags") or []
+        if (
+            decision == "keep"
+            and flags
+            and thresholds.downgrade_on_robustness_flags
+        ):
+            decision = "retest"
+            notes += (
+                f"\n⚠ Robustness flags {list(flags)} — keep downgraded to retest "
+                f"for human review before promotion."
+            )
+        elif flags:
+            notes += f"\n⚠ Robustness flags present: {list(flags)}."
+
         log.info(
-            "Critic: %s → %s  (sharpe=%.3f  mdd=%.3f  checks=%s)",
+            "Critic: %s → %s  [basis=%s]  (sharpe=%.3f  mdd=%.3f  checks=%s  flags=%s)",
             result.experiment_id,
             decision,
-            result.metrics.get("sharpe") or float("nan"),
-            result.metrics.get("mdd") or float("nan"),
+            thresholds.metric_basis,
+            eval_metrics.get("sharpe") or float("nan"),
+            eval_metrics.get("mdd") or float("nan"),
             checks,
+            list(flags),
         )
 
         return CritiqueResult(
@@ -96,6 +117,26 @@ class Critic:
             notes=notes,
             thresholds_used=thresholds.as_log_dict(),
         )
+
+    @staticmethod
+    def _select_metrics(metrics: dict, basis: str) -> dict:
+        """
+        Return the flat metric dict the Critic should evaluate.
+
+        basis == "net": use metrics["net"] (sharpe/mdd/cagr/vol/calmar). If the
+        net block is absent (pre-M5 artifact), fall back to the flat gross keys
+        with a warning so old experiments still evaluate.
+        basis == "gross": use the flat gross keys directly.
+        """
+        if basis == "gross":
+            return metrics
+        net = metrics.get("net")
+        if isinstance(net, dict) and net:
+            return net
+        log.warning(
+            "metric_basis='net' but no net metrics present — falling back to gross."
+        )
+        return metrics
 
     # ------------------------------------------------------------------ #
     # Internal                                                             #

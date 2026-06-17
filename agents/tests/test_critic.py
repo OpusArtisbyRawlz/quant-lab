@@ -307,3 +307,82 @@ def test_critic_default_config_loads_without_error():
     t = CriticThresholds.load_defaults()
     assert t.minimum_sharpe is not None
     assert t.policy in ("strict", "majority")
+
+
+# ---------------------------------------------------------------------------
+# Milestone 5 — net metric basis + robustness downgrade
+# ---------------------------------------------------------------------------
+
+def _net_result(experiment_id="exp_005", gross_sharpe=1.2, net_sharpe=0.6,
+                flags=None) -> RunResult:
+    """A success result carrying both gross flat keys and a nested net block."""
+    metrics = {
+        "sharpe": gross_sharpe, "mdd": -0.15, "cagr": 0.20, "vol": 0.12, "calmar": 2.0,
+        "net": {
+            "sharpe": net_sharpe, "mdd": -0.18, "cagr": 0.10, "vol": 0.12,
+            "calmar": round(0.10 / 0.18, 4),
+        },
+        "robustness_flags": flags or [],
+    }
+    return RunResult(experiment_id=experiment_id, status="success",
+                     metrics=metrics, artifact_path=None)
+
+
+def _basis_toml(tmp_path, basis="net", downgrade="true"):
+    return _make_toml(
+        tmp_path,
+        f'[thresholds]\nminimum_sharpe=1.0\n'
+        f'[evaluation]\nmetric_basis="{basis}"\ndowngrade_on_robustness_flags={downgrade}\n'
+        f'[decision_policy]\npolicy="strict"\nmax_retest_attempts=1\n',
+    )
+
+
+def test_default_config_metric_basis_is_net():
+    t = CriticThresholds.load_defaults()
+    assert t.metric_basis == "net"
+
+
+def test_critic_evaluates_net_by_default(tmp_path):
+    # Gross sharpe 1.2 passes the 1.0 threshold, but NET sharpe 0.6 fails it.
+    p = _basis_toml(tmp_path, basis="net")
+    result = Critic(p).run(_net_result(gross_sharpe=1.2, net_sharpe=0.6), _spec(success_criteria={}))
+    assert result.decision == "reject"  # judged on net, which fails
+
+
+def test_critic_gross_basis_uses_flat_keys(tmp_path):
+    # Same result, gross basis → gross sharpe 1.2 passes the 1.0 threshold.
+    p = _basis_toml(tmp_path, basis="gross")
+    result = Critic(p).run(_net_result(gross_sharpe=1.2, net_sharpe=0.6), _spec(success_criteria={}))
+    assert result.decision == "keep"
+
+
+def test_critic_net_basis_falls_back_to_gross_when_net_absent(tmp_path):
+    # Pre-M5 result has no "net" block; net basis must fall back to gross keys.
+    p = _basis_toml(tmp_path, basis="net")
+    result = Critic(p).run(_success_result(sharpe=1.5), _spec(success_criteria={}))
+    assert result.decision == "keep"
+
+
+def test_robustness_flags_downgrade_keep_to_retest(tmp_path):
+    # Net passes (sharpe 1.5 >= 1.0) but robustness flags present → retest.
+    p = _basis_toml(tmp_path, basis="net", downgrade="true")
+    result = Critic(p).run(
+        _net_result(net_sharpe=1.5, flags=["cost_fragility"]), _spec(success_criteria={})
+    )
+    assert result.decision == "retest"
+    assert "cost_fragility" in result.notes
+
+
+def test_robustness_downgrade_disabled_keeps_decision(tmp_path):
+    p = _basis_toml(tmp_path, basis="net", downgrade="false")
+    result = Critic(p).run(
+        _net_result(net_sharpe=1.5, flags=["cost_fragility"]), _spec(success_criteria={})
+    )
+    assert result.decision == "keep"
+    assert "cost_fragility" in result.notes  # still noted, just not downgraded
+
+
+def test_thresholds_used_records_metric_basis(tmp_path):
+    p = _basis_toml(tmp_path, basis="net")
+    result = Critic(p).run(_net_result(net_sharpe=1.5), _spec(success_criteria={}))
+    assert result.thresholds_used.get("metric_basis") == "net"

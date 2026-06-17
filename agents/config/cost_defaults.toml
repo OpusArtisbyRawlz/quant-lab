@@ -1,0 +1,25 @@
+# agents/config/cost_defaults.toml
+#
+# Default transaction-cost and slippage assumptions used by the Milestone 5
+# net-metrics layer.  These convert the gross portfolio return series into a
+# net series after realistic trading frictions.
+#
+# Costs are charged on TURNOVER (the fraction of the book traded each period).
+# Turnover is one-way: turnover_t = 0.5 * sum_i |w_{i,t} - w_{i,t-1}|.
+#
+# All values are in basis points (1 bp = 0.0001).  Per-period cost as a return
+# drag = turnover_t * (commission_bps + spread_bps + slippage_bps) / 1e4.
+#
+# These are conservative round-trip-aware defaults for liquid equities.  They
+# are NOT runtime flags — changing them requires code review, exactly like
+# critic_defaults.toml.
+
+[costs]
+commission_bps = 1.0    # broker commission per unit traded
+spread_bps     = 2.0    # half-spread crossing cost per unit traded
+slippage_bps   = 1.5    # market-impact / slippage per unit traded
+
+[annualisation]
+# Trading periods per year, used to annualise average per-period turnover and
+# cost figures for reporting.  Matches the metrics annualisation basis.
+periods_per_year = 252

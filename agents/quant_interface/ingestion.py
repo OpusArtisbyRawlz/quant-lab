@@ -251,6 +251,10 @@ def _extract_portfolio_metrics(bundle: ArtifactBundle, record: dict[str, Any]) -
     """
     Extract sharpe/mdd/cagr/vol/calmar from metrics dict into named columns.
     Only called for portfolio and risk_overlay experiment types.
+
+    Milestone 5: also extracts net-of-cost metrics (from the nested ``net``
+    block), turnover, estimated costs, and robustness flags when present.
+    Pre-M5 artifacts simply lack these keys and leave the columns NULL.
     """
     if not bundle.metrics:
         return
@@ -260,6 +264,26 @@ def _extract_portfolio_metrics(bundle: ArtifactBundle, record: dict[str, Any]) -
     _pick(m, record, "cagr",    ["cagr",    "CAGR"])
     _pick(m, record, "vol",     ["vol",     "Vol",  "volatility"])
     _pick(m, record, "calmar",  ["calmar",  "Calmar"])
+
+    # ── M5: net metrics (nested under "net") ──────────────────────────────
+    net = m.get("net")
+    if isinstance(net, dict):
+        _pick(net, record, "net_sharpe", ["sharpe"])
+        _pick(net, record, "net_mdd",    ["mdd"])
+        _pick(net, record, "net_cagr",   ["cagr"])
+        _pick(net, record, "net_vol",    ["vol"])
+        _pick(net, record, "net_calmar", ["calmar"])
+
+    # ── M5: turnover + cost figures (flat keys) ───────────────────────────
+    _pick(m, record, "turnover_annualized",         ["turnover_annualized"])
+    _pick(m, record, "turnover_average_period",     ["turnover_average_period"])
+    _pick(m, record, "transaction_cost_annualized", ["transaction_cost_annualized"])
+    _pick(m, record, "slippage_annualized",         ["slippage_annualized"])
+
+    # ── M5: robustness flags (JSON array) ─────────────────────────────────
+    flags = m.get("robustness_flags")
+    if isinstance(flags, list):
+        record["robustness_flags"] = json.dumps(flags)
 
 
 def _pick(

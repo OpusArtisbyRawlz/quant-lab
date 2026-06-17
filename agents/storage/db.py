@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -49,6 +49,18 @@ CREATE TABLE IF NOT EXISTS experiments (
     cagr                    REAL,
     vol                     REAL,
     calmar                  REAL,
+
+    -- Milestone 5: net-of-cost metrics, turnover, and robustness (NULL pre-M5)
+    net_sharpe                  REAL,
+    net_mdd                     REAL,
+    net_cagr                    REAL,
+    net_vol                     REAL,
+    net_calmar                  REAL,
+    turnover_annualized         REAL,
+    turnover_average_period     REAL,
+    transaction_cost_annualized REAL,
+    slippage_annualized         REAL,
+    robustness_flags            TEXT,   -- JSON array of flag strings
 
     -- Native metrics stored as-is from metrics.json, regardless of type
     -- e.g. {"auc": 0.54, "accuracy": 0.59} for classification experiments
@@ -161,6 +173,48 @@ def get_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
     return conn
 
 
+# Additive column migrations: {table: [(column, type), ...]}.
+# Applied idempotently on every create_all_tables() call so existing databases
+# gain new columns without a destructive rebuild. Adding a column here is the
+# supported way to evolve a table — never drop or rename in place.
+_ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "experiments": [
+        ("net_sharpe", "REAL"),
+        ("net_mdd", "REAL"),
+        ("net_cagr", "REAL"),
+        ("net_vol", "REAL"),
+        ("net_calmar", "REAL"),
+        ("turnover_annualized", "REAL"),
+        ("turnover_average_period", "REAL"),
+        ("transaction_cost_annualized", "REAL"),
+        ("slippage_annualized", "REAL"),
+        ("robustness_flags", "TEXT"),
+    ],
+}
+
+
+def _existing_columns(conn, table: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {r["name"] for r in rows}
+
+
+def apply_additive_migrations(conn) -> list[str]:
+    """
+    Add any missing columns declared in _ADDITIVE_COLUMNS.
+
+    Idempotent: only ALTERs columns that are absent. Returns the list of
+    "table.column" strings that were added (empty when already up to date).
+    """
+    added: list[str] = []
+    for table, columns in _ADDITIVE_COLUMNS.items():
+        present = _existing_columns(conn, table)
+        for col, col_type in columns:
+            if col not in present:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}")
+                added.append(f"{table}.{col}")
+    return added
+
+
 def create_all_tables(db_path: Path = DB_PATH) -> None:
     with get_connection(db_path) as conn:
         conn.execute(_CREATE_SCHEMA_VERSION)
@@ -170,6 +224,16 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_AGENT_CONVERSATIONS)
         conn.execute(_CREATE_STRATEGY_VARIANTS)
         conn.execute(_CREATE_MIGRATIONS)
+
+        # Reconcile additive columns for databases created before this schema
+        # version (fresh DBs already have them via the CREATE statements).
+        added = apply_additive_migrations(conn)
+        if added:
+            conn.execute(
+                "INSERT OR IGNORE INTO migrations (name, notes) VALUES (?, ?)",
+                (f"schema_v{SCHEMA_VERSION}_additive_columns", ", ".join(added)),
+            )
+
         for idx in _INDEXES:
             conn.execute(idx)
         existing = conn.execute(

@@ -18,6 +18,19 @@ maximum_mdd     = -0.40     # mdd must be >= -0.40 (max 40% drawdown)
 minimum_calmar  = 1.0
 minimum_cagr    = 0.05      # 5% annualised
 
+[evaluation]
+# Which metric set the Critic evaluates against:
+#   "net"   — net-of-cost metrics (metrics["net"]) — DEFAULT from Milestone 5.
+#   "gross" — pre-cost metrics (flat keys), legacy behaviour.
+# Net is the default so decisions reflect realistic, investable performance.
+metric_basis = "net"
+
+# When an experiment carries robustness_flags (subperiod instability, parameter
+# fragility, or cost fragility), a would-be "keep" is downgraded to "retest"
+# so a human reviews it before promotion.  Set false to record flags in the
+# notes without changing the decision.
+downgrade_on_robustness_flags = true
+
 [decision_policy]
 # "strict"   — ALL active thresholds must pass → keep; any failure → reject
 # "majority" — more than half of active thresholds must pass → keep

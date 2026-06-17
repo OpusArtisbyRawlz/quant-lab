@@ -50,6 +50,12 @@ from agents.experiment_runner.metrics_writer import (
     write_metrics_json,
     write_strategy_csv,
 )
+from agents.experiment_runner.cost_model import CostConfig
+from agents.experiment_runner.net_metrics import build_metric_bundle
+from agents.experiment_runner.robustness import (
+    parameter_sensitivity,
+    build_robustness_report,
+)
 
 # src/ imports — permitted only inside experiment_runner
 from src.pipelines.cross_sectional import run_market_alpha_pipeline
@@ -79,6 +85,7 @@ def run_experiment(
     data_root: Path = DATA_ROOT,
     data_dict: dict[str, pd.DataFrame] | None = None,
     dry_run: bool = False,
+    cost_config: CostConfig | None = None,
 ) -> RunResult:
     """
     Execute a single experiment and persist the results.
@@ -184,7 +191,7 @@ def run_experiment(
     # 6. Run backtest pipeline
     # ------------------------------------------------------------------
     try:
-        metrics, variant_row = _run_pipeline(spec, data_dict)
+        metrics, variant_row = _run_pipeline(spec, data_dict, cost_config or CostConfig.load())
     except Exception:
         err = traceback.format_exc()
         log.exception("Pipeline failed for %s", experiment_id)
@@ -233,13 +240,30 @@ def run_experiment(
 # Internal — pipeline execution
 # ---------------------------------------------------------------------------
 
+def _portfolio_returns(panel: pd.DataFrame) -> pd.Series:
+    """
+    Daily gross portfolio returns from weights × forward return.
+
+    Uses fwd_ret_5 (the default horizon from run_market_alpha_pipeline).  This
+    is the single place the forward-return column name is referenced, so the
+    robustness sensitivity grid stays consistent with the main backtest.
+    """
+    return (
+        (panel["weight"] * panel["fwd_ret_5"])
+        .groupby(panel["Date"])
+        .sum()
+    )
+
+
 def _run_pipeline(
     spec: ExperimentSpec,
     data_dict: dict[str, pd.DataFrame],
+    cost_config: CostConfig,
 ) -> tuple[dict, dict]:
     """
-    Build the panel, apply signal combo, compute portfolio returns, return
-    metrics and a strategy_comparison row.
+    Build the panel, apply signal combo, compute gross + net metrics, turnover,
+    costs, and robustness checks. Return the full metric bundle and a
+    strategy_comparison row.
 
     Returns
     -------
@@ -251,26 +275,60 @@ def _run_pipeline(
     # Apply multi-signal combo (works for single signals too)
     panel = apply_signal_combo(base_panel, signal_names=spec.features)
 
-    # Compute portfolio daily returns from weights × forward return
-    # Uses fwd_ret_5 (the default horizon from run_market_alpha_pipeline)
-    portfolio_returns = (
-        (panel["weight"] * panel["fwd_ret_5"])
-        .groupby(panel["Date"])
-        .sum()
+    # Gross daily portfolio returns
+    portfolio_returns = _portfolio_returns(panel)
+
+    # Gross + net + turnover/cost bundle (preserves flat gross keys)
+    metrics = build_metric_bundle(
+        panel,
+        portfolio_returns,
+        cost_config,
+        periods_per_year=cost_config.periods_per_year,
     )
 
-    metrics = compute_metrics(portfolio_returns)
+    # ── Robustness: subperiod stability + parameter sensitivity ───────────
+    net_block = metrics.get("net", {})
+    sensitivity = parameter_sensitivity(
+        base_panel,
+        spec.features,
+        _portfolio_returns,
+        cost_config,
+        periods_per_year=cost_config.periods_per_year,
+    )
+    # Net return series for subperiod analysis (recompute from costs once).
+    from agents.experiment_runner.cost_model import compute_turnover, apply_costs
+    net_returns, _, _ = apply_costs(
+        portfolio_returns, compute_turnover(panel), cost_config
+    )
+    robustness = build_robustness_report(
+        net_returns=net_returns,
+        gross_sharpe=metrics.get("sharpe"),
+        net_sharpe=net_block.get("sharpe"),
+        sensitivity=sensitivity,
+        periods_per_year=cost_config.periods_per_year,
+    )
+    metrics["robustness"] = {
+        "subperiod_sharpes": robustness["subperiod_sharpes"],
+        "parameter_sensitivity": robustness["parameter_sensitivity"],
+    }
+    metrics["robustness_flags"] = robustness["robustness_flags"]
 
-    # One variant row per M3 run; Signal Combo added for traceability
+    # One variant row per run; net columns added for traceability
     signal_combo_str = " + ".join(spec.features)
     variant_row = {
-        "Strategy":     signal_combo_str,
-        "Sharpe":       metrics.get("sharpe"),
-        "MDD":          metrics.get("mdd"),
-        "CAGR":         metrics.get("cagr"),
-        "Vol":          metrics.get("vol"),
-        "Calmar":       metrics.get("calmar"),
-        "Signal Combo": signal_combo_str,
+        "Strategy":      signal_combo_str,
+        "Sharpe":        metrics.get("sharpe"),
+        "MDD":           metrics.get("mdd"),
+        "CAGR":          metrics.get("cagr"),
+        "Vol":           metrics.get("vol"),
+        "Calmar":        metrics.get("calmar"),
+        "NetSharpe":     net_block.get("sharpe"),
+        "NetMDD":        net_block.get("mdd"),
+        "NetCAGR":       net_block.get("cagr"),
+        "NetCalmar":     net_block.get("calmar"),
+        "Turnover":      metrics.get("turnover_annualized"),
+        "TxCost":        metrics.get("transaction_cost_annualized"),
+        "Signal Combo":  signal_combo_str,
     }
 
     return metrics, variant_row
