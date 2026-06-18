@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -138,6 +138,24 @@ CREATE TABLE IF NOT EXISTS migrations (
 )
 """
 
+_CREATE_PENDING_IDEAS = """
+CREATE TABLE IF NOT EXISTS pending_ideas (
+    idea_id             TEXT PRIMARY KEY,
+    cycle_id            TEXT,
+    hypothesis          TEXT NOT NULL,
+    suggested_signals   TEXT NOT NULL,   -- JSON array of feature names
+    rationale           TEXT,
+    source_model        TEXT NOT NULL,   -- provenance: which model proposed this
+    metadata            TEXT,            -- JSON: {"scores": {...}, ...} advisory only
+    status              TEXT NOT NULL,   -- pending / approved / rejected
+    validation_ok       INTEGER NOT NULL,        -- 0/1
+    validation_reasons  TEXT,            -- JSON array of rejection reasons
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    reviewed_at         TEXT,
+    reviewer_note       TEXT
+)
+"""
+
 _CREATE_AGENT_CONVERSATIONS = """
 CREATE TABLE IF NOT EXISTS agent_conversations (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -162,6 +180,7 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_conversations_sender  ON agent_conversations(sender)",
     "CREATE INDEX IF NOT EXISTS idx_variants_experiment   ON strategy_variants(experiment_id)",
     "CREATE INDEX IF NOT EXISTS idx_variants_promoted     ON strategy_variants(promoted_to_library)",
+    "CREATE INDEX IF NOT EXISTS idx_pending_ideas_status  ON pending_ideas(status)",
 ]
 
 
@@ -223,6 +242,7 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_LESSONS_LEARNED)
         conn.execute(_CREATE_AGENT_CONVERSATIONS)
         conn.execute(_CREATE_STRATEGY_VARIANTS)
+        conn.execute(_CREATE_PENDING_IDEAS)
         conn.execute(_CREATE_MIGRATIONS)
 
         # Reconcile additive columns for databases created before this schema

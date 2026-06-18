@@ -43,6 +43,37 @@ def test_migration_is_idempotent(tmp_path):
     assert added == []
 
 
+def test_pending_ideas_table_created(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    cols = _columns(db, "pending_ideas")
+    for c in ("idea_id", "hypothesis", "suggested_signals", "source_model",
+              "metadata", "status", "validation_ok", "validation_reasons"):
+        assert c in cols
+
+
+def test_legacy_db_gains_pending_ideas_table(tmp_path):
+    """A pre-M6 DB without pending_ideas gains it on create_all_tables()."""
+    db = tmp_path / "legacy_m5.db"
+    # Build the full schema, then drop pending_ideas to emulate a pre-M6 DB.
+    create_all_tables(db)
+    with sqlite3.connect(db) as conn:
+        conn.execute("DROP TABLE pending_ideas")
+        conn.commit()
+    with get_connection(db) as conn:
+        tables = {r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "pending_ideas" not in tables
+
+    create_all_tables(db)
+
+    with get_connection(db) as conn:
+        tables = {r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "pending_ideas" in tables
+    assert get_schema_version(db) == SCHEMA_VERSION
+
+
 def test_migration_upgrades_legacy_db(tmp_path):
     """A pre-M5 experiments table gains the new columns without data loss."""
     db = tmp_path / "legacy.db"

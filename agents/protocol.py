@@ -120,6 +120,27 @@ class HypothesisTask:
     priority: int = 0
 
 
+@dataclass(frozen=True)
+class ProposedIdea:
+    """
+    A single research idea proposed by the LLM Idea Generator (M6).
+
+    Pure data — the LLM can only *fill these fields*; it cannot express an
+    action, a runnable spec, or code. This is the structural enforcement of
+    "LLM output is data, not commands."
+
+    `scores` holds advisory-only heuristics (novelty / feasibility /
+    signal_diversity). They are informational and NEVER gate validation,
+    approval, or execution. `source_model` records provenance so idea quality
+    can be analysed per-model over time.
+    """
+    hypothesis: str
+    suggested_signals: tuple[str, ...]
+    source_model: str
+    rationale: str = ""
+    scores: dict[str, float] | None = None
+
+
 @dataclass
 class LedgerUpdate:
     """
