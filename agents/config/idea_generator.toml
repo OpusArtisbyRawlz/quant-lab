@@ -1,0 +1,16 @@
+# Idea Generator (M6) configuration.
+#
+# The real Anthropic-backed LLM is OFF by default. When enabled, the API key is
+# read ONLY from the environment variable named below — never stored here.
+# No secrets belong in this file.
+
+[idea_generator]
+enabled = false                 # feature flag; false => use FakeIdeaLLM
+batch_size = 3                  # max ideas proposed per batch
+
+[llm]
+provider = "anthropic"          # only "anthropic" is wired in M6
+model = "claude-sonnet-4"       # model id; also recorded as ProposedIdea.source_model
+api_key_env = "ANTHROPIC_API_KEY"  # env var name to read the key from
+max_tokens = 1024
+temperature = 1.0
