@@ -28,9 +28,14 @@ class ParseOutcome:
     parse_errors: list[str] = field(default_factory=list)
 
 
-def generate_ideas(llm, prompt: str, *, n: int) -> ParseOutcome:
+def generate_ideas(llm, prompt: str, *, n: int,
+                   market: str = "", universe: str = "") -> ParseOutcome:
     """
     Ask the IdeaLLM for ideas and parse them into ProposedIdea objects.
+
+    `market`/`universe` are research context supplied by the caller (batch
+    context) and stamped onto every idea so an approved idea is self-contained
+    — the LLM does not choose them.
 
     Returns a ParseOutcome. Malformed top-level JSON or malformed individual
     idea entries are captured in `parse_errors` rather than raised.
@@ -48,7 +53,7 @@ def generate_ideas(llm, prompt: str, *, n: int) -> ParseOutcome:
 
     outcome = ParseOutcome()
     for i, entry in enumerate(doc["ideas"]):
-        idea, err = _parse_one(entry, model)
+        idea, err = _parse_one(entry, model, market, universe)
         if err:
             outcome.parse_errors.append(f"idea[{i}]: {err}")
         else:
@@ -56,7 +61,8 @@ def generate_ideas(llm, prompt: str, *, n: int) -> ParseOutcome:
     return outcome
 
 
-def _parse_one(entry, model: str) -> tuple[ProposedIdea | None, str | None]:
+def _parse_one(entry, model: str, market: str = "", universe: str = "",
+               ) -> tuple[ProposedIdea | None, str | None]:
     if not isinstance(entry, dict):
         return None, "not_an_object"
 
@@ -83,5 +89,7 @@ def _parse_one(entry, model: str) -> tuple[ProposedIdea | None, str | None]:
         source_model=model,
         rationale=rationale.strip(),
         scores=scores,
+        market=market,
+        universe=universe,
     )
     return idea, None

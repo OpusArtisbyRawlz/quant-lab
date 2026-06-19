@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -61,6 +61,11 @@ CREATE TABLE IF NOT EXISTS experiments (
     transaction_cost_annualized REAL,
     slippage_annualized         REAL,
     robustness_flags            TEXT,   -- JSON array of flag strings
+
+    -- Milestone 7: provenance for experiments created from an approved LLM idea
+    -- (NULL for experiments that did not originate from the idea generator)
+    source_idea_id              TEXT,   -- originating pending_ideas.idea_id
+    source_model                TEXT,   -- model that proposed the idea
 
     -- Native metrics stored as-is from metrics.json, regardless of type
     -- e.g. {"auc": 0.54, "accuracy": 0.59} for classification experiments
@@ -146,10 +151,15 @@ CREATE TABLE IF NOT EXISTS pending_ideas (
     suggested_signals   TEXT NOT NULL,   -- JSON array of feature names
     rationale           TEXT,
     source_model        TEXT NOT NULL,   -- provenance: which model proposed this
+    -- Milestone 7: market/universe stored on the idea so an approved idea is
+    -- self-contained and reproducible regardless of later default changes.
+    market              TEXT NOT NULL DEFAULT 'unknown',
+    universe            TEXT NOT NULL DEFAULT 'unknown',
     metadata            TEXT,            -- JSON: {"scores": {...}, ...} advisory only
-    status              TEXT NOT NULL,   -- pending / approved / rejected
+    status              TEXT NOT NULL,   -- pending / approved / executing / executed / rejected
     validation_ok       INTEGER NOT NULL,        -- 0/1
     validation_reasons  TEXT,            -- JSON array of rejection reasons
+    experiment_id       TEXT,            -- set when executed (idea -> experiment link)
     created_at          TEXT NOT NULL DEFAULT (datetime('now')),
     reviewed_at         TEXT,
     reviewer_note       TEXT
@@ -208,6 +218,18 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("transaction_cost_annualized", "REAL"),
         ("slippage_annualized", "REAL"),
         ("robustness_flags", "TEXT"),
+        # Milestone 7 provenance
+        ("source_idea_id", "TEXT"),
+        ("source_model", "TEXT"),
+    ],
+    # Milestone 7: evolve pending_ideas for self-contained, executable ideas.
+    # NOT NULL columns carry a DEFAULT so the ALTER succeeds on existing rows;
+    # the 'unknown' default only ever applies to pre-M7 ideas — new ideas always
+    # supply real market/universe at enqueue time.
+    "pending_ideas": [
+        ("market", "TEXT NOT NULL DEFAULT 'unknown'"),
+        ("universe", "TEXT NOT NULL DEFAULT 'unknown'"),
+        ("experiment_id", "TEXT"),
     ],
 }
 
@@ -217,15 +239,26 @@ def _existing_columns(conn, table: str) -> set[str]:
     return {r["name"] for r in rows}
 
 
+def _table_exists(conn, table: str) -> bool:
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone()
+    return row is not None
+
+
 def apply_additive_migrations(conn) -> list[str]:
     """
     Add any missing columns declared in _ADDITIVE_COLUMNS.
 
-    Idempotent: only ALTERs columns that are absent. Returns the list of
-    "table.column" strings that were added (empty when already up to date).
+    Idempotent: only ALTERs columns that are absent. Tables that do not yet
+    exist are skipped (they will be created with the full current schema by
+    create_all_tables). Returns the list of "table.column" strings that were
+    added (empty when already up to date).
     """
     added: list[str] = []
     for table, columns in _ADDITIVE_COLUMNS.items():
+        if not _table_exists(conn, table):
+            continue
         present = _existing_columns(conn, table)
         for col, col_type in columns:
             if col not in present:

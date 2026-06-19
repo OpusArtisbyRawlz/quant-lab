@@ -102,3 +102,54 @@ def test_migration_upgrades_legacy_db(tmp_path):
         row = conn.execute("SELECT * FROM experiments WHERE experiment_id='exp_1'").fetchone()
     assert row["sharpe"] == pytest.approx(1.23)
     assert row["net_sharpe"] is None
+
+
+# --- M7 (schema v6): provenance columns + pending_ideas lifecycle columns ---
+
+def test_experiments_have_provenance_columns(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    cols = _columns(db, "experiments")
+    assert "source_idea_id" in cols
+    assert "source_model" in cols
+
+
+def test_pending_ideas_have_m7_columns(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    cols = _columns(db, "pending_ideas")
+    for c in ("market", "universe", "experiment_id"):
+        assert c in cols
+
+
+def test_legacy_pending_ideas_gains_market_universe_with_default(tmp_path):
+    """A pre-M7 pending_ideas table gains NOT NULL market/universe defaulted
+    to 'unknown', preserving existing rows."""
+    db = tmp_path / "legacy_m6.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE pending_ideas ("
+            " idea_id TEXT PRIMARY KEY, hypothesis TEXT, status TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO pending_ideas (idea_id, hypothesis, status) "
+            "VALUES ('idea_001', 'legacy idea', 'pending')"
+        )
+        conn.commit()
+
+    with get_connection(db) as conn:
+        apply_additive_migrations(conn)
+        conn.commit()
+
+    cols = _columns(db, "pending_ideas")
+    for c in ("market", "universe", "experiment_id"):
+        assert c in cols
+
+    with get_connection(db) as conn:
+        row = conn.execute(
+            "SELECT * FROM pending_ideas WHERE idea_id='idea_001'"
+        ).fetchone()
+    assert row["hypothesis"] == "legacy idea"
+    assert row["market"] == "unknown"
+    assert row["universe"] == "unknown"
+    assert row["experiment_id"] is None
