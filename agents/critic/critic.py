@@ -41,7 +41,8 @@ class Critic:
     # Public API                                                           #
     # ------------------------------------------------------------------ #
 
-    def run(self, result: RunResult, spec: ExperimentSpec) -> CritiqueResult:
+    def run(self, result: RunResult, spec: ExperimentSpec,
+            source_idea_id: str = "") -> CritiqueResult:
         """
         Evaluate a RunResult against the spec's success criteria.
 
@@ -69,6 +70,7 @@ class Critic:
                 decision="retest",
                 notes="Pipeline failed — no metrics produced. Marked for retest.",
                 thresholds_used=thresholds.as_log_dict(),
+                source_idea_id=source_idea_id,
             )
 
         # ── Select metric basis (net by default; gross is opt-in) ──────────
@@ -116,6 +118,7 @@ class Critic:
             decision=decision,
             notes=notes,
             thresholds_used=thresholds.as_log_dict(),
+            source_idea_id=source_idea_id,
         )
 
     @staticmethod

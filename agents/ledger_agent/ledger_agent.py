@@ -115,6 +115,7 @@ class LedgerAgent:
             conclusion     = conclusion,
             lesson_written = lesson_written,
             lesson_category= category,
+            source_idea_id = critique.source_idea_id,
         )
 
     # ------------------------------------------------------------------ #

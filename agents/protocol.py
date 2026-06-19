@@ -49,6 +49,9 @@ class CritiqueResult:
     notes: str
     # Which thresholds were active and where each came from ("spec" | "config" | "none")
     thresholds_used: dict = field(default_factory=dict)
+    # M7: originating approved-idea id when execution came from the idea
+    # generator ("" for experiments not sourced from an idea).
+    source_idea_id: str = ""
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -139,6 +142,11 @@ class ProposedIdea:
     source_model: str
     rationale: str = ""
     scores: dict[str, float] | None = None
+    # M7: research context stored on the idea so an approved idea is
+    # self-contained and reproducible. Supplied by the caller (batch context),
+    # not chosen by the LLM — consistent with "LLM output is data".
+    market: str = ""
+    universe: str = ""
 
 
 @dataclass
@@ -152,3 +160,5 @@ class LedgerUpdate:
     conclusion: str
     lesson_written: bool
     lesson_category: str = ""   # "signal_quality" | "universe" | "pipeline" | "other"
+    # M7: originating approved-idea id ("" when not sourced from an idea).
+    source_idea_id: str = ""

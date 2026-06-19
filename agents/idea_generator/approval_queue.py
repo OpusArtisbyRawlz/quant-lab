@@ -66,9 +66,9 @@ def enqueue(
             """
             INSERT INTO pending_ideas
                 (idea_id, cycle_id, hypothesis, suggested_signals, rationale,
-                 source_model, metadata, status, validation_ok, validation_reasons,
-                 created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
+                 source_model, market, universe, metadata, status, validation_ok,
+                 validation_reasons, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
             """,
             (
                 idea_id,
@@ -77,6 +77,8 @@ def enqueue(
                 json.dumps(list(idea.suggested_signals)),
                 idea.rationale,
                 idea.source_model,
+                idea.market or "unknown",
+                idea.universe or "unknown",
                 json.dumps(metadata),
                 json.dumps([]),
                 _now(),
@@ -101,9 +103,9 @@ def record_rejected(
             """
             INSERT INTO pending_ideas
                 (idea_id, cycle_id, hypothesis, suggested_signals, rationale,
-                 source_model, metadata, status, validation_ok, validation_reasons,
-                 created_at, reviewed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'rejected', 0, ?, ?, ?)
+                 source_model, market, universe, metadata, status, validation_ok,
+                 validation_reasons, created_at, reviewed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rejected', 0, ?, ?, ?)
             """,
             (
                 idea_id,
@@ -112,6 +114,8 @@ def record_rejected(
                 json.dumps(list(idea.suggested_signals)),
                 idea.rationale,
                 idea.source_model,
+                idea.market or "unknown",
+                idea.universe or "unknown",
                 json.dumps(metadata),
                 json.dumps(reasons),
                 _now(),
@@ -129,6 +133,64 @@ def list_pending(db_path: Path = DB_PATH) -> list[dict]:
             "SELECT * FROM pending_ideas WHERE status = 'pending' ORDER BY created_at"
         ).fetchall()
         return [_deserialize(dict(r)) for r in rows]
+
+
+def list_approved(db_path: Path = DB_PATH) -> list[dict]:
+    """Read-only view of ideas approved-for-execution, oldest first."""
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM pending_ideas WHERE status = 'approved' ORDER BY created_at"
+        ).fetchall()
+        return [_deserialize(dict(r)) for r in rows]
+
+
+def get_approved(idea_id: str, db_path: Path = DB_PATH) -> dict | None:
+    """Return a single approved idea, or None if not approved / not found."""
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM pending_ideas WHERE idea_id = ? AND status = 'approved'",
+            (idea_id,),
+        ).fetchone()
+        return _deserialize(dict(row)) if row else None
+
+
+def mark_executed(idea_id: str, experiment_id: str, db_path: Path = DB_PATH) -> bool:
+    """
+    Transition an approved idea to `executed` and link its experiment_id.
+
+    Returns True if an approved row was updated. Idempotent: only `approved`
+    rows transition, so re-running execution never double-processes an idea.
+    """
+    with get_connection(db_path) as conn:
+        cur = conn.execute(
+            """
+            UPDATE pending_ideas
+               SET status = 'executed', experiment_id = ?
+             WHERE idea_id = ? AND status = 'approved'
+            """,
+            (experiment_id, idea_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def reject_approved(idea_id: str, note: str = "", db_path: Path = DB_PATH) -> bool:
+    """
+    Transition an `approved` idea to `rejected` (execution-time validation
+    failure). Returns True if an approved row was updated. Only `approved` rows
+    transition, so this is idempotent alongside mark_executed.
+    """
+    with get_connection(db_path) as conn:
+        cur = conn.execute(
+            """
+            UPDATE pending_ideas
+               SET status = 'rejected', reviewed_at = ?, reviewer_note = ?
+             WHERE idea_id = ? AND status = 'approved'
+            """,
+            (_now(), note, idea_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
 
 
 def get_idea(idea_id: str, db_path: Path = DB_PATH) -> dict | None:

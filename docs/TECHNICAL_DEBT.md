@@ -11,6 +11,8 @@ taken — do not let debt live only in PR comments.
 | TD-2 | `protocol.py` is a single shared god-module | Open | M1 | Unscheduled |
 | TD-3 | Hardcoded signal-resolution defaults (Designer/Commander) | Open | M4 | With M6 idea generator |
 | TD-4 | `promote_or_combine` is a dead recommendation label | Open | M4 | When signal-library lifecycle lands |
+| TD-5 | Idea deduplication is exact-match only | Open | M6 | With semantic-similarity dedup (post-M7) |
+| TD-7 | M6 feasibility validation skipped real-data checks | Resolved by M7 | M6 | M7 idea executor |
 
 ---
 
@@ -69,3 +71,46 @@ the M6 idea generator, which will need a richer signal-feasibility check anyway.
 The Ledger writes the string `promote_or_combine` as a recommendation but
 nothing consumes it. Becomes real when the signal-library lifecycle
 (promote/combine/retire) is implemented in a later milestone.
+
+## TD-5 — Idea deduplication is exact-match only
+
+**What.** The idea generator (M6) and the executor's pre-execution gate dedup
+proposed ideas by **exact hypothesis-string equality** against prior
+experiments and prior pending/approved ideas (`existing_hypotheses`,
+`prior_idea_hypotheses`). Two hypotheses that are semantically identical but
+worded differently ("momentum over 20 days" vs. "20-day price momentum") both
+pass as distinct ideas.
+
+**Why accepted (M6/M7).** Exact-match dedup is deterministic, keyless, and
+needs no embedding model or vector store — keeping the idea pipeline runnable
+offline and in tests. M7's scope is execution of *approved* ideas, not
+upstream proposal quality; semantic dedup is a proposal-side concern.
+
+**Risk if left.** As idea volume grows, near-duplicate ideas will consume human
+approval attention and burn execution/runner cycles on effectively the same
+experiment, inflating the ledger with redundant results.
+
+**Resolution sketch.** Add an embedding-based similarity check (cosine over
+sentence embeddings) with a tunable threshold, applied at validation time
+alongside the exact-match gate. Gate behind the same feature flag as the
+LLM-backed generator so the offline/test path stays exact-match only.
+
+## TD-7 — M6 feasibility validation skipped real-data checks — Resolved by M7
+
+**What (the debt).** M6 validated proposed ideas for *shape* (known signals,
+non-empty hypothesis, dedup) but never confirmed that the idea's market /
+universe actually had data on disk, because M6 deliberately stopped at the
+approval queue and never touched the runner or data root.
+
+**How M7 resolves it.** The idea executor re-validates every approved idea
+against **real data** immediately before execution:
+`idea_executor.run_single_approved_idea` builds the spec and calls
+`validate_spec(spec, data_root=..., completed_dir=..., skip_data_check=(data_dict is not None))`.
+In production (`data_dict_provider=None`) the data check runs against the real
+data root; only injected synthetic `data_dict` test runs skip it — exactly as
+the M5 runner does. A failure here transitions the idea to `rejected` with a
+reason code (`universe_data_missing` / `signal_unavailable` /
+`spec_invalid_after_revalidation`) rather than crashing, so an approved-but-
+infeasible idea is recorded, not silently dropped.
+
+**Status.** Resolved by M7. No further work scheduled.
