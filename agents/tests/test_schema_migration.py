@@ -153,3 +153,65 @@ def test_legacy_pending_ideas_gains_market_universe_with_default(tmp_path):
     assert row["market"] == "unknown"
     assert row["universe"] == "unknown"
     assert row["experiment_id"] is None
+
+
+# --- M9 (schema v7): context-aware signal intelligence tables/columns ---
+
+M9_TABLES = (
+    "signal_context_observation",
+    "signal_context_performance",
+    "signal_lifecycle_events",
+    "regime_label",
+    "research_memory",
+)
+
+
+def test_m9_tables_created(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    with get_connection(db) as conn:
+        tables = {r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    for t in M9_TABLES:
+        assert t in tables
+
+
+def test_signal_library_gains_lifecycle_columns(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    cols = _columns(db, "signal_library")
+    for c in ("lifecycle_state", "generalization_class", "promoted_at",
+              "retired_at", "last_evaluated_at"):
+        assert c in cols
+
+
+def test_legacy_signal_library_gains_lifecycle_default(tmp_path):
+    """A pre-M9 signal_library gains NOT NULL lifecycle_state defaulted to
+    'observed', preserving existing rows."""
+    db = tmp_path / "legacy_m8.db"
+    create_all_tables(db)
+    # Emulate a pre-M9 row that predates the lifecycle columns by inserting via
+    # the real table (columns exist) but asserting the default applies on a row
+    # written before migration in a stripped table.
+    with sqlite3.connect(db) as conn:
+        conn.execute("DROP TABLE signal_library")
+        conn.execute(
+            "CREATE TABLE signal_library ("
+            " feature_name TEXT PRIMARY KEY, signal_type TEXT, market TEXT,"
+            " universe TEXT)")
+        conn.execute(
+            "INSERT INTO signal_library (feature_name, signal_type) "
+            "VALUES ('mom20', 'momentum')")
+        conn.commit()
+
+    with get_connection(db) as conn:
+        apply_additive_migrations(conn)
+        conn.commit()
+
+    cols = _columns(db, "signal_library")
+    assert "lifecycle_state" in cols
+    with get_connection(db) as conn:
+        row = conn.execute(
+            "SELECT * FROM signal_library WHERE feature_name='mom20'").fetchone()
+    assert row["lifecycle_state"] == "observed"
+    assert row["generalization_class"] is None

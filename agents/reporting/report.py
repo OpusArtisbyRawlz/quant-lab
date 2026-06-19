@@ -63,6 +63,24 @@ def generate_research_report(db_path: Path = DB_PATH) -> str:
     sections.append(md.render_counts(
         s.robustness_summary(db_path), "Robustness flag"))
 
+    # --- Milestone 9: context-aware signal intelligence ---
+    sections.append("## Signal Generalization (context-aware)")
+    sections.append(
+        "_Signal performance is never aggregated globally. Each signal is "
+        "scored per context cell (market x universe x regime x bar type); the "
+        "table below shows how broadly each signal works and its lifecycle "
+        "standing._")
+    sections.append(md.render_generalization(
+        s.signal_generalization_summary(db_path)))
+
+    sections.append("## Signal Performance by Context")
+    sections.append(md.render_context_cells(
+        s.signal_context_summary(db_path=db_path)))
+
+    sections.append("## Signal Lifecycle Events")
+    sections.append(md.render_lifecycle_events(
+        s.lifecycle_audit_summary(db_path=db_path)))
+
     return "\n\n".join(sections) + "\n"
 
 

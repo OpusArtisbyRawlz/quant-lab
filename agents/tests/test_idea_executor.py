@@ -149,6 +149,38 @@ def test_lesson_written_for_executed_idea(db, completed_dir, data_root):
 
 
 # ---------------------------------------------------------------------------
+# Milestone 9: SignalLibrarian post-ledger hook (isolated)
+# ---------------------------------------------------------------------------
+
+def test_librarian_hook_records_context(db, completed_dir, data_root):
+    from agents.storage import context_store as cs
+    idea_id = _approve_idea(db)
+    res = idea_executor.run_single_approved_idea(
+        idea_id, data_root=data_root, completed_dir=completed_dir,
+        data_dict_provider=_provider, db_path=db,
+    )
+    assert res.outcome == "executed"
+    # The librarian should have decomposed the experiment into context cells.
+    obs = cs.list_observations(db_path=db)
+    assert any(o["experiment_id"] == res.experiment_id for o in obs)
+
+
+def test_librarian_failure_does_not_break_execution(db, completed_dir, data_root):
+    class _BoomLibrarian:
+        def record_experiment(self, *a, **k):
+            raise RuntimeError("boom")
+
+    idea_id = _approve_idea(db)
+    res = idea_executor.run_single_approved_idea(
+        idea_id, data_root=data_root, completed_dir=completed_dir,
+        data_dict_provider=_provider, db_path=db, librarian=_BoomLibrarian(),
+    )
+    # A librarian failure must never roll back a ledgered execution.
+    assert res.outcome == "executed"
+    assert get_experiment(res.experiment_id, db_path=db) is not None
+
+
+# ---------------------------------------------------------------------------
 # Idempotency / resumability
 # ---------------------------------------------------------------------------
 

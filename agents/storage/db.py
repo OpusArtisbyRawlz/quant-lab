@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -96,6 +96,13 @@ CREATE TABLE IF NOT EXISTS signal_library (
     possible_combinations       TEXT,       -- JSON array of feature_name strings
     keep_reject_retest          TEXT,       -- keep / reject / retest
     notes                       TEXT,
+    -- Milestone 9: context-aware signal lifecycle (activates the dormant
+    -- lifecycle; also reconciled onto pre-v7 DBs via _ADDITIVE_COLUMNS).
+    lifecycle_state             TEXT NOT NULL DEFAULT 'observed',  -- observed/candidate/promoted/retired
+    generalization_class        TEXT,       -- universal/market_specific/universe_specific/regime_specific/unproven
+    promoted_at                 TEXT,
+    retired_at                  TEXT,
+    last_evaluated_at           TEXT,
     created_at                  TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at                  TEXT NOT NULL DEFAULT (datetime('now'))
 )
@@ -178,6 +185,110 @@ CREATE TABLE IF NOT EXISTS agent_conversations (
 )
 """
 
+# ===========================================================================
+# Milestone 9 — Context-Aware Signal Intelligence
+#
+# The atomic unit of signal knowledge is the *context cell*:
+#     (feature_name, market, universe, regime, bar_type)
+# No global aggregate is ever a stored primary — global / per-market /
+# per-universe numbers are derived roll-ups over context cells. This guarantees
+# the system can always answer "where does this signal work?" rather than only
+# "is this signal good?".
+#
+# Two-layer model:
+#   * signal_context_observation — append-only provenance (one row per
+#     experiment x feature). Never updated. Every cache aggregate is
+#     reconstructable from it; losing the cache never loses knowledge.
+#   * signal_context_performance — recompute cache (materialised roll-up at the
+#     context-cell grain), kept solely for reporting efficiency. Droppable and
+#     rebuildable from observations at any time.
+# ===========================================================================
+
+# Append-only fact table: one row per (experiment x feature). Immutable.
+_CREATE_SIGNAL_CONTEXT_OBSERVATION = """
+CREATE TABLE IF NOT EXISTS signal_context_observation (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    experiment_id       TEXT NOT NULL,
+    feature_name        TEXT NOT NULL,
+    market              TEXT NOT NULL DEFAULT 'unknown',
+    universe            TEXT NOT NULL DEFAULT 'unknown',
+    regime              TEXT NOT NULL DEFAULT 'all',
+    bar_type            TEXT NOT NULL DEFAULT 'time',
+    attribution_method  TEXT NOT NULL DEFAULT 'observational',  -- observational / ablation
+    net_sharpe          REAL,
+    net_calmar          REAL,
+    kept                INTEGER,     -- 1 if Critic decision == 'keep', else 0; NULL if unknown
+    marginal_net_sharpe REAL,        -- NULL unless attribution_method == 'ablation'
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id),
+    UNIQUE (experiment_id, feature_name, attribution_method)
+)
+"""
+
+# Recompute cache: materialised roll-up at the context-cell grain. Composite key.
+_CREATE_SIGNAL_CONTEXT_PERFORMANCE = """
+CREATE TABLE IF NOT EXISTS signal_context_performance (
+    feature_name        TEXT NOT NULL,
+    market              TEXT NOT NULL,
+    universe            TEXT NOT NULL,
+    regime              TEXT NOT NULL,
+    bar_type            TEXT NOT NULL,
+    attribution_method  TEXT NOT NULL DEFAULT 'observational',
+    n_experiments       INTEGER NOT NULL DEFAULT 0,
+    n_with_net          INTEGER NOT NULL DEFAULT 0,
+    n_kept              INTEGER NOT NULL DEFAULT 0,
+    avg_net_sharpe      REAL,
+    avg_net_calmar      REAL,
+    keep_rate           REAL,
+    contribution_score  REAL,        -- avg marginal_net_sharpe (ablation) else avg_net_sharpe
+    min_n_met           INTEGER NOT NULL DEFAULT 0,  -- 0/1 evidence-sufficiency flag
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (feature_name, market, universe, regime, bar_type, attribution_method)
+)
+"""
+
+# Immutable audit of lifecycle-state transitions per signal.
+_CREATE_SIGNAL_LIFECYCLE_EVENTS = """
+CREATE TABLE IF NOT EXISTS signal_lifecycle_events (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    feature_name    TEXT NOT NULL,
+    from_state      TEXT,
+    to_state        TEXT NOT NULL,
+    reason_code     TEXT,
+    context_scope   TEXT,       -- e.g. 'India/NIFTY50/high_vol/time' or 'global'
+    evidence_n      INTEGER,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+# Deterministic regime label per experiment. `method` records the classifier
+# version so labels are reproducible and re-labelable.
+_CREATE_REGIME_LABEL = """
+CREATE TABLE IF NOT EXISTS regime_label (
+    experiment_id   TEXT NOT NULL,
+    regime          TEXT NOT NULL,
+    method          TEXT NOT NULL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (experiment_id, method),
+    FOREIGN KEY (experiment_id) REFERENCES experiments(experiment_id)
+)
+"""
+
+# Distilled cross-experiment findings, scoped to a context tuple or roll-up
+# level. embedding is nullable; the offline/test path leaves it NULL (TD-5).
+_CREATE_RESEARCH_MEMORY = """
+CREATE TABLE IF NOT EXISTS research_memory (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope_key       TEXT NOT NULL,      -- context tuple or roll-up level it summarises
+    finding         TEXT NOT NULL,
+    implication     TEXT,
+    confidence      TEXT,
+    embedding       BLOB,               -- nullable; NULL on the offline/test path
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (scope_key, finding)
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -191,6 +302,16 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_variants_experiment   ON strategy_variants(experiment_id)",
     "CREATE INDEX IF NOT EXISTS idx_variants_promoted     ON strategy_variants(promoted_to_library)",
     "CREATE INDEX IF NOT EXISTS idx_pending_ideas_status  ON pending_ideas(status)",
+    # Milestone 9 — context-aware signal intelligence
+    "CREATE INDEX IF NOT EXISTS idx_sco_feature   ON signal_context_observation(feature_name)",
+    "CREATE INDEX IF NOT EXISTS idx_sco_experiment ON signal_context_observation(experiment_id)",
+    "CREATE INDEX IF NOT EXISTS idx_sco_context   ON signal_context_observation(market, universe, regime, bar_type)",
+    "CREATE INDEX IF NOT EXISTS idx_scp_feature   ON signal_context_performance(feature_name)",
+    "CREATE INDEX IF NOT EXISTS idx_scp_market    ON signal_context_performance(market)",
+    "CREATE INDEX IF NOT EXISTS idx_scp_context   ON signal_context_performance(market, universe, regime)",
+    "CREATE INDEX IF NOT EXISTS idx_sle_feature   ON signal_lifecycle_events(feature_name)",
+    "CREATE INDEX IF NOT EXISTS idx_signal_lifecycle_state ON signal_library(lifecycle_state)",
+    "CREATE INDEX IF NOT EXISTS idx_research_memory_scope  ON research_memory(scope_key)",
 ]
 
 
@@ -230,6 +351,15 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("market", "TEXT NOT NULL DEFAULT 'unknown'"),
         ("universe", "TEXT NOT NULL DEFAULT 'unknown'"),
         ("experiment_id", "TEXT"),
+    ],
+    # Milestone 9: activate the dormant signal_library lifecycle (TD-4). All
+    # additive with back-compatible defaults so existing rows remain valid.
+    "signal_library": [
+        ("lifecycle_state", "TEXT NOT NULL DEFAULT 'observed'"),  # observed/candidate/promoted/retired
+        ("generalization_class", "TEXT"),  # universal/market_specific/universe_specific/regime_specific/unproven
+        ("promoted_at", "TEXT"),
+        ("retired_at", "TEXT"),
+        ("last_evaluated_at", "TEXT"),
     ],
 }
 
@@ -277,6 +407,12 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_STRATEGY_VARIANTS)
         conn.execute(_CREATE_PENDING_IDEAS)
         conn.execute(_CREATE_MIGRATIONS)
+        # Milestone 9 — context-aware signal intelligence tables
+        conn.execute(_CREATE_SIGNAL_CONTEXT_OBSERVATION)
+        conn.execute(_CREATE_SIGNAL_CONTEXT_PERFORMANCE)
+        conn.execute(_CREATE_SIGNAL_LIFECYCLE_EVENTS)
+        conn.execute(_CREATE_REGIME_LABEL)
+        conn.execute(_CREATE_RESEARCH_MEMORY)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).

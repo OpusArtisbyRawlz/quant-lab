@@ -27,6 +27,7 @@ from agents.experiment_runner.spec_validator import KNOWN_SIGNALS
 
 from . import approval_queue, scoring
 from .prompt import build_prompt
+from .context_advisor import build_context_advice
 from .idea_generator import generate_ideas
 from .idea_validator import validate_idea
 
@@ -60,7 +61,10 @@ def run_idea_batch(
     lesson_findings = {l.get("finding", "") for l in lessons}
     lesson_findings.discard("")
 
-    prompt = build_prompt(KNOWN_SIGNALS, lessons, existing, n=n)
+    advice = build_context_advice(
+        list(KNOWN_SIGNALS), market=market or None, universe=universe or None,
+        n=n, db_path=db_path)
+    prompt = build_prompt(KNOWN_SIGNALS, lessons, existing, n=n, advice=advice)
     parsed = generate_ideas(llm, prompt, n=n, market=market, universe=universe)
 
     outcome = BatchOutcome(cycle_id=cycle_id, parse_errors=list(parsed.parse_errors))

@@ -10,7 +10,7 @@ taken — do not let debt live only in PR comments.
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |
 | TD-2 | `protocol.py` is a single shared god-module | Open | M1 | Unscheduled |
 | TD-3 | Hardcoded signal-resolution defaults (Designer/Commander) | Open | M4 | With M6 idea generator |
-| TD-4 | `promote_or_combine` is a dead recommendation label | Open | M4 | When signal-library lifecycle lands |
+| TD-4 | `promote_or_combine` is a dead recommendation label | Resolved by M9 | M4 | M9 context-aware signal lifecycle |
 | TD-5 | Idea deduplication is exact-match only | Open | M6 | With semantic-similarity dedup (post-M7) |
 | TD-7 | M6 feasibility validation skipped real-data checks | Resolved by M7 | M6 | M7 idea executor |
 | TD-9 | Provenance stamped via post-run upsert, not at insert | Open | M7.1 | Next time the ingestion layer is touched |
@@ -67,11 +67,19 @@ The Designer's default signal sets and the Commander's keyword scan against
 `KNOWN_SIGNALS` are brittle string matching. To be made data-driven alongside
 the M6 idea generator, which will need a richer signal-feasibility check anyway.
 
-## TD-4 — `promote_or_combine` dead label
+## TD-4 — `promote_or_combine` dead label — Resolved by M9
 
 The Ledger writes the string `promote_or_combine` as a recommendation but
-nothing consumes it. Becomes real when the signal-library lifecycle
-(promote/combine/retire) is implemented in a later milestone.
+nothing consumed it. **M9 (context-aware signal intelligence) activates the
+lifecycle.** The SignalLibrarian runs after the Ledger, decomposes each
+experiment into context cells (`feature × market × universe × regime ×
+bar_type`), and drives a real `observed → candidate → promoted → retired`
+lifecycle on `signal_library`, emitting an immutable `signal_lifecycle_events`
+row on every transition. Promotion requires multi-context confirmation (≥2
+distinct markets or regimes clearing the bar), so a single lucky context never
+promotes a signal.
+
+**Status.** Resolved by M9. No further work scheduled.
 
 ## TD-5 — Idea deduplication is exact-match only
 

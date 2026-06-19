@@ -13,6 +13,7 @@ from pathlib import Path
 
 from agents.storage.db import DB_PATH
 from . import report_store as rs
+from . import context_report_store as crs
 from .report_store import (
     SourceModelStat,
     GroupStat,
@@ -22,6 +23,11 @@ from .report_store import (
     DecisionStat,
     BucketStat,
     OverviewStat,
+)
+from .context_report_store import (
+    ContextCellStat,
+    GeneralizationStat,
+    LifecycleEventStat,
 )
 
 __all__ = [
@@ -36,7 +42,15 @@ __all__ = [
     "robustness_summary",
     "net_sharpe_distribution",
     "research_overview",
+    # Milestone 9 context-aware summaries
+    "signal_context_summary",
+    "context_leaderboard",
+    "signal_generalization_summary",
+    "lifecycle_audit_summary",
     # dataclasses re-exported for typed callers
+    "ContextCellStat",
+    "GeneralizationStat",
+    "LifecycleEventStat",
     "SourceModelStat",
     "GroupStat",
     "ComboStat",
@@ -107,3 +121,55 @@ def net_sharpe_distribution(
 def research_overview(db_path: Path = DB_PATH) -> OverviewStat:
     """Top-level counts for the report header."""
     return rs.overview(db_path)
+
+
+# ---------------------------------------------------------------------------
+# Milestone 9 — context-aware signal intelligence
+# ---------------------------------------------------------------------------
+
+def signal_context_summary(
+    *,
+    feature_name: str | None = None,
+    market: str | None = None,
+    universe: str | None = None,
+    regime: str | None = None,
+    bar_type: str | None = None,
+    min_n: int | None = None,
+    db_path: Path = DB_PATH,
+) -> list[ContextCellStat]:
+    """Signal performance per context cell, filtered to any subset of context.
+
+    Objective: distinguish signal quality from market/universe/regime dependency.
+    """
+    return crs.signal_context_summary(
+        feature_name=feature_name, market=market, universe=universe,
+        regime=regime, bar_type=bar_type, min_n=min_n, db_path=db_path)
+
+
+def context_leaderboard(
+    *,
+    market: str | None = None,
+    universe: str | None = None,
+    regime: str | None = None,
+    bar_type: str | None = None,
+    min_n: int | None = None,
+    top: int = 10,
+    db_path: Path = DB_PATH,
+) -> list[ContextCellStat]:
+    """Best signals within a context. Objective: 'which signals work best in X'."""
+    return crs.context_leaderboard(
+        market=market, universe=universe, regime=regime, bar_type=bar_type,
+        min_n=min_n, top=top, db_path=db_path)
+
+
+def signal_generalization_summary(
+    db_path: Path = DB_PATH) -> list[GeneralizationStat]:
+    """Per-signal breadth + lifecycle standing. Objective: who generalises."""
+    return crs.signal_generalization_report(db_path=db_path)
+
+
+def lifecycle_audit_summary(
+    feature_name: str | None = None,
+    db_path: Path = DB_PATH) -> list[LifecycleEventStat]:
+    """Lifecycle transitions over time. Objective: when/why signals moved state."""
+    return crs.lifecycle_audit_report(feature_name=feature_name, db_path=db_path)

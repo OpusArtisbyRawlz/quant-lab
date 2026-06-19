@@ -101,3 +101,12 @@ required to evaluate each variant and trigger promotion.
 
 **Future:** Milestone 3 (Critic Agent) should consume `get_unpromoted_variants()`
 and apply keep/reject/retest logic before writing to `signal_library`.
+
+**Update (M9):** Automated, context-aware promotion now exists. The
+`SignalLibrarian` (`agents/signal_librarian/`) runs after the Ledger and drives a
+real `observed → candidate → promoted → retired` lifecycle on `signal_library`,
+keyed on context cells (`feature × market × universe × regime × bar_type`).
+Promotion requires multi-context confirmation. The manual
+`strategy_variants → mark_variant_promoted()` path above is independent and still
+manual; unifying the two is unscheduled. See
+`docs/M9_CONTEXT_SIGNAL_INTELLIGENCE.md`.

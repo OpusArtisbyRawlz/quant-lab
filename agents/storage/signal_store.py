@@ -87,6 +87,94 @@ def update_signal_status(feature_name: str, status: str,
         conn.commit()
 
 
+def update_lifecycle(
+    feature_name: str,
+    lifecycle_state: str,
+    *,
+    generalization_class: str | None = None,
+    promoted_at: str | None = None,
+    retired_at: str | None = None,
+    db_path: Path = DB_PATH,
+) -> None:
+    """Milestone 9: set the lifecycle_state / generalization_class of a signal.
+
+    Only the fields supplied are written. `last_evaluated_at` is always stamped
+    so the signal-library lifecycle (TD-4) records when a decision was last made.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    sets = ["lifecycle_state = ?", "last_evaluated_at = ?", "updated_at = ?"]
+    vals: list[Any] = [lifecycle_state, now, now]
+    if generalization_class is not None:
+        sets.append("generalization_class = ?")
+        vals.append(generalization_class)
+    if promoted_at is not None:
+        sets.append("promoted_at = ?")
+        vals.append(promoted_at)
+    if retired_at is not None:
+        sets.append("retired_at = ?")
+        vals.append(retired_at)
+    vals.append(feature_name)
+    with get_connection(db_path) as conn:
+        conn.execute(
+            f"UPDATE signal_library SET {', '.join(sets)} WHERE feature_name = ?",
+            vals,
+        )
+        conn.commit()
+
+
+def log_lifecycle_event(
+    feature_name: str,
+    to_state: str,
+    *,
+    from_state: str | None = None,
+    reason_code: str | None = None,
+    context_scope: str | None = None,
+    evidence_n: int | None = None,
+    db_path: Path = DB_PATH,
+) -> int:
+    """Append an immutable lifecycle-transition audit row (M9). Returns row id."""
+    with get_connection(db_path) as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO signal_lifecycle_events
+                (feature_name, from_state, to_state, reason_code,
+                 context_scope, evidence_n, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (feature_name, from_state, to_state, reason_code, context_scope,
+             evidence_n, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+
+def list_lifecycle_events(feature_name: str | None = None,
+                          db_path: Path = DB_PATH) -> list[dict]:
+    clause, vals = "", []
+    if feature_name is not None:
+        clause = "WHERE feature_name = ?"
+        vals.append(feature_name)
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT * FROM signal_lifecycle_events {clause} ORDER BY id", vals
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def list_by_lifecycle(lifecycle_state: str | None = None,
+                      db_path: Path = DB_PATH) -> list[dict]:
+    """List signals filtered by lifecycle_state (M9). None returns all."""
+    clause, vals = "", []
+    if lifecycle_state is not None:
+        clause = "WHERE lifecycle_state = ?"
+        vals.append(lifecycle_state)
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT * FROM signal_library {clause} ORDER BY feature_name", vals
+        ).fetchall()
+        return [_deserialize(dict(r)) for r in rows]
+
+
 # ---------------------------------------------------------------------------
 # Read helpers
 # ---------------------------------------------------------------------------

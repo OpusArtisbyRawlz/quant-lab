@@ -20,6 +20,7 @@ Invariants (enforced here):
 
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -42,6 +43,7 @@ from agents.experiment_runner.cost_model import CostConfig
 from agents.critic.critic import Critic
 from agents.ledger_agent.ledger_agent import LedgerAgent
 from agents.quant_interface.artifact_reader import read_experiment_artifact
+from agents.signal_librarian.librarian import SignalLibrarian
 
 from . import approval_queue, scoring
 from .spec_builder import idea_to_spec
@@ -87,6 +89,7 @@ def run_single_approved_idea(
     success_criteria: dict | None = None,
     critic: Critic | None = None,
     ledger: LedgerAgent | None = None,
+    librarian: SignalLibrarian | None = None,
     db_path: Path = DB_PATH,
 ) -> IdeaExecutionResult:
     """
@@ -101,6 +104,7 @@ def run_single_approved_idea(
 
     critic = critic or Critic()
     ledger = ledger or LedgerAgent()
+    librarian = librarian or SignalLibrarian()
 
     spec = idea_to_spec(idea_row, success_criteria=success_criteria)
 
@@ -154,6 +158,12 @@ def run_single_approved_idea(
             "experiment_id": result.experiment_id,
             "source_idea_id": idea_id,
             "source_model": idea_row.get("source_model", ""),
+            # M9: stamp the research context so the experiment row is
+            # self-describing and the SignalLibrarian can decompose it into
+            # context cells (feature x market x universe x regime x bar_type).
+            "market": spec.market,
+            "universe": spec.universe,
+            "features": json.dumps(list(spec.features)),
         },
         db_path=db_path,
     )
@@ -176,6 +186,11 @@ def run_single_approved_idea(
 
     approval_queue.mark_executed(idea_id, result.experiment_id, db_path=db_path)
     _log_executed(idea_row, result, critique.decision, db_path=db_path)
+
+    # --- M9: post-Ledger context-aware signal intelligence. Fully isolated —
+    #     a librarian failure must never undo a completed, ledgered execution. ---
+    _record_to_librarian(librarian, result.experiment_id, db_path=db_path)
+
     return IdeaExecutionResult(
         idea_id=idea_id, outcome="executed",
         experiment_id=result.experiment_id, decision=critique.decision,
@@ -198,6 +213,7 @@ def run_approved_ideas(
     """
     critic = Critic()
     ledger = LedgerAgent()
+    librarian = SignalLibrarian()
     approved = approval_queue.list_approved(db_path=db_path)
     if limit is not None:
         approved = approved[:limit]
@@ -215,6 +231,7 @@ def run_approved_ideas(
             success_criteria=success_criteria,
             critic=critic,
             ledger=ledger,
+            librarian=librarian,
             db_path=db_path,
         )
         _bucket.get(res.outcome, batch.errored).append(res)
@@ -279,6 +296,20 @@ def recover_incomplete_executions(
 # ---------------------------------------------------------------------------
 # Internal
 # ---------------------------------------------------------------------------
+
+def _record_to_librarian(librarian: SignalLibrarian, experiment_id: str,
+                         *, db_path: Path) -> None:
+    """Feed a completed experiment to the SignalLibrarian, isolated from the
+    execution outcome. Any failure is logged and swallowed: M9 knowledge-keeping
+    is strictly downstream of — and must never roll back — a ledgered run."""
+    try:
+        librarian.record_experiment(experiment_id, db_path=db_path)
+    except Exception:
+        log.exception(
+            "idea_executor: SignalLibrarian failed for %s (execution already "
+            "complete; context knowledge not updated)", experiment_id,
+        )
+
 
 def _reconstruct_run_result(experiment_id: str, completed_dir: Path) -> RunResult:
     """
