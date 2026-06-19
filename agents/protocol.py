@@ -162,3 +162,12 @@ class LedgerUpdate:
     lesson_category: str = ""   # "signal_quality" | "universe" | "pipeline" | "other"
     # M7: originating approved-idea id ("" when not sourced from an idea).
     source_idea_id: str = ""
+    # M7.1: persistence outcome. status_written reflects the experiments-row
+    # decision update; lesson_written (above) reflects the lessons_learned row.
+    # `ok` is True only when BOTH writes succeeded — execution completion is
+    # gated on it so a failed ledger write never marks an idea executed.
+    status_written: bool = False
+
+    @property
+    def ok(self) -> bool:
+        return self.status_written and self.lesson_written

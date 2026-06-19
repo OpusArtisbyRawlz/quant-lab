@@ -13,6 +13,7 @@ taken — do not let debt live only in PR comments.
 | TD-4 | `promote_or_combine` is a dead recommendation label | Open | M4 | When signal-library lifecycle lands |
 | TD-5 | Idea deduplication is exact-match only | Open | M6 | With semantic-similarity dedup (post-M7) |
 | TD-7 | M6 feasibility validation skipped real-data checks | Resolved by M7 | M6 | M7 idea executor |
+| TD-9 | Provenance stamped via post-run upsert, not at insert | Open | M7.1 | Next time the ingestion layer is touched |
 
 ---
 
@@ -114,3 +115,30 @@ reason code (`universe_data_missing` / `signal_unavailable` /
 infeasible idea is recorded, not silently dropped.
 
 **Status.** Resolved by M7. No further work scheduled.
+
+## TD-9 — Provenance stamped via post-run upsert, not at insert
+
+**What.** M7.1 stamps `experiments.source_idea_id` / `source_model` with an
+`upsert_experiment` call issued **immediately after** `run_experiment` returns,
+before Critic/Ledger run (`idea_executor.run_single_approved_idea`). This closes
+the practically-relevant orphan window — the lesson is always written after
+provenance exists, and an idea is linked to its experiment while still
+`executing`. But the experiments row is still first created inside
+`run_experiment` (via ingestion) without provenance, so a crash in the few
+statements between row-insert and the follow-up upsert can still leave a
+provenance-less row.
+
+**Why accepted (M7.1).** Stamping at insert means threading `source_idea_id` /
+`source_model` through `ExperimentSpec` → `write_config_json` → ingestion, which
+touches the shared protocol dataclass (TD-2 surface) and the M5 ingestion path —
+larger blast radius than the M7.1 reliability scope warranted. The post-run
+upsert reduces the window to near-zero with a change isolated to the executor.
+
+**Risk if left.** A process kill in a sub-millisecond window yields an
+experiment row with NULL provenance; detectable via the orphan-experiment query
+and repairable, but not impossible.
+
+**Resolution sketch.** Add optional `source_idea_id` / `source_model` fields to
+`ExperimentSpec`, persist them in `config.json`, and have ingestion write them
+into the experiments row at insert time — removing the follow-up upsert
+entirely. Do this the next time the ingestion layer is modified.

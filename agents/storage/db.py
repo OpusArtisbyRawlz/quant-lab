@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS pending_ideas (
     market              TEXT NOT NULL DEFAULT 'unknown',
     universe            TEXT NOT NULL DEFAULT 'unknown',
     metadata            TEXT,            -- JSON: {"scores": {...}, ...} advisory only
-    status              TEXT NOT NULL,   -- pending / approved / rejected / executed
+    status              TEXT NOT NULL,   -- pending / approved / executing / executed / rejected
     validation_ok       INTEGER NOT NULL,        -- 0/1
     validation_reasons  TEXT,            -- JSON array of rejection reasons
     experiment_id       TEXT,            -- set when executed (idea -> experiment link)

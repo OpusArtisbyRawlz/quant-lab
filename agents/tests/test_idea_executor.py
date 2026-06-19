@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from agents.protocol import ProposedIdea
+from agents.protocol import ProposedIdea, LedgerUpdate
 from agents.storage.db import create_all_tables, get_connection
 from agents.storage.conversation_store import get_messages_by_type
 from agents.storage.ledger_store import get_experiment
@@ -21,6 +21,7 @@ from agents.storage.lessons_store import get_lessons_for_experiment
 from agents.idea_generator import approval_queue as q
 from agents.idea_generator import idea_executor
 from agents.idea_generator import scoring
+from agents.ledger_agent.ledger_agent import LedgerAgent
 
 
 # ---------------------------------------------------------------------------
@@ -255,3 +256,111 @@ def test_approval_alone_executes_nothing(db, completed_dir, data_root):
         n = conn.execute("SELECT COUNT(*) FROM experiments").fetchone()[0]
     assert n == 0
     assert len(q.list_approved(db_path=db)) == 1
+
+
+# ---------------------------------------------------------------------------
+# M7.1 — R1: ledger-success gating + recovery
+# ---------------------------------------------------------------------------
+
+class _FailingLedger(LedgerAgent):
+    """Simulates a ledger persistence failure: writes nothing, reports not-ok."""
+    def run(self, result, critique, db_path=None):
+        return LedgerUpdate(
+            experiment_id=result.experiment_id,
+            decision=critique.decision,
+            conclusion="(simulated failure)",
+            lesson_written=False,
+            source_idea_id=critique.source_idea_id,
+            status_written=False,
+        )
+
+
+def test_ledger_failure_leaves_idea_executing(db, completed_dir, data_root):
+    idea_id = _approve_idea(db)
+    res = idea_executor.run_single_approved_idea(
+        idea_id, data_root=data_root, completed_dir=completed_dir,
+        data_dict_provider=_provider, ledger=_FailingLedger(), db_path=db,
+    )
+    assert res.outcome == "error"
+    assert "ledger_write_failed" in res.reasons
+    # Idea is recoverable, NOT executed.
+    assert q.get_idea(idea_id, db_path=db)["status"] == "executing"
+    # No lesson was persisted (the whole point of the gate).
+    assert get_lessons_for_experiment(res.experiment_id, db_path=db) == []
+
+
+def test_ledger_failure_still_stamps_provenance(db, completed_dir, data_root):
+    # R3: provenance is stamped BEFORE the ledger runs, so even a failed ledger
+    # leaves a fully-attributable experiment row (no orphan).
+    idea_id = _approve_idea(db, source_model="claude-sonnet-4")
+    res = idea_executor.run_single_approved_idea(
+        idea_id, data_root=data_root, completed_dir=completed_dir,
+        data_dict_provider=_provider, ledger=_FailingLedger(), db_path=db,
+    )
+    row = get_experiment(res.experiment_id, db_path=db)
+    assert row["source_idea_id"] == idea_id
+    assert row["source_model"] == "claude-sonnet-4"
+
+
+def test_ledger_failure_logs_incomplete_event(db, completed_dir, data_root):
+    idea_id = _approve_idea(db)
+    idea_executor.run_single_approved_idea(
+        idea_id, data_root=data_root, completed_dir=completed_dir,
+        data_dict_provider=_provider, ledger=_FailingLedger(), db_path=db,
+    )
+    msgs = get_messages_by_type("cycle_x", "idea_execution_incomplete", db_path=db)
+    assert len(msgs) == 1
+    assert msgs[0]["payload"]["recoverable"] is True
+
+
+def test_recover_completes_stuck_idea(db, completed_dir, data_root):
+    idea_id = _approve_idea(db)
+    # First attempt fails at the ledger.
+    idea_executor.run_single_approved_idea(
+        idea_id, data_root=data_root, completed_dir=completed_dir,
+        data_dict_provider=_provider, ledger=_FailingLedger(), db_path=db,
+    )
+    exp_before = q.get_idea(idea_id, db_path=db)["experiment_id"]
+
+    # Recovery with a real ledger: no new experiment, idea completes.
+    out = idea_executor.recover_incomplete_executions(
+        completed_dir=completed_dir, db_path=db,
+    )
+    assert len(out.recovered) == 1
+    assert out.still_incomplete == []
+
+    idea = q.get_idea(idea_id, db_path=db)
+    assert idea["status"] == "executed"
+    assert idea["experiment_id"] == exp_before  # NOT a duplicate experiment
+    assert len(get_lessons_for_experiment(exp_before, db_path=db)) == 1
+    # Exactly one experiment row total — recovery did not re-run the pipeline.
+    with get_connection(db) as conn:
+        n = conn.execute("SELECT COUNT(*) FROM experiments").fetchone()[0]
+    assert n == 1
+
+
+def test_recover_is_noop_when_nothing_stuck(db, completed_dir, data_root):
+    out = idea_executor.recover_incomplete_executions(
+        completed_dir=completed_dir, db_path=db)
+    assert out.recovered == []
+    assert out.still_incomplete == []
+
+
+# ---------------------------------------------------------------------------
+# M7.1 — R2: atomic claim prevents double execution
+# ---------------------------------------------------------------------------
+
+def test_already_claimed_idea_is_not_re_executed(db, completed_dir, data_root):
+    idea_id = _approve_idea(db)
+    # Simulate a concurrent executor having already claimed the idea.
+    assert q.claim_for_execution(idea_id, db_path=db) is True
+    res = idea_executor.run_single_approved_idea(
+        idea_id, data_root=data_root, completed_dir=completed_dir,
+        data_dict_provider=_provider, db_path=db,
+    )
+    # get_approved no longer sees it (status='executing') -> no second run.
+    assert res.outcome == "rejected"
+    assert "not_approved" in res.reasons
+    with get_connection(db) as conn:
+        n = conn.execute("SELECT COUNT(*) FROM experiments").fetchone()[0]
+    assert n == 0
