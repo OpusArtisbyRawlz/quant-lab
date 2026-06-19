@@ -1,0 +1,7 @@
+# Runtime + test dependencies for the agents/ and src/ packages.
+# The research notebooks under research/ use additional libraries
+# (scikit-learn, scipy, yfinance, matplotlib) that are NOT required to import
+# or test the agent pipeline, so they are intentionally not listed here.
+numpy
+pandas
+pytest
