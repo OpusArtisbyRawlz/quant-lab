@@ -74,6 +74,7 @@ class LedgerAgent:
 
         # 1. Write decision + conclusion to experiments table
         lesson_written = False
+        status_written = False
         try:
             update_status(
                 experiment_id=result.experiment_id,
@@ -82,6 +83,7 @@ class LedgerAgent:
                 next_action=self._next_action(critique.decision),
                 db_path=db_path,
             )
+            status_written = True
         except Exception:
             log.exception(
                 "LedgerAgent: failed to update experiments row for %s",
@@ -115,6 +117,8 @@ class LedgerAgent:
             conclusion     = conclusion,
             lesson_written = lesson_written,
             lesson_category= category,
+            source_idea_id = critique.source_idea_id,
+            status_written = status_written,
         )
 
     # ------------------------------------------------------------------ #

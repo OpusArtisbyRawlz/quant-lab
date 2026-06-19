@@ -14,13 +14,15 @@ def db(tmp_path):
     return path
 
 
-def _idea(h="Test hypothesis"):
+def _idea(h="Test hypothesis", market="us", universe="sp500"):
     return ProposedIdea(
         hypothesis=h,
         suggested_signals=("mom_ret_5",),
         source_model="fake-idea-llm",
         rationale="because",
         scores={"novelty_score": 0.5, "feasibility_score": 0.8, "signal_diversity_score": 0.3},
+        market=market,
+        universe=universe,
     )
 
 
@@ -84,3 +86,99 @@ def test_ids_increment(db):
     i2 = q.make_idea_id(_idea("two"), db_path=db)
     assert i1.startswith("idea_001")
     assert i2.startswith("idea_002")
+
+
+# --- M7: market/universe persistence + approved/executed lifecycle ---------
+
+def test_market_universe_persisted_on_enqueue(db):
+    iid = q.make_idea_id(_idea(market="eu", universe="stoxx600"), db_path=db)
+    q.enqueue(_idea(market="eu", universe="stoxx600"), iid, db_path=db)
+    rec = q.get_idea(iid, db_path=db)
+    assert rec["market"] == "eu"
+    assert rec["universe"] == "stoxx600"
+
+
+def test_blank_market_universe_default_to_unknown(db):
+    iid = q.make_idea_id(_idea(market="", universe=""), db_path=db)
+    q.enqueue(_idea(market="", universe=""), iid, db_path=db)
+    rec = q.get_idea(iid, db_path=db)
+    assert rec["market"] == "unknown"
+    assert rec["universe"] == "unknown"
+
+
+def test_list_approved_and_get_approved(db):
+    iid = q.make_idea_id(_idea(), db_path=db)
+    q.enqueue(_idea(), iid, db_path=db)
+    assert q.list_approved(db_path=db) == []
+    assert q.get_approved(iid, db_path=db) is None  # still pending
+    q.approve_idea(iid, db_path=db)
+    assert len(q.list_approved(db_path=db)) == 1
+    assert q.get_approved(iid, db_path=db)["idea_id"] == iid
+
+
+def test_claim_for_execution_is_atomic_cas(db):
+    iid = q.make_idea_id(_idea(), db_path=db)
+    q.enqueue(_idea(), iid, db_path=db)
+    q.approve_idea(iid, db_path=db)
+    # First claim wins; second loses (idempotent CAS on status).
+    assert q.claim_for_execution(iid, db_path=db) is True
+    assert q.get_idea(iid, db_path=db)["status"] == "executing"
+    assert q.claim_for_execution(iid, db_path=db) is False
+    # Claimed ideas are not drained as approved.
+    assert q.list_approved(db_path=db) == []
+    assert len(q.list_executing(db_path=db)) == 1
+
+
+def test_mark_executed_transitions_and_links(db):
+    iid = q.make_idea_id(_idea(), db_path=db)
+    q.enqueue(_idea(), iid, db_path=db)
+    q.approve_idea(iid, db_path=db)
+    q.claim_for_execution(iid, db_path=db)
+    assert q.mark_executed(iid, "exp_001_x", db_path=db) is True
+    rec = q.get_idea(iid, db_path=db)
+    assert rec["status"] == "executed"
+    assert rec["experiment_id"] == "exp_001_x"
+    # Idempotent: re-running on a non-executing row is a no-op.
+    assert q.mark_executed(iid, "exp_001_x", db_path=db) is False
+
+
+def test_mark_executed_requires_executing(db):
+    iid = q.make_idea_id(_idea(), db_path=db)
+    q.enqueue(_idea(), iid, db_path=db)
+    q.approve_idea(iid, db_path=db)
+    # Approved but not yet claimed — cannot jump straight to executed.
+    assert q.mark_executed(iid, "exp_001_x", db_path=db) is False
+
+
+def test_link_experiment_only_while_executing(db):
+    iid = q.make_idea_id(_idea(), db_path=db)
+    q.enqueue(_idea(), iid, db_path=db)
+    q.approve_idea(iid, db_path=db)
+    assert q.link_experiment(iid, "exp_001_x", db_path=db) is False  # not executing
+    q.claim_for_execution(iid, db_path=db)
+    assert q.link_experiment(iid, "exp_001_x", db_path=db) is True
+    rec = q.get_idea(iid, db_path=db)
+    assert rec["experiment_id"] == "exp_001_x"
+    assert rec["status"] == "executing"  # link does not complete
+
+
+def test_reject_executing_transitions_only_executing(db):
+    iid = q.make_idea_id(_idea(), db_path=db)
+    q.enqueue(_idea(), iid, db_path=db)
+    q.approve_idea(iid, db_path=db)
+    assert q.reject_executing(iid, note="x", db_path=db) is False  # still approved
+    q.claim_for_execution(iid, db_path=db)
+    assert q.reject_executing(iid, note="bad spec", db_path=db) is True
+    assert q.get_idea(iid, db_path=db)["status"] == "rejected"
+
+
+def test_reject_approved_transitions_only_approved(db):
+    iid = q.make_idea_id(_idea(), db_path=db)
+    q.enqueue(_idea(), iid, db_path=db)
+    # Pending row is not touched by reject_approved.
+    assert q.reject_approved(iid, note="bad", db_path=db) is False
+    q.approve_idea(iid, db_path=db)
+    assert q.reject_approved(iid, note="exec failed", db_path=db) is True
+    rec = q.get_idea(iid, db_path=db)
+    assert rec["status"] == "rejected"
+    assert rec["reviewer_note"] == "exec failed"

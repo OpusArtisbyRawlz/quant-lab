@@ -61,7 +61,7 @@ def run_idea_batch(
     lesson_findings.discard("")
 
     prompt = build_prompt(KNOWN_SIGNALS, lessons, existing, n=n)
-    parsed = generate_ideas(llm, prompt, n=n)
+    parsed = generate_ideas(llm, prompt, n=n, market=market, universe=universe)
 
     outcome = BatchOutcome(cycle_id=cycle_id, parse_errors=list(parsed.parse_errors))
 

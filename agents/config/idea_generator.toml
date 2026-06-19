@@ -14,3 +14,11 @@ model = "claude-sonnet-4"       # model id; also recorded as ProposedIdea.source
 api_key_env = "ANTHROPIC_API_KEY"  # env var name to read the key from
 max_tokens = 1024
 temperature = 1.0
+
+# Execution (M7). Approved ideas are turned into ExperimentSpecs and run through
+# the existing M5 pipeline. Execution is explicitly invoked — never auto-fired
+# by approval. These defaults only fill gaps; an idea's own market/universe and
+# suggested signals always take precedence.
+[execution]
+default_success_criteria = { sharpe = 0.5 }  # used when an idea carries none
+max_ideas_per_run = 10                       # cap per run_approved_ideas() drain
