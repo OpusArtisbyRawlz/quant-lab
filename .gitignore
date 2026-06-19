@@ -13,9 +13,11 @@ Thumbs.db
 # Notebooks are tracked but must be stripped of outputs before commit.
 # To strip: jupyter nbconvert --clear-output --inplace <notebook.ipynb>
 
-# Data files — raw and processed market data are not committed
-data/
-data/**/*.csv
+# Data files — raw and processed market data are not committed.
+# Anchored to the repository root so the source package src/data/ (the panel
+# builder lives there) is NOT swept up by this rule.
+/data/
+/data/**/*.csv
 
 # Experiment result artifacts — CSV dumps and binary outputs
 experiments/**/*.csv
