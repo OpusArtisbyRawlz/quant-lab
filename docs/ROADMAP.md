@@ -182,6 +182,22 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     adds no adaptive/self-modifying weights, and leaves the M7 execution path, the
     M9 learning path, the human approval gate, and the PR-7 loop structure
     untouched. Touches only `agents/`.
+  - **PR-9 (done) — CampaignReporter.** A strictly read-only reporting surface
+    over the M10 loop, added to the existing `agents/reporting/` package. The new
+    `campaign_report_store.py` mirrors `context_report_store.py`: it issues no SQL
+    of its own and composes the storage read APIs (`campaign_store`,
+    `campaign_attribution`, `scheduler_store`, `hypothesis_store`, `context_store`,
+    `signal_store`, `lessons_store`) into frozen dataclasses for eight reports —
+    campaign overview, deterministic campaign ranking, stalled-campaign board,
+    exploration-vs-exploitation accounting, productive contexts, recently-learned
+    knowledge, signal lifecycle board, and the hypothesis evolution tree. Campaign
+    state is derived via `campaign_store.reconstruct_state_from_events` (event log,
+    not projection row); exploration accounting reads the same `scheduler_event`
+    evidence as `ResearchScheduler.exploration_stats`, so a report can never
+    disagree with the live scheduler. `campaign_report.py` renders the markdown
+    campaign board. No schema change, no writes, no execution-module imports
+    (enforced by the globbed reporting guard tests). Touches only `agents/` and
+    `docs/`.
 
 ## Upcoming
 
