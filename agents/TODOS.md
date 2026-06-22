@@ -110,3 +110,22 @@ Promotion requires multi-context confirmation. The manual
 `strategy_variants → mark_variant_promoted()` path above is independent and still
 manual; unifying the two is unscheduled. See
 `docs/M9_CONTEXT_SIGNAL_INTELLIGENCE.md`.
+
+---
+
+## 7. Campaign Progress Counter Is a Cache (M10 PR-1)
+
+**File:** `agents/storage/campaign_store.py` — `set_budget_spent()`,
+`count_campaign_experiments()`; `agents/campaign_manager/manager.py` —
+`refresh_progress()`
+
+`research_campaign.budget_spent` is a convenience cache. The canonical progress
+of a campaign is *derived* by counting campaign-tagged experiments
+(`pending_ideas.campaign_id` joined to a non-null `experiment_id`). Callers that
+need ground truth must call `refresh_progress()` / `count_campaign_experiments()`
+rather than trusting the stored counter, which can lag if a tick crashes between
+running an experiment and refreshing the cache. This is intentional (derived
+state is recoverable); the cache exists only to avoid recomputing on every read.
+
+The actual loop that keeps the cache fresh and ties campaigns to the idea
+pipeline arrives in later M10 PRs (PR-3 linkage, PR-7 `run_tick`).

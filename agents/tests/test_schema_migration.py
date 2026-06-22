@@ -215,3 +215,61 @@ def test_legacy_signal_library_gains_lifecycle_default(tmp_path):
             "SELECT * FROM signal_library WHERE feature_name='mom20'").fetchone()
     assert row["lifecycle_state"] == "observed"
     assert row["generalization_class"] is None
+
+
+# --- M10 (schema v8): research-campaign layer tables/columns ---
+
+M10_TABLES = (
+    "research_campaign",
+    "campaign_state_events",
+)
+
+
+def test_m10_tables_created(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    with get_connection(db) as conn:
+        tables = {r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    for t in M10_TABLES:
+        assert t in tables
+
+
+def test_pending_ideas_gains_campaign_id(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    cols = _columns(db, "pending_ideas")
+    assert "campaign_id" in cols
+
+
+def test_legacy_pending_ideas_gains_campaign_id(tmp_path):
+    """A pre-M10 pending_ideas table gains a nullable campaign_id column,
+    preserving existing rows."""
+    db = tmp_path / "legacy_m9.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE pending_ideas ("
+            " idea_id TEXT PRIMARY KEY, hypothesis TEXT, status TEXT)"
+        )
+        conn.execute(
+            "INSERT INTO pending_ideas (idea_id, hypothesis, status) "
+            "VALUES ('idea_010', 'legacy idea', 'pending')"
+        )
+        conn.commit()
+
+    with get_connection(db) as conn:
+        apply_additive_migrations(conn)
+        conn.commit()
+
+    cols = _columns(db, "pending_ideas")
+    assert "campaign_id" in cols
+    with get_connection(db) as conn:
+        row = conn.execute(
+            "SELECT * FROM pending_ideas WHERE idea_id='idea_010'").fetchone()
+    assert row["campaign_id"] is None
+
+
+def test_schema_version_is_v8(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    assert get_schema_version(db) == 8

@@ -5,6 +5,12 @@ records what the debt is, why it was accepted, the risk it carries, and where
 it is scheduled to be paid down. Add to this file when a deliberate shortcut is
 taken — do not let debt live only in PR comments.
 
+> **M10 PR-1 (Research Campaign foundation): no new debt.** The
+> `research_campaign.budget_spent` counter is a deliberate, recoverable cache of
+> a value always derivable from campaign-tagged experiments — not an accepted
+> shortcut. It is documented as intentional design in `agents/TODOS.md` §7 so it
+> is not later mis-logged here. PR-11 will add the TD-3 registry-seam entry.
+
 | ID | Title | Status | Introduced | Scheduled |
 |----|-------|--------|------------|-----------|
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |

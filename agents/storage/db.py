@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -167,6 +167,9 @@ CREATE TABLE IF NOT EXISTS pending_ideas (
     validation_ok       INTEGER NOT NULL,        -- 0/1
     validation_reasons  TEXT,            -- JSON array of rejection reasons
     experiment_id       TEXT,            -- set when executed (idea -> experiment link)
+    -- Milestone 10: originating research campaign (NULL for ad-hoc ideas;
+    -- also reconciled onto pre-v8 DBs via _ADDITIVE_COLUMNS).
+    campaign_id         TEXT,
     created_at          TEXT NOT NULL DEFAULT (datetime('now')),
     reviewed_at         TEXT,
     reviewer_note       TEXT
@@ -289,6 +292,46 @@ CREATE TABLE IF NOT EXISTS research_memory (
 )
 """
 
+# ===========================================================================
+# Milestone 10 — autonomous research campaign layer
+# ===========================================================================
+
+# A Research Campaign is a themed, budgeted, multi-experiment investigation.
+# CampaignManager is the SOLE writer of this table and campaign_state_events.
+# `budget_spent` here is a cached convenience; campaign progress is always
+# derivable by recomputing over campaign-tagged experiments/ideas.
+_CREATE_RESEARCH_CAMPAIGN = """
+CREATE TABLE IF NOT EXISTS research_campaign (
+    campaign_id         TEXT PRIMARY KEY,
+    theme               TEXT NOT NULL,
+    goal_spec           TEXT,            -- JSON: structured research goal
+    scope               TEXT,            -- JSON: {markets, universes, signals, bar_types}
+    state               TEXT NOT NULL DEFAULT 'DRAFT',  -- DRAFT/ACTIVE/STALLED/COMPLETED/ARCHIVED/DISCARDED
+    budget_experiments  INTEGER NOT NULL DEFAULT 0,     -- 0 = unbounded
+    budget_spent        INTEGER NOT NULL DEFAULT 0,     -- cached; derivable
+    exploration_fraction REAL NOT NULL DEFAULT 0.34,
+    stall_patience      INTEGER NOT NULL DEFAULT 3,     -- ticks with no progress before STALLED
+    stopping_spec       TEXT,            -- JSON: stopping criteria
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    completed_at        TEXT
+)
+"""
+
+# Immutable audit of campaign state transitions. Mirrors signal_lifecycle_events.
+_CREATE_CAMPAIGN_STATE_EVENTS = """
+CREATE TABLE IF NOT EXISTS campaign_state_events (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id     TEXT NOT NULL,
+    from_state      TEXT,
+    to_state        TEXT NOT NULL,
+    reason_code     TEXT,
+    evidence        TEXT,       -- JSON: supporting context for the transition
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (campaign_id) REFERENCES research_campaign(campaign_id)
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -312,6 +355,10 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_sle_feature   ON signal_lifecycle_events(feature_name)",
     "CREATE INDEX IF NOT EXISTS idx_signal_lifecycle_state ON signal_library(lifecycle_state)",
     "CREATE INDEX IF NOT EXISTS idx_research_memory_scope  ON research_memory(scope_key)",
+    # Milestone 10 — research campaign layer
+    "CREATE INDEX IF NOT EXISTS idx_campaign_state         ON research_campaign(state)",
+    "CREATE INDEX IF NOT EXISTS idx_campaign_events_cid    ON campaign_state_events(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_pending_ideas_campaign ON pending_ideas(campaign_id)",
 ]
 
 
@@ -351,6 +398,9 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("market", "TEXT NOT NULL DEFAULT 'unknown'"),
         ("universe", "TEXT NOT NULL DEFAULT 'unknown'"),
         ("experiment_id", "TEXT"),
+        # Milestone 10: link an idea to its originating research campaign
+        # (NULL for ad-hoc ideas not generated under a campaign).
+        ("campaign_id", "TEXT"),
     ],
     # Milestone 9: activate the dormant signal_library lifecycle (TD-4). All
     # additive with back-compatible defaults so existing rows remain valid.
@@ -413,6 +463,9 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_SIGNAL_LIFECYCLE_EVENTS)
         conn.execute(_CREATE_REGIME_LABEL)
         conn.execute(_CREATE_RESEARCH_MEMORY)
+        # Milestone 10 — autonomous research campaign layer
+        conn.execute(_CREATE_RESEARCH_CAMPAIGN)
+        conn.execute(_CREATE_CAMPAIGN_STATE_EVENTS)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
