@@ -4,20 +4,25 @@ campaign_store — reads and writes the Milestone 10 research-campaign tables.
 A *research campaign* is a themed, budgeted, multi-experiment investigation. Two
 tables back it:
 
-    research_campaign       — one row per campaign; mutable state cache.
-    campaign_state_events   — append-only audit of every state transition
-                              (mirrors signal_lifecycle_events from M9).
+    campaign_state_events   — append-only audit of every state transition AND the
+                              SOURCE OF TRUTH for campaign state (mirrors
+                              signal_lifecycle_events from M9; carries no FK).
+    research_campaign       — a rebuildable *projection* of the event log: its
+                              `state` is a cache of the latest event's to_state,
+                              its config is carried in the genesis event, and its
+                              `budget_spent` is a cache of campaign-tagged
+                              experiment count.
 
 This module is the low-level data-access layer. All campaign *state-machine*
-logic (which transitions are legal, when to emit an event, progress derivation)
-lives in the CampaignManager agent, which is the sole writer of these tables.
-campaign_store performs no transition validation of its own — it just persists
-what it is told, append-only for events.
+logic (which transitions are legal, when to emit an event, reconciliation,
+progress derivation) lives in the CampaignManager agent, which is the sole
+writer of these tables. campaign_store performs no transition validation of its
+own — it just persists what it is told, append-only for events.
 
-`budget_spent` stored on research_campaign is a convenience cache; the canonical
-progress of a campaign is always derivable by counting campaign-tagged
-experiments/ideas. Callers that need ground truth should recompute rather than
-trust the cache.
+Nothing stored on the research_campaign row is authoritative. The authoritative
+state is `reconstruct_state_from_events()`; the authoritative progress is
+`count_campaign_experiments()`. The row exists only so reads do not have to
+replay the log every time, and it can be deleted and rebuilt at any point.
 """
 
 from __future__ import annotations
@@ -252,6 +257,72 @@ def list_state_events(
         d["evidence"] = _loads(d.get("evidence"))
         out.append(d)
     return out
+
+
+def reconstruct_state_from_events(
+    campaign_id: str,
+    *,
+    db_path: Path = DB_PATH,
+) -> str | None:
+    """Return a campaign's authoritative state, derived purely from its event
+    log: the to_state of the most-recent event. Returns None if the campaign has
+    no events (i.e. it never existed). This never reads research_campaign.state,
+    so it is the canonical source of truth for campaign state."""
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT to_state FROM campaign_state_events WHERE campaign_id=? "
+            "ORDER BY id DESC LIMIT 1",
+            (campaign_id,),
+        ).fetchone()
+    return row["to_state"] if row else None
+
+
+def genesis_event(
+    campaign_id: str,
+    *,
+    db_path: Path = DB_PATH,
+) -> dict[str, Any] | None:
+    """Return the earliest (creation) event for a campaign, whose evidence
+    carries the full campaign config needed to rebuild the projection row."""
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM campaign_state_events WHERE campaign_id=? "
+            "ORDER BY id ASC LIMIT 1",
+            (campaign_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    d = dict(row)
+    d["evidence"] = _loads(d.get("evidence"))
+    return d
+
+
+def distinct_campaign_ids_in_events(
+    *,
+    db_path: Path = DB_PATH,
+) -> list[str]:
+    """Every campaign_id that appears in the event log, regardless of whether a
+    projection row currently exists. Used by startup reconciliation."""
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT campaign_id FROM campaign_state_events ORDER BY campaign_id"
+        ).fetchall()
+    return [r["campaign_id"] for r in rows]
+
+
+def delete_campaign_row(
+    campaign_id: str,
+    *,
+    db_path: Path = DB_PATH,
+) -> None:
+    """Delete only the research_campaign projection row. The event log is left
+    intact, so the row can be rebuilt via CampaignManager.rebuild_from_events.
+    """
+    with get_connection(db_path) as conn:
+        conn.execute(
+            "DELETE FROM research_campaign WHERE campaign_id=?", (campaign_id,)
+        )
+        conn.commit()
 
 
 def count_campaign_experiments(

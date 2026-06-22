@@ -44,14 +44,17 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
   to test next and why*, never pulling the execution trigger or bypassing the
   human approval gate. Delivered incrementally by PR:
   - **PR-1 (done) — Research Campaign foundation.** Schema v8 adds
-    `research_campaign` and `campaign_state_events` (append-only audit), plus an
-    additive `pending_ideas.campaign_id` link. The `CampaignManager` agent owns
-    the campaign state machine
+    `campaign_state_events` (append-only, FK-less, the **source of truth**) and
+    `research_campaign` (a rebuildable projection), plus an additive
+    `pending_ideas.campaign_id` link. The `CampaignManager` agent owns the
+    campaign state machine
     (DRAFT → ACTIVE → {STALLED ↔ ACTIVE} → {COMPLETED | ARCHIVED | DISCARDED};
-    ARCHIVED may revive to ACTIVE), is the sole writer of the campaign tables,
-    emits an immutable event on every accepted transition, and derives campaign
-    progress from campaign-tagged experiments (the stored counter is only a
-    cache).
+    ARCHIVED may revive to ACTIVE) and is the sole writer of the campaign tables.
+    State is event-sourced: legality is judged against the log, the projection
+    row's `state`/`budget_spent` are caches, the genesis event carries the full
+    config, and `reconcile()` / `reconcile_all()` / `rebuild_from_events()` make
+    the row deletable and fully reconstructible from events + experiments after
+    an interrupted transition.
 
 ## Upcoming
 

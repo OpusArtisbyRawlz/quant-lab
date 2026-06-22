@@ -113,19 +113,29 @@ manual; unifying the two is unscheduled. See
 
 ---
 
-## 7. Campaign Progress Counter Is a Cache (M10 PR-1)
+## 7. research_campaign Is a Rebuildable Projection (M10 PR-1)
 
-**File:** `agents/storage/campaign_store.py` — `set_budget_spent()`,
-`count_campaign_experiments()`; `agents/campaign_manager/manager.py` —
-`refresh_progress()`
+**File:** `agents/storage/campaign_store.py`; `agents/campaign_manager/manager.py`
 
-`research_campaign.budget_spent` is a convenience cache. The canonical progress
-of a campaign is *derived* by counting campaign-tagged experiments
-(`pending_ideas.campaign_id` joined to a non-null `experiment_id`). Callers that
-need ground truth must call `refresh_progress()` / `count_campaign_experiments()`
-rather than trusting the stored counter, which can lag if a tick crashes between
-running an experiment and refreshing the cache. This is intentional (derived
-state is recoverable); the cache exists only to avoid recomputing on every read.
+The campaign layer is event-sourced. `campaign_state_events` is append-only and
+the **single source of truth** (it carries no FK, mirroring M9's
+`signal_lifecycle_events`, so it outlives the row). `research_campaign` is a
+rebuildable *projection*:
 
-The actual loop that keeps the cache fresh and ties campaigns to the idea
-pipeline arrives in later M10 PRs (PR-3 linkage, PR-7 `run_tick`).
+- **Authoritative state** = `reconstruct_state_from_events()` (latest event's
+  `to_state`); `research_campaign.state` is only a cache. `transition()` judges
+  legality against the log, never the cached column.
+- **Authoritative config** is carried in the genesis event's evidence, so the
+  row's static fields are reconstructible.
+- **Authoritative progress** = `count_campaign_experiments()`
+  (`pending_ideas.campaign_id` joined to a non-null `experiment_id`);
+  `budget_spent` is a cache.
+
+`CampaignManager.reconcile()` / `reconcile_all()` repair the projection from the
+log after an interrupted transition (event appended, cache update missed) or a
+deleted/missing row; `rebuild_from_events()` recreates the row outright. Startup
+reconciliation should call `reconcile_all()`. This is intentional, recoverable
+design — not debt.
+
+The loop that keeps caches fresh and ties campaigns to the idea pipeline arrives
+in later M10 PRs (PR-3 linkage, PR-7 `run_tick` STEP 0 recovery).

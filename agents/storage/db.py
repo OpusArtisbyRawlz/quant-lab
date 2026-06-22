@@ -318,7 +318,12 @@ CREATE TABLE IF NOT EXISTS research_campaign (
 )
 """
 
-# Immutable audit of campaign state transitions. Mirrors signal_lifecycle_events.
+# Immutable, append-only audit of campaign state transitions and the SOURCE OF
+# TRUTH for campaign state. Mirrors signal_lifecycle_events: deliberately carries
+# NO foreign key to research_campaign, so the event log outlives (and can rebuild)
+# the research_campaign projection row. The campaign's authoritative state is
+# always the to_state of its most-recent event; research_campaign.state is a
+# rebuildable cache of that value.
 _CREATE_CAMPAIGN_STATE_EVENTS = """
 CREATE TABLE IF NOT EXISTS campaign_state_events (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -327,8 +332,7 @@ CREATE TABLE IF NOT EXISTS campaign_state_events (
     to_state        TEXT NOT NULL,
     reason_code     TEXT,
     evidence        TEXT,       -- JSON: supporting context for the transition
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (campaign_id) REFERENCES research_campaign(campaign_id)
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 )
 """
 
