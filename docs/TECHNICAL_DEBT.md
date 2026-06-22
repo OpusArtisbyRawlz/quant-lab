@@ -11,6 +11,12 @@ taken — do not let debt live only in PR comments.
 > shortcut. It is documented as intentional design in `agents/TODOS.md` §7 so it
 > is not later mis-logged here. PR-11 will add the TD-3 registry-seam entry.
 
+> **M10 PR-2 (Hypothesis evolution tree): no new debt.** `hypothesis_node` /
+> `hypothesis_edge` are append-only and storage-reconstructible (see
+> `agents/TODOS.md` §8). The two write-once link columns (`idea_id`,
+> `experiment_id`) are stamps applied after creation elsewhere, not mutations of
+> the hypothesis, so node auditability is preserved.
+
 | ID | Title | Status | Introduced | Scheduled |
 |----|-------|--------|------------|-----------|
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |
