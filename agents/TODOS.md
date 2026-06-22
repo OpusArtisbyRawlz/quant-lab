@@ -235,3 +235,43 @@ or evaluates — the human gate and the M7/M9 cores are untouched. Auto-triggers
 interface-complete via `apply`. Explosion safeguards: ACTIVE + not
 budget-exhausted, `max_depth`, frontier dedup, terminal `negate` children, one
 move per signal/market/universe lineage per tick, `max_proposals_per_tick`.
+
+## 11. ResearchPrioritizer Is Deterministic and Read-Only (M10 PR-5)
+
+**File:** `agents/research_prioritizer/` (`prioritizer.py`, `__init__.py`)
+
+The prioritizer ranks `pending` ideas by an explainable *Research Value* score
+and enforces an exploration quota. It is **deterministic** (a fixed, normalised
+weighted blend of five `[0,1]` components) and **read-only**: it reads ideas via
+`approval_queue.list_pending` plus M9 (`context_store`), campaign
+(`campaign_store`), and memory (`memory_store`) evidence, and returns an ordering
+with a per-idea `ScoreBreakdown`. It never executes, schedules, approves, or
+mutates ideas; it adds no schema; the M7 execution path, the M9 learning path,
+and the human approval gate are untouched — ranking only changes the *order* a
+human sees.
+
+Components (each `[0,1]`, all surfaced in the breakdown for auditability):
+
+- **Expected Information Gain** — `1/(1+n)` in the prior-experiment count of the
+  idea's target M9 context cell (signal, market, universe, bar_type). Thin
+  evidence ⇒ high EIG.
+- **Novelty** — batch-structural anti-redundancy: `1/(1+d)` in the number of
+  sibling candidates sharing the idea's (signal, market, universe, bar_type)
+  key. Deliberately distinct from EIG (DB evidence) so the two never collapse
+  into one number.
+- **Memory Score** — neutral `0.5`, nudged by supportive vs cautionary
+  research-memory entries matching the idea's scope. Keyword-based on purpose;
+  semantic handling stays under **TD-5**.
+- **Campaign Priority** — the owning campaign's `goal_spec.priority`; a neutral
+  default for off-campaign ideas.
+- **Cost** — estimated research cost (bar-type construction complexity + signal
+  count), folded in as *cheapness* (`1 - normalised_cost`). This is a ranking
+  estimate only and is unrelated to the execution/backtest cost model.
+
+**Exploration quota.** Each idea is bucketed `explore` (EIG ≥
+`explore_eig_threshold`) or `exploit`. When a cutoff `top_k` is given, the
+prioritizer reserves `ceil(exploration_fraction * top_k)` of those slots for the
+best explore ideas before filling the rest by value, so exploit ideas — however
+high-scoring — cannot crowd exploration out of the selection window. Ordering is
+a total order with `idea_id` tie-breaks, so identical inputs always produce an
+identical ranking.
