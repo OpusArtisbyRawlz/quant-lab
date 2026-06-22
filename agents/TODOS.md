@@ -325,3 +325,56 @@ projections are reconciled by delegating to `CampaignManager.reconcile_all()`.
 The M7 execution path, the M9 learning path, and the human approval flow are
 untouched — the scheduler only changes *order and timing*, never *whether* an
 idea runs.
+
+
+## 13. ResearchLoop Is a Deterministic, Resumable Orchestrator (M10 PR-7)
+
+**Files:** `agents/research_loop/` (`loop.py`, `__init__.py`),
+`agents/storage/loop_store.py`, `loop_checkpoint` table (schema v12).
+
+The loop is the top-level orchestrator that ties the M10 decision layer into a
+single resumable *tick* over one campaign. Each tick walks a fixed six-phase
+sequence — **recover → generate → schedule → dispatch → learn → checkpoint** —
+and brackets every phase with append-only `loop_checkpoint` rows
+(`started` / `completed`). It is pure orchestration over already-built
+components; `loop_store` is the sole writer of the checkpoint log.
+
+**Resumability / idempotency primitive.** Each phase is skipped when a
+`completed` checkpoint already exists for that `(tick_id, phase)`, so a crashed
+tick resumes exactly where it stopped and never repeats a phase's side effects
+(idea generation, scheduling, execution). The `tick_id` is deterministic and
+derived purely from the checkpoint log: the latest unfinished tick is resumed,
+otherwise the next sequential id (`<campaign_id>#tNNNN`) starts. This makes the
+whole tick history reconstructible from storage.
+
+**The six phases:**
+
+- **recover** — cross-tick reconciliation before planning: the unchanged M7
+  `recover_incomplete_executions` repairs ledger-write crashes (an `executing`
+  idea with a linked experiment is re-ledgered, never re-run) and
+  `ResearchScheduler.reconcile()` resolves orphaned dispatches. Both idempotent.
+- **generate** — `ResearchStrategist.run_tick` expands the hypothesis frontier
+  into new **pending** ideas. Runs only when the campaign is ACTIVE. Nothing is
+  auto-approved.
+- **schedule** — `ResearchScheduler.dispatch` ranks the approved pool (via the
+  PR-5 prioritizer), respects budgets, and appends `dispatched` events. No
+  execution.
+- **dispatch** — executes the scheduled in-flight ideas through the **unchanged
+  M7 executor** (claim → spec → M5 runner → Critic → Ledger → M9 Librarian) and
+  records each outcome as a `succeeded` / `failed` scheduler event. Re-running is
+  idempotent: a resolved idea leaves the in-flight set, and an already-`executed`
+  idea is only recorded, never re-run.
+- **learn** — refreshes the campaign's derived progress via
+  `CampaignManager.reconcile` (the M9 signal learning already happened inside the
+  executor). Idempotent.
+- **checkpoint** — terminal marker that makes the tick `completed` and therefore
+  reconstructible.
+
+**Invariants preserved (asserted by tests).** The loop never auto-approves
+(generated ideas stay `pending`); it never executes an unapproved idea (the
+scheduler selects only `approved` ideas and the executor refuses anything not
+`approved`); it never modifies experiment results or M7 runner logic (it
+delegates to the executor unchanged). Recovery is tested for crash-before-
+dispatch, crash-after-dispatch (idempotent, no double execution), crash-after-
+ledger-write (R1 repair, no duplicate experiment), and cold-restart
+reconciliation.

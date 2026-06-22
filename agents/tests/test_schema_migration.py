@@ -363,3 +363,48 @@ def test_legacy_db_gains_scheduler_event_table(tmp_path):
         tables = {r["name"] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
     assert "scheduler_event" in tables
+
+
+# --- M10 PR-7 (schema v12): research loop checkpoint log ---
+
+def test_loop_checkpoint_table_created(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    with get_connection(db) as conn:
+        tables = {r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "loop_checkpoint" in tables
+
+
+def test_loop_checkpoint_has_audit_columns(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    cols = _columns(db, "loop_checkpoint")
+    for c in ("id", "tick_id", "campaign_id", "phase", "status", "evidence",
+              "created_at"):
+        assert c in cols
+
+
+def test_schema_version_includes_loop_layer(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    # PR-7 bumped the schema to v12 (loop_checkpoint). Use >= so future additive
+    # bumps do not require editing this guard.
+    assert get_schema_version(db) >= 12
+
+
+def test_legacy_db_gains_loop_checkpoint_table(tmp_path):
+    """create_all_tables on a pre-PR-7 DB adds the loop_checkpoint table without
+    disturbing existing data."""
+    db = tmp_path / "legacy_pr6.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE pending_ideas ("
+            " idea_id TEXT PRIMARY KEY, hypothesis TEXT, status TEXT)"
+        )
+        conn.commit()
+    create_all_tables(db)
+    with get_connection(db) as conn:
+        tables = {r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "loop_checkpoint" in tables

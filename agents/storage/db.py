@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -415,6 +415,18 @@ CREATE TABLE IF NOT EXISTS scheduler_event (
 )
 """
 
+_CREATE_LOOP_CHECKPOINT = """
+CREATE TABLE IF NOT EXISTS loop_checkpoint (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tick_id         TEXT NOT NULL,    -- deterministic per-tick identifier
+    campaign_id     TEXT,             -- NULL for the global (all-campaign) scope
+    phase           TEXT NOT NULL,    -- recover/generate/schedule/dispatch/learn/checkpoint
+    status          TEXT NOT NULL,    -- started / completed
+    evidence        TEXT,             -- JSON: per-phase counts + summary
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -453,6 +465,10 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_sched_event_idea      ON scheduler_event(idea_id)",
     "CREATE INDEX IF NOT EXISTS idx_sched_event_campaign  ON scheduler_event(campaign_id)",
     "CREATE INDEX IF NOT EXISTS idx_sched_event_action    ON scheduler_event(action)",
+    # Milestone 10 PR-7 — research loop checkpoint log
+    "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_tick        ON loop_checkpoint(tick_id)",
+    "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_campaign    ON loop_checkpoint(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_phase       ON loop_checkpoint(phase)",
 ]
 
 
@@ -567,6 +583,7 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_HYPOTHESIS_NODE)
         conn.execute(_CREATE_HYPOTHESIS_EDGE)
         conn.execute(_CREATE_SCHEDULER_EVENT)
+        conn.execute(_CREATE_LOOP_CHECKPOINT)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).

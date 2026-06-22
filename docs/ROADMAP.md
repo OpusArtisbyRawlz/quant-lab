@@ -141,6 +141,26 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     `CampaignManager.reconcile_all()`; it is idempotent. Because the log is
     append-only and carries the attempt number, every decision is reconstructible
     from storage. Touches only `agents/`.
+  - **PR-7 (done) — Deterministic research loop.** Schema v12 adds the
+    append-only `loop_checkpoint` log; `agents/storage/loop_store.py` is its sole
+    writer. The new `agents/research_loop` is the top-level orchestrator that ties
+    the M10 decision layer into a single resumable *tick* over one campaign,
+    walking a fixed six-phase sequence — **recover → generate → schedule →
+    dispatch → learn → checkpoint** — with every phase bracketed by
+    `started` / `completed` checkpoints. It is pure orchestration: it **may**
+    generate (ResearchStrategist), prioritize + schedule (ResearchScheduler /
+    ResearchPrioritizer), dispatch *already-approved* ideas through the unchanged
+    M7 executor (which runs the M9 learning path), and checkpoint; it **may not**
+    auto-approve ideas, execute unapproved ideas, modify experiment results, or
+    change M7 runner logic. Each phase is skipped when its `completed` checkpoint
+    already exists, so a crashed tick resumes exactly where it stopped without
+    repeating side effects; the deterministic `tick_id`
+    (`<campaign_id>#tNNNN`, resume-latest-unfinished-else-next) is derived purely
+    from the checkpoint log, making every tick reconstructible from storage.
+    Recovery is covered for crash-before-dispatch, crash-after-dispatch
+    (idempotent, no double execution), crash-after-ledger-write (R1 repair, no
+    duplicate experiment), and cold-restart reconciliation. Touches only
+    `agents/`.
 
 ## Upcoming
 
