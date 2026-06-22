@@ -42,3 +42,40 @@ def apply_exposure_to_return(returns: pd.Series, exposure: pd.Series) -> pd.Seri
 
     exposure_lagged = exposure.shift(1).fillna(1.0)
     return returns * exposure_lagged
+
+
+import numpy as np
+
+
+def drawdown_exposure_smooth(
+    drawdown: pd.Series, floor: float = 0.60, k: float = 3.0
+) -> pd.Series:
+    """
+    Smooth exposure scaling based on drawdown.
+
+    Higher drawdown -> gradually lower exposure.
+
+    Parameters
+    ----------
+    drawdown : pd.Series
+        Drawdown series (negative values)
+
+    floor : float
+        Minimum allowed exposure
+
+    k : float
+        Aggressiveness of decay
+
+    Returns
+    -------
+    pd.Series
+        Exposure series
+    """
+
+    dd_mag = drawdown.abs()
+
+    exp_scale = np.exp(-k * dd_mag)
+
+    exposure = floor + (1 - floor) * exp_scale
+
+    return exposure

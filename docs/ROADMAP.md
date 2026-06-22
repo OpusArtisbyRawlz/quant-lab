@@ -18,20 +18,42 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
   (annualized + average-period), transaction-cost/slippage models, robustness
   flags (subperiod / parameter / cost fragility); Critic evaluates net by
   default; schema v4 additive migrations.
+- **M6 — Gated LLM Idea Generator.** LLM proposes hypotheses/signal combos; a
+  deterministic validator checks signals/schema/feasibility; human approval is
+  required before anything runs. "LLM output is data, not commands."
+- **M7 — Idea Executor.** Approved ideas flow approved → spec → M5 runner →
+  Critic → Ledger with provenance stamping, atomic claim, and ledger-gated
+  completion; real-data re-validation (pays down TD-7).
+- **M8 — Research reporting.** Read-only programmatic reporting API
+  (`summaries` → `markdown` → `report`) with static guards forbidding any write
+  SQL or execution-module imports from the reporting layer.
+- **M9 — Context-aware signal intelligence.** Signal performance is never
+  aggregated globally: the atomic unit is the context cell
+  (`feature × market × universe × regime × bar_type`). A post-Ledger
+  SignalLibrarian decomposes each experiment into context observations, rebuilds
+  a context-performance cache, and drives a real signal lifecycle
+  (observed → candidate → promoted → retired) with multi-context-confirmed
+  promotion (pays down **TD-4**). The IdeaGenerator consumes both global and
+  context-filtered performance with an exploration quota. Schema v7. See
+  `docs/M9_CONTEXT_SIGNAL_INTELLIGENCE.md`.
+
+## In progress
+
+- **M10 — Autonomous research loop.** A deterministic decision layer stacked
+  *above* the unchanged M7 execution core and M9 learning core: it decides *what
+  to test next and why*, never pulling the execution trigger or bypassing the
+  human approval gate. Delivered incrementally by PR:
+  - **PR-1 (done) — Research Campaign foundation.** Schema v8 adds
+    `research_campaign` and `campaign_state_events` (append-only audit), plus an
+    additive `pending_ideas.campaign_id` link. The `CampaignManager` agent owns
+    the campaign state machine
+    (DRAFT → ACTIVE → {STALLED ↔ ACTIVE} → {COMPLETED | ARCHIVED | DISCARDED};
+    ARCHIVED may revive to ACTIVE), is the sole writer of the campaign tables,
+    emits an immutable event on every accepted transition, and derives campaign
+    progress from campaign-tagged experiments (the stored counter is only a
+    cache).
 
 ## Upcoming
-
-### M6 — Gated LLM Idea Generator (next)
-
-LLM proposes hypotheses/signal combos; a deterministic validator checks
-signals/schema/feasibility; **human approval is required before anything runs**.
-
-- Architectural rule: **"LLM output is data, not commands."** The LLM proposes
-  only; validator + human approval + deterministic runner stay in control.
-- No autonomous endless loop; bounded batch, one human gate per idea.
-- All proposed/accepted/rejected ideas logged to `agent_conversations`; approved
-  runs flow to the ledger.
-- Critic judges with M5 net metrics + robustness checks.
 
 ### Roadmap backlog (unscheduled, ordered by dependency)
 
@@ -52,8 +74,9 @@ signals/schema/feasibility; **human approval is required before anything runs**.
 3. **Formal overfitting statistics.** Deflated Sharpe, multiple-testing
    correction, purged/embargoed CV. Depends on (1) horizon-correct returns.
 
-4. **Signal-library lifecycle** (pays down **TD-4**). Real promote/combine/retire
-   driven by Critic decisions over accumulated net-validated signals.
+4. **Signal-library lifecycle** (pays down **TD-4**). ✅ Delivered in **M9** as a
+   context-aware lifecycle (promote/retire driven by multi-context-confirmed net
+   performance over context cells, not a single global aggregate).
 
 5. **Retry/repair loop.** Act on `retest` decisions within `max_retest_attempts`
    (deterministic data re-fetch / spec adjustment).

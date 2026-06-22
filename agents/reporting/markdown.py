@@ -18,6 +18,11 @@ from .report_store import (
     BucketStat,
     OverviewStat,
 )
+from .context_report_store import (
+    ContextCellStat,
+    GeneralizationStat,
+    LifecycleEventStat,
+)
 
 
 def _fmt(x: float | None, ndigits: int = 3) -> str:
@@ -134,3 +139,56 @@ def render_net_sharpe(buckets: list[BucketStat]) -> str:
 
     rows = [[_label(b), str(b.count)] for b in buckets]
     return _table(["Net Sharpe bucket", "Count"], rows)
+
+
+# ---------------------------------------------------------------------------
+# Milestone 9 — context-aware signal intelligence renderers
+# ---------------------------------------------------------------------------
+
+def _evidence(min_n_met: bool, n: int) -> str:
+    """Flag thin-evidence cells so coarse numbers are never read as solid."""
+    return f"{n}" if min_n_met else f"{n} (thin)"
+
+
+def render_context_cells(cells: list[ContextCellStat]) -> str:
+    rows = [
+        [c.feature_name, c.market, c.universe, c.regime, c.bar_type,
+         _evidence(c.min_n_met, c.n_experiments),
+         _fmt(c.contribution_score), _fmt(c.avg_net_calmar), _pct(c.keep_rate)]
+        for c in cells
+    ]
+    return _table(
+        ["Signal", "Market", "Universe", "Regime", "Bar", "Experiments",
+         "Contribution", "Avg net Calmar", "Keep rate"],
+        rows,
+    )
+
+
+def render_generalization(stats: list[GeneralizationStat]) -> str:
+    rows = [
+        [g.feature_name, g.lifecycle_state, g.generalization_class or "—",
+         str(g.n_context_cells), str(g.distinct_markets),
+         str(g.distinct_regimes), g.best_context or "—",
+         _fmt(g.best_contribution)]
+        for g in stats
+    ]
+    return _table(
+        ["Signal", "Lifecycle", "Generalization", "Cells", "Markets",
+         "Regimes", "Best context", "Best contribution"],
+        rows,
+    )
+
+
+def render_lifecycle_events(events: list[LifecycleEventStat]) -> str:
+    rows = [
+        [e.feature_name, f"{e.from_state or '—'} → {e.to_state}",
+         e.reason_code or "—", e.context_scope or "—",
+         str(e.evidence_n if e.evidence_n is not None else "—"),
+         e.created_at]
+        for e in events
+    ]
+    return _table(
+        ["Signal", "Transition", "Reason", "Context scope", "Evidence n",
+         "When"],
+        rows,
+    )
