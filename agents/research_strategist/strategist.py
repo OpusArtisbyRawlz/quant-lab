@@ -77,6 +77,7 @@ class StrategistConfig:
     contribution_threshold: float = 0.0  # net-Sharpe bar a cell must clear to "pass"
     max_depth: int = 6                  # hard cap on hypothesis-tree depth
     max_proposals_per_tick: int = 8     # cap on a single propose() call
+    max_children_per_frontier: int = 3  # PR-8: bound repeated expansion of one node
     exploration_fraction: float = 0.34  # cap on share of low-evidence proposals (hook for PR-8)
     attribution_method: str = context_store.DEFAULT_ATTRIBUTION
     source_model: str = "research_strategist"
@@ -428,6 +429,21 @@ class ResearchStrategist:
             return False
         if not node.get("experiment_id"):
             return False
+        # PR-8 frontier-expansion control: a node that has already spawned
+        # ``max_children_per_frontier`` distinct children is retired from the
+        # frontier so the strategist cannot expand the same node unboundedly
+        # across ticks. The child count is read from the persisted tree, so the
+        # bound is deterministic and reconstructible from storage.
+        cap = self.config.max_children_per_frontier
+        if cap is not None:
+            children = {
+                e["child_id"]
+                for e in hypothesis_store.children_of(
+                    node["node_id"], db_path=self.db_path
+                )
+            }
+            if len(children) >= cap:
+                return False
         return True
 
     def _lineage_frontier(self, group) -> dict | None:

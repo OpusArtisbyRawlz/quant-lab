@@ -95,9 +95,11 @@ def test_dispatch_order_is_deterministic(tmp_db):
     db = tmp_db
     _campaign(db, "c_hi", priority=0.9)
     _campaign(db, "c_lo", priority=0.1)
-    _approved(db, "i1", campaign_id="c_lo")
-    _approved(db, "i2", campaign_id="c_hi")
-    _approved(db, "i3", campaign_id=None)  # ad-hoc
+    # Distinct signals ⇒ distinct M9 context keys, so the PR-8 context-diversity
+    # safeguard never trims them; this test isolates campaign/rank ordering.
+    _approved(db, "i1", signals=("mom",), campaign_id="c_lo")
+    _approved(db, "i2", signals=("rev",), campaign_id="c_hi")
+    _approved(db, "i3", signals=("vol",), campaign_id=None)  # ad-hoc
 
     s = ResearchScheduler(db)
     plan1 = [d.idea_id for d in s.experiment_queue()]
@@ -166,8 +168,10 @@ def test_per_campaign_budget_enforced(tmp_db):
 
 def test_global_dispatch_limit_enforced(tmp_db):
     db = tmp_db
+    # Distinct signals ⇒ distinct contexts, so the global cap (not the PR-8
+    # context-diversity safeguard) is what bounds the plan here.
     for n in range(5):
-        _approved(db, f"i{n}")
+        _approved(db, f"i{n}", signals=(f"sig{n}",))
     s = ResearchScheduler(db, config=SchedulerConfig(global_dispatch_limit=3))
     assert len(s.experiment_queue()) == 3
     assert len(s.experiment_queue(limit=1)) == 1

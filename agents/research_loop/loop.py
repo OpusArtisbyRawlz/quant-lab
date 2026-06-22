@@ -235,6 +235,11 @@ class ResearchLoop:
         return {
             "scheduled": len(plan),
             "idea_ids": [d.idea_id for d in plan],
+            # PR-8 anti-mode-collapse accounting for this tick's dispatch window.
+            "explore": sum(1 for d in plan if d.bucket == "explore"),
+            "exploit": sum(1 for d in plan if d.bucket == "exploit"),
+            "campaign_exploration": self.scheduler.exploration_stats(
+                campaign_id=campaign_id),
         }
 
     # ------------------------------------------------------------------ #
