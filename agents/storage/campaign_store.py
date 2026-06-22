@@ -259,6 +259,42 @@ def list_state_events(
     return out
 
 
+def link_idea_to_campaign(
+    idea_id: str,
+    campaign_id: str,
+    *,
+    db_path: Path = DB_PATH,
+) -> bool:
+    """Tag an existing pending idea with its originating campaign (write-once
+    attribution). Sets ``pending_ideas.campaign_id`` only if it is currently
+    NULL, so an idea's campaign attribution is never silently re-pointed. Returns
+    True if the tag was applied, False if the idea was already tagged or absent.
+
+    This writes only the additive attribution column added in M10 PR-1; it does
+    not touch the approval state machine, validation, or any execution field.
+    """
+    with get_connection(db_path) as conn:
+        cur = conn.execute(
+            "UPDATE pending_ideas SET campaign_id = ? "
+            "WHERE idea_id = ? AND campaign_id IS NULL",
+            (campaign_id, idea_id),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+
+
+def campaign_id_for_idea(
+    idea_id: str,
+    *,
+    db_path: Path = DB_PATH,
+) -> str | None:
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT campaign_id FROM pending_ideas WHERE idea_id = ?", (idea_id,)
+        ).fetchone()
+    return row["campaign_id"] if row else None
+
+
 def reconstruct_state_from_events(
     campaign_id: str,
     *,

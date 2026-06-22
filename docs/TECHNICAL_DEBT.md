@@ -11,6 +11,16 @@ taken — do not let debt live only in PR comments.
 > shortcut. It is documented as intentional design in `agents/TODOS.md` §7 so it
 > is not later mis-logged here. PR-11 will add the TD-3 registry-seam entry.
 
+> **M10 PR-3 (Campaign attribution linkage): no new debt.** Attribution is
+> *derived* at read time from link keys that already exist
+> (`pending_ideas.campaign_id` / `.experiment_id`, `hypothesis_node.campaign_id`
+> / `.idea_id`); no campaign_id column is added to experiments, lessons, or
+> observations, so the M7 execution path, the approval gate, and M9 evaluation
+> are untouched. `link_idea_to_campaign` is write-once and the
+> `campaign_attribution` module is read-only — see `agents/TODOS.md` §9. Because
+> the anchors live on the ideas/hypotheses, attribution survives campaign-row
+> deletion/rebuild; this is intentional design, not an accepted shortcut.
+
 > **M10 PR-2 (Hypothesis evolution tree): no new debt.** `hypothesis_node` /
 > `hypothesis_edge` are append-only and storage-reconstructible (see
 > `agents/TODOS.md` §8). The two write-once link columns (`idea_id`,

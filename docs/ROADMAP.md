@@ -66,6 +66,19 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     is the sole writer, and an entire tree/forest is reconstructible from
     storage (`reconstruct_tree` / `reconstruct_forest` / `lineage`). Touches
     only `agents/`; no execution, approval, or experiment-storage changes.
+  - **PR-3 (done) — Campaign attribution linkage.** Every hypothesis, approved
+    idea, experiment, lesson, and M9 observation is attributable to its
+    originating campaign, with attribution **derived at read time** from link
+    keys that already exist (`pending_ideas.campaign_id` / `.experiment_id` and
+    `hypothesis_node.campaign_id` / `.idea_id`) — no campaign_id column is added
+    to experiments, lessons, or observations, so execution, approval, and
+    evaluation are untouched. `campaign_store.link_idea_to_campaign` is a
+    write-once tag; the new read-only `campaign_attribution` module provides
+    forward (`*_for_campaign`, `attribution_summary`) and reverse
+    (`campaign_for_experiment`, `lineage_for_experiment`) views. Because the
+    anchors live on the ideas/hypotheses rather than the campaign row,
+    attribution survives deleting and rebuilding the `research_campaign`
+    projection, and non-campaign experiments simply resolve to no campaign.
 
 ## Upcoming
 
