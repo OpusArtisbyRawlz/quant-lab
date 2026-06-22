@@ -201,3 +201,37 @@ Consequences (all intentional, and tested in `test_campaign_attribution.py`):
 `link_idea_to_campaign` only sets `campaign_id` when it is currently NULL, so an
 idea's campaign attribution is never silently re-pointed. The module is
 read-only and touches no execution, approval, or evaluation code.
+
+## 10. ResearchStrategist + First-Class `bar_type` (M10 PR-4)
+
+**File:** `agents/research_strategist/` (`strategist.py`, `__init__.py`);
+`agents/protocol.py` (`SUPPORTED_BAR_TYPES`, `normalize_bar_type`,
+`ExperimentSpec.bar_type`, `ProposedIdea.bar_type`); `agents/storage/db.py`
+(schema v10); `agents/idea_generator/{approval_queue,spec_builder}.py`;
+`agents/quant_interface/ingestion.py`; `agents/hypothesis_manager/manager.py`.
+
+**`bar_type` is a first-class typed field, not free text.** It is carried end to
+end — `hypothesis_node.bar_type` → `pending_ideas.bar_type` →
+`ExperimentSpec.bar_type` → `config.json` → `experiments.bar_type` — via
+additive `NOT NULL DEFAULT 'time'` migrations (schema v10). Supported values are
+exactly `time, volume, dollar, tick, volume_imbalance, dollar_imbalance`;
+`normalize_bar_type` rejects anything else and maps `None`/`""` to `time`. This
+is deliberate so the Alternative Bars campaign needs **no further migration** the
+day a bar-construction engine is added.
+
+**Deferral (intentional, not debt):** the bar-construction engine belongs to a
+later milestone. The schema and interfaces are complete now; the runner
+currently realizes only `time` bars, so non-time ideas are representable,
+queueable, and fully auditable but not yet executable.
+
+**The strategist is a deterministic decision layer.** No LLM. Each tick it reads
+campaign state + budget (`CampaignManager`), M9 context evidence
+(`context_store`, read-only), and the hypothesis frontier
+(`HypothesisTreeManager`), then derives bounded `Proposal`s. On `apply` it writes
+children into the hypothesis tree and enqueues them as `pending` ideas in the
+existing approval queue, campaign-tagged. It never executes, schedules, approves,
+or evaluates — the human gate and the M7/M9 cores are untouched. Auto-triggers:
+`vary_bar`, `cross_market`, `combine`, `negate`; `refine`/`add_filter` are
+interface-complete via `apply`. Explosion safeguards: ACTIVE + not
+budget-exhausted, `max_depth`, frontier dedup, terminal `negate` children, one
+move per signal/market/universe lineage per tick, `max_proposals_per_tick`.

@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS experiments (
     model                   TEXT,
     market                  TEXT,
     universe                TEXT,
+    -- Milestone 10 PR-4: bar sampling clock for this experiment. First-class,
+    -- typed field (one of protocol.SUPPORTED_BAR_TYPES). Defaults to 'time' so
+    -- every pre-M10 experiment is unambiguously a time-bar experiment.
+    bar_type                TEXT NOT NULL DEFAULT 'time',
     validation_method       TEXT,
     expected_improvement    TEXT,
     success_criteria        TEXT,       -- JSON object
@@ -162,6 +166,10 @@ CREATE TABLE IF NOT EXISTS pending_ideas (
     -- self-contained and reproducible regardless of later default changes.
     market              TEXT NOT NULL DEFAULT 'unknown',
     universe            TEXT NOT NULL DEFAULT 'unknown',
+    -- Milestone 10 PR-4: bar sampling clock carried from the hypothesis through
+    -- to the experiment spec (one of protocol.SUPPORTED_BAR_TYPES). 'time' for
+    -- ad-hoc / pre-M10 ideas.
+    bar_type            TEXT NOT NULL DEFAULT 'time',
     metadata            TEXT,            -- JSON: {"scores": {...}, ...} advisory only
     status              TEXT NOT NULL,   -- pending / approved / executing / executed / rejected
     validation_ok       INTEGER NOT NULL,        -- 0/1
@@ -446,6 +454,8 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         # Milestone 7 provenance
         ("source_idea_id", "TEXT"),
         ("source_model", "TEXT"),
+        # Milestone 10 PR-4: first-class bar sampling clock (default 'time').
+        ("bar_type", "TEXT NOT NULL DEFAULT 'time'"),
     ],
     # Milestone 7: evolve pending_ideas for self-contained, executable ideas.
     # NOT NULL columns carry a DEFAULT so the ALTER succeeds on existing rows;
@@ -458,6 +468,8 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         # Milestone 10: link an idea to its originating research campaign
         # (NULL for ad-hoc ideas not generated under a campaign).
         ("campaign_id", "TEXT"),
+        # Milestone 10 PR-4: first-class bar sampling clock (default 'time').
+        ("bar_type", "TEXT NOT NULL DEFAULT 'time'"),
     ],
     # Milestone 9: activate the dormant signal_library lifecycle (TD-4). All
     # additive with back-compatible defaults so existing rows remain valid.

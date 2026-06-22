@@ -294,10 +294,12 @@ def test_m10_pr2_tables_created(tmp_path):
         assert t in tables
 
 
-def test_schema_version_is_v9(tmp_path):
+def test_schema_version_includes_bar_type_layer(tmp_path):
     db = tmp_path / "a.db"
     create_all_tables(db)
-    assert get_schema_version(db) == 9
+    # PR-4 bumped the schema to v10 (first-class bar_type). Use >= so future
+    # additive bumps do not require editing this guard.
+    assert get_schema_version(db) >= 10
 
 
 def test_hypothesis_node_has_audit_columns(tmp_path):
