@@ -50,6 +50,17 @@ taken — do not let debt live only in PR comments.
 > `experiment_id`) are stamps applied after creation elsewhere, not mutations of
 > the hypothesis, so node auditability is preserved.
 
+> **M10 PR-6 (ResearchScheduler + queues): no new debt.** The `scheduler_event`
+> table is append-only and storage-reconstructible (same event-sourced pattern as
+> `campaign_state_events`); `agents/storage/scheduler_store.py` is its sole
+> writer. The `research_scheduler` is a deterministic planning/ordering layer
+> whose four queues are pure read-only projections of stored state (approval-queue
+> statuses, campaign state, experiments, and the scheduler_event log). It selects
+> dispatch candidates only from `approval_queue.list_approved` and writes only
+> `scheduler_event` rows — it never approves, claims, specs, or executes — so the
+> M7 execution path, the M9 learning path, and the human approval gate are
+> untouched. See `agents/TODOS.md` §12.
+
 | ID | Title | Status | Introduced | Scheduled |
 |----|-------|--------|------------|-----------|
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |

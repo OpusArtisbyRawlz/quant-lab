@@ -118,6 +118,29 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     exploit ideas cannot crowd exploration out of the top_k. Read-only: it never
     executes, schedules, approves, or mutates ideas; the human gate and the
     M7/M9 paths are untouched. Touches only `agents/`.
+  - **PR-6 (done) — ResearchScheduler + queues.** Schema v11 adds the
+    append-only `scheduler_event` log (`dispatched / succeeded / failed /
+    retry_scheduled / exhausted`), the **source of truth** for every scheduler
+    decision; `agents/storage/scheduler_store.py` is its sole writer. The new
+    `agents/research_scheduler` is the deterministic ordering/planning layer above
+    the unchanged M7 execution core and M9 learning core: it decides *which
+    already-approved ideas run next and in what order*, but never approves,
+    claims, specs, or executes — dispatch candidates come only from
+    `approval_queue.list_approved`, so nothing is planned without clearing the
+    human gate, and its only write is to `scheduler_event`. Four queues are pure
+    projections of stored state: `campaign_queue` (ACTIVE, non-budget-exhausted
+    campaigns ordered by `goal_spec.priority` then `campaign_id`), `priority_queue`
+    (approved ideas ranked by PR-5 Research Value, in-flight excluded),
+    `experiment_queue` (the dispatch plan: due retries first, then fresh ideas by
+    campaign order then rank, respecting per-campaign `budget − produced −
+    in_flight` and an optional global cap), and `retry_queue` (failed ideas with
+    dispatch count below `max_retries + 1`, exhausted past it). `reconcile()`
+    recovers interrupted runs from ground-truth stored state (executed ⇒
+    succeeded, rejected ⇒ failed, still-pending ⇒ failed/`interrupted` and
+    retry-eligible) and delegates campaign reconciliation to
+    `CampaignManager.reconcile_all()`; it is idempotent. Because the log is
+    append-only and carries the attempt number, every decision is reconstructible
+    from storage. Touches only `agents/`.
 
 ## Upcoming
 
