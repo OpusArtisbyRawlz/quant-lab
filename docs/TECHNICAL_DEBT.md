@@ -95,6 +95,17 @@ taken — do not let debt live only in PR comments.
 > execution path, M9 learning path, human approval gate, and M10 deterministic
 > architecture are untouched. See `agents/TODOS.md` §15.
 
+> **M10 PR-10 (Alternative Bars worked campaign): no new debt.** PR-10 is
+> **test-only** (`agents/tests/test_altbars_campaign.py`) — no production code, no
+> schema change. It exercises the full M10 stack end to end (CampaignManager →
+> ResearchStrategist → human approval gate → ResearchScheduler → real
+> ResearchLoop over the unchanged M7 executor → CampaignReporter) on the worked
+> Alternative-Bars example, asserting hypothesis-tree evolution, exploration-quota
+> enforcement, frontier-expansion limits, budget accounting, crash recovery /
+> checkpoint resume, reporter rendering, and deterministic replay. No statistical
+> validation, production-readiness checks, or auto-approval. See `agents/TODOS.md`
+> §16.
+
 | ID | Title | Status | Introduced | Scheduled |
 |----|-------|--------|------------|-----------|
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |
