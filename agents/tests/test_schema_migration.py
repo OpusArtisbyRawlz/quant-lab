@@ -317,3 +317,49 @@ def test_hypothesis_edge_has_operator_column(tmp_path):
     cols = _columns(db, "hypothesis_edge")
     for c in ("parent_id", "child_id", "operator"):
         assert c in cols
+
+
+# --- M10 PR-6 (schema v11): scheduler_event log ---
+
+def test_scheduler_event_table_created(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    with get_connection(db) as conn:
+        tables = {r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "scheduler_event" in tables
+
+
+def test_scheduler_event_has_audit_columns(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    cols = _columns(db, "scheduler_event")
+    for c in ("id", "idea_id", "campaign_id", "experiment_id", "action",
+              "attempt", "reason", "evidence", "created_at"):
+        assert c in cols
+
+
+def test_schema_version_includes_scheduler_layer(tmp_path):
+    db = tmp_path / "a.db"
+    create_all_tables(db)
+    # PR-6 bumped the schema to v11 (scheduler_event). Use >= so future
+    # additive bumps do not require editing this guard.
+    assert get_schema_version(db) >= 11
+
+
+def test_legacy_db_gains_scheduler_event_table(tmp_path):
+    """create_all_tables on a pre-PR-6 DB adds the scheduler_event table without
+    disturbing existing data (the table uses CREATE TABLE IF NOT EXISTS)."""
+    db = tmp_path / "legacy_pr5.db"
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE pending_ideas ("
+            " idea_id TEXT PRIMARY KEY, hypothesis TEXT, status TEXT)"
+        )
+        conn.commit()
+    # Re-running full table creation is the migration path for new tables.
+    create_all_tables(db)
+    with get_connection(db) as conn:
+        tables = {r["name"] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "scheduler_event" in tables

@@ -275,3 +275,53 @@ best explore ideas before filling the rest by value, so exploit ideas — howeve
 high-scoring — cannot crowd exploration out of the selection window. Ordering is
 a total order with `idea_id` tie-breaks, so identical inputs always produce an
 identical ranking.
+
+
+## 12. ResearchScheduler Is a Deterministic, Auditable Planner (M10 PR-6)
+
+**Files:** `agents/research_scheduler/` (`scheduler.py`, `__init__.py`),
+`agents/storage/scheduler_store.py`, `scheduler_event` table (schema v11).
+
+The scheduler is the deterministic *ordering / planning* layer above the
+unchanged M7 execution core and M9 learning core. It decides **which already
+human-approved ideas run next, in what order**, enforces per-campaign and global
+budgets, and schedules retries — but it never approves, claims, specs, or
+executes anything. Dispatch candidates come **only** from
+`approval_queue.list_approved`, so no idea can be planned without first clearing
+the human approval gate, and the scheduler's only write is to the append-only
+`scheduler_event` log.
+
+**`scheduler_event` is the source of truth (and the sole-writer pattern).** Every
+scheduler decision is one immutable row: `dispatched` / `succeeded` / `failed` /
+`retry_scheduled` / `exhausted`, carrying the idea, campaign, attempt number, and
+supporting evidence (plan rank, research value). `scheduler_store` is the only
+writer. Because the log is append-only and records the attempt number, every
+derived quantity — dispatch ordering, budget accounting, retry eligibility,
+recovery — is a pure function of stored state, so the scheduler is fully
+deterministic and resumable (restart + recompute ⇒ identical plan).
+
+**Four derived queues (all read-only projections of stored state):**
+
+- **`campaign_queue`** — runnable campaigns (event-derived state ACTIVE and not
+  budget-exhausted), ordered by descending `goal_spec.priority` then ascending
+  `campaign_id` (a total order).
+- **`priority_queue`** — approved ideas ranked by the PR-5 Research Value score,
+  with in-flight ideas excluded.
+- **`experiment_queue`** — the concrete dispatch plan: due retries first (oldest
+  failure first), then fresh ideas grouped by `campaign_queue` order and ranked
+  within each group, then ad-hoc ideas — respecting per-campaign remaining budget
+  (`budget − produced − in_flight`) and an optional global cap.
+- **`retry_queue`** — ideas whose latest event is `failed` and whose dispatch
+  count is below `max_attempts` (`max_retries + 1`); past that the idea is
+  `exhausted`.
+
+**Recovery / reconciliation.** `reconcile()` resolves every orphaned open
+dispatch from ground-truth stored state: an `executed` idea ⇒ `succeeded`; a
+`rejected` idea ⇒ `failed`; anything still approved/executing (an interrupted
+run) ⇒ `failed` with reason `interrupted`, making it retry-eligible. Campaign
+projections are reconciled by delegating to `CampaignManager.reconcile_all()`.
+`reconcile()` is idempotent (it only acts on currently-open dispatches).
+
+The M7 execution path, the M9 learning path, and the human approval flow are
+untouched — the scheduler only changes *order and timing*, never *whether* an
+idea runs.

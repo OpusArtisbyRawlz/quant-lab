@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 10
+SCHEMA_VERSION = 11
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -390,6 +390,31 @@ CREATE TABLE IF NOT EXISTS hypothesis_edge (
 )
 """
 
+# ===========================================================================
+# Milestone 10 PR-6 — research scheduler decision log
+# ===========================================================================
+
+# A scheduler_event is an immutable, append-only record of one scheduler
+# decision about an *already human-approved* idea: dispatched / succeeded /
+# failed / retry_scheduled / exhausted. The ResearchScheduler is the SOLE writer
+# of this table. It records orchestration decisions only — it never approves or
+# executes anything. Because it is append-only and carries the attempt number and
+# supporting evidence, every scheduler decision (dispatch ordering, budget calls,
+# retries, recovery) is fully reconstructible from storage.
+_CREATE_SCHEDULER_EVENT = """
+CREATE TABLE IF NOT EXISTS scheduler_event (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    idea_id         TEXT NOT NULL,
+    campaign_id     TEXT,            -- NULL for ad-hoc (non-campaign) ideas
+    experiment_id   TEXT,            -- set once a dispatched run produces one
+    action          TEXT NOT NULL,   -- dispatched/succeeded/failed/retry_scheduled/exhausted
+    attempt         INTEGER NOT NULL DEFAULT 1,
+    reason          TEXT,
+    evidence        TEXT,            -- JSON: plan position, score breakdown, etc.
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -424,6 +449,10 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_hedge_campaign        ON hypothesis_edge(campaign_id)",
     "CREATE INDEX IF NOT EXISTS idx_hedge_parent          ON hypothesis_edge(parent_id)",
     "CREATE INDEX IF NOT EXISTS idx_hedge_child           ON hypothesis_edge(child_id)",
+    # Milestone 10 PR-6 — research scheduler decision log
+    "CREATE INDEX IF NOT EXISTS idx_sched_event_idea      ON scheduler_event(idea_id)",
+    "CREATE INDEX IF NOT EXISTS idx_sched_event_campaign  ON scheduler_event(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_sched_event_action    ON scheduler_event(action)",
 ]
 
 
@@ -537,6 +566,7 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_CAMPAIGN_STATE_EVENTS)
         conn.execute(_CREATE_HYPOTHESIS_NODE)
         conn.execute(_CREATE_HYPOTHESIS_EDGE)
+        conn.execute(_CREATE_SCHEDULER_EVENT)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
