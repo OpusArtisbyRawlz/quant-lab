@@ -159,6 +159,18 @@ def get_node(node_id: str, *, db_path: Path = DB_PATH) -> dict[str, Any] | None:
     return _row_to_node(row) if row else None
 
 
+def get_node_by_idea(
+    idea_id: str, *, db_path: Path = DB_PATH
+) -> dict[str, Any] | None:
+    """The hypothesis node whose originating idea is ``idea_id`` (the
+    node<->idea link is write-once, so this is unambiguous)."""
+    with get_connection(db_path) as conn:
+        row = conn.execute(
+            "SELECT * FROM hypothesis_node WHERE idea_id=? LIMIT 1", (idea_id,)
+        ).fetchone()
+    return _row_to_node(row) if row else None
+
+
 def list_nodes(
     campaign_id: str, *, db_path: Path = DB_PATH
 ) -> list[dict[str, Any]]:

@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from agents.storage.db import DB_PATH
-from agents.storage import loop_store, scheduler_store
+from agents.storage import loop_store, scheduler_store, hypothesis_store
 from agents.idea_generator import approval_queue, idea_executor
 from agents.campaign_manager import CampaignManager
 from agents.campaign_manager.manager import STATE_ACTIVE
@@ -275,6 +275,8 @@ class ResearchLoop:
                     idea_id, ok=ok, experiment_id=res.experiment_id,
                     reason=res.outcome if ok else ";".join(res.reasons) or res.outcome,
                 )
+                if ok and res.experiment_id:
+                    self._stamp_node_experiment(idea_id, res.experiment_id)
                 (executed if ok else failed).append(idea_id)
             elif status == "executed":
                 self.scheduler.record_result(
@@ -282,6 +284,8 @@ class ResearchLoop:
                     experiment_id=idea.get("experiment_id"),
                     reason="already_executed",
                 )
+                if idea.get("experiment_id"):
+                    self._stamp_node_experiment(idea_id, idea["experiment_id"])
                 executed.append(idea_id)
             elif status == "rejected":
                 self.scheduler.record_result(
@@ -291,6 +295,18 @@ class ResearchLoop:
                 # 'executing' that recover could not repair yet — leave in-flight.
                 skipped.append(idea_id)
         return {"executed": executed, "failed": failed, "skipped": skipped}
+
+    def _stamp_node_experiment(self, idea_id: str, experiment_id: str) -> None:
+        """Propagate an executed idea's experiment back onto its originating
+        hypothesis node (write-once). Without this stamp the strategist's
+        frontier checks (``_expandable`` / ``_confirmed`` / ``_refuted``) never
+        see an experiment on the node and the tree cannot evolve past the seed.
+        Idempotent: skips nodes that already carry an experiment_id."""
+        node = hypothesis_store.get_node_by_idea(idea_id, db_path=self.db_path)
+        if node is None or node.get("experiment_id"):
+            return
+        hypothesis_store.link_node_experiment(
+            node["node_id"], experiment_id, db_path=self.db_path)
 
     # ------------------------------------------------------------------ #
     # Phase 5 — learn (refresh the campaign's derived progress; idempotent)
