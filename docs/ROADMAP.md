@@ -100,6 +100,24 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     ACTIVE and not budget-exhausted, `max_depth`, frontier dedup, terminal
     `negate` children, one move per signal/market/universe lineage per tick, and
     `max_proposals_per_tick`. Touches only `agents/`.
+  - **PR-5 (done) — ResearchPrioritizer + Research Value scoring.** A
+    deterministic, explainable ranking layer (`agents/research_prioritizer`)
+    over the existing approval queue. It scores `pending` ideas by *Research
+    Value* — a fixed, normalised weighted blend of five `[0,1]` components, each
+    surfaced in a per-idea `ScoreBreakdown`: **Expected Information Gain**
+    (`1/(1+n)` in the target M9 context cell's prior-experiment count),
+    **Novelty** (batch-structural anti-redundancy, `1/(1+d)` in sibling ideas
+    sharing the idea's signal/market/universe/bar key), **Memory Score**
+    (supportive vs cautionary research-memory alignment, neutral 0.5),
+    **Campaign Priority** (`goal_spec.priority`, neutral default off-campaign),
+    and **Cost** (bar-type construction complexity + signal count, folded in as
+    cheapness). Ordering is a total order with `idea_id` tie-breaks, so identical
+    inputs always yield identical rankings. An **exploration quota** reserves
+    `ceil(exploration_fraction * top_k)` of the selection window for the best
+    explore-bucket ideas (`EIG ≥ explore_eig_threshold`), so high-scoring
+    exploit ideas cannot crowd exploration out of the top_k. Read-only: it never
+    executes, schedules, approves, or mutates ideas; the human gate and the
+    M7/M9 paths are untouched. Touches only `agents/`.
 
 ## Upcoming
 

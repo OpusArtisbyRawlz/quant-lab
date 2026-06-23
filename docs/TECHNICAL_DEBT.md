@@ -21,6 +21,16 @@ taken — do not let debt live only in PR comments.
 > the anchors live on the ideas/hypotheses, attribution survives campaign-row
 > deletion/rebuild; this is intentional design, not an accepted shortcut.
 
+> **M10 PR-5 (ResearchPrioritizer + Research Value scoring): no new debt.**
+> The prioritizer (`agents/research_prioritizer`) is deterministic and
+> read-only: it reads ideas + M9/campaign/memory evidence and returns an
+> ordering with a full per-idea `ScoreBreakdown`; it never executes, schedules,
+> approves, or mutates ideas, adds no schema, and leaves the M7 execution path,
+> the M9 learning path, and the human approval gate untouched. The memory
+> sentiment read is intentionally keyword-based (not semantic); semantic memory
+> handling remains the pre-existing **TD-5** deferral and is not introduced here.
+> See `agents/TODOS.md` §11.
+
 > **M10 PR-4 (ResearchStrategist + `bar_type` plumbing): no new debt.**
 > `bar_type` is a first-class typed field migrated additively (`NOT NULL DEFAULT
 > 'time'`) across `hypothesis_node` → `pending_ideas` → `ExperimentSpec` /
