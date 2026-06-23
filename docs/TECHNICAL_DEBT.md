@@ -50,6 +50,18 @@ taken — do not let debt live only in PR comments.
 > `experiment_id`) are stamps applied after creation elsewhere, not mutations of
 > the hypothesis, so node auditability is preserved.
 
+> **M10 PR-7 (Deterministic research loop): no new debt.** The `loop_checkpoint`
+> table is append-only and storage-reconstructible; `agents/storage/loop_store.py`
+> is its sole writer. The `research_loop` is pure orchestration over already-built
+> components: each tick's six phases are bracketed by `started`/`completed`
+> checkpoints and skipped when already completed, so ticks are deterministic,
+> resumable, and idempotent. It delegates generation to the ResearchStrategist,
+> scheduling to the ResearchScheduler, and execution to the **unchanged M7
+> executor** (which runs the M9 learning path) — it never auto-approves, executes
+> unapproved ideas, modifies experiment results, or alters runner logic, so the
+> M7/M9 paths and the human approval gate are untouched. See `agents/TODOS.md`
+> §13.
+
 > **M10 PR-6 (ResearchScheduler + queues): no new debt.** The `scheduler_event`
 > table is append-only and storage-reconstructible (same event-sourced pattern as
 > `campaign_state_events`); `agents/storage/scheduler_store.py` is its sole
