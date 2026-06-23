@@ -166,3 +166,38 @@ into the campaign loop — that arrives in PR-3 (campaign/idea linkage) and PR-4
 (ResearchStrategist drives the operators). The `signals` inheritance on `evolve`
 is a convenience default, not a feasibility check; signal validity is still
 enforced downstream by the existing M6 validator.
+
+---
+
+## 9. Campaign Attribution Is Derived, Not Stored (M10 PR-3)
+
+**File:** `agents/storage/campaign_attribution.py`;
+`agents/storage/campaign_store.py` (`link_idea_to_campaign`,
+`campaign_id_for_idea`)
+
+Every M10 artefact — hypothesis, approved idea, experiment, lesson, M9
+observation — is attributable to its originating campaign, but attribution is
+**derived at read time**, never stored on the artefact. The only stored anchors
+are `pending_ideas.campaign_id` and `hypothesis_node.campaign_id` (both additive,
+write-once). Everything else is reached by following keys that already exist:
+ideas → `experiment_id` → experiments → `lessons_learned.experiment_id` /
+`signal_context_observation.experiment_id`.
+
+Consequences (all intentional, and tested in `test_campaign_attribution.py`):
+
+- **Reconstructible from storage.** `campaign_attribution` reads only existing
+  link columns; no projection or cache backs attribution.
+- **Survives rebuilds.** Because the anchors live on the ideas/hypotheses and
+  not on `research_campaign`, deleting and `rebuild_from_events()`-ing the
+  campaign row leaves `attribution_summary` / `lineage_for_experiment`
+  unchanged.
+- **Non-campaign experiments untouched.** An ad-hoc idea has `campaign_id` NULL,
+  so `campaign_for_experiment()` returns None and the experiment never appears
+  in any campaign's artefacts — M7/M8/M9 paths are unaffected.
+- **Observations queryable independently.** `observations_for_campaign()` is a
+  campaign-scoped view over the global `signal_context_observation` table; it
+  never modifies or duplicates the global rows (M9 requirement 4).
+
+`link_idea_to_campaign` only sets `campaign_id` when it is currently NULL, so an
+idea's campaign attribution is never silently re-pointed. The module is
+read-only and touches no execution, approval, or evaluation code.
