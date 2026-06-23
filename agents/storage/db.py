@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -336,6 +336,52 @@ CREATE TABLE IF NOT EXISTS campaign_state_events (
 )
 """
 
+# ===========================================================================
+# Milestone 10 PR-2 — hypothesis evolution tree
+# ===========================================================================
+
+# A hypothesis_node is an immutable, fully-auditable record of one research
+# hypothesis. Nodes form a tree (a DAG once `combine` merges two lineages): the
+# root has parent_id NULL; every other node records its primary parent. Nodes
+# are append-only — they are never updated in place, so the tree is reconstructible
+# from storage at any time. (The optional idea_id/experiment_id links are stamped
+# once when an idea/experiment is created from a node and are not mutated after.)
+_CREATE_HYPOTHESIS_NODE = """
+CREATE TABLE IF NOT EXISTS hypothesis_node (
+    node_id         TEXT PRIMARY KEY,
+    campaign_id     TEXT NOT NULL,
+    parent_id       TEXT,            -- NULL only for a tree root
+    root_id         TEXT NOT NULL,   -- the root of this node's tree (self for a root)
+    depth           INTEGER NOT NULL DEFAULT 0,
+    hypothesis      TEXT NOT NULL,
+    signals         TEXT,            -- JSON array of feature names
+    market          TEXT,
+    universe        TEXT,
+    bar_type        TEXT NOT NULL DEFAULT 'time',
+    origin_operator TEXT,            -- evolution operator that produced this node; NULL for root
+    rationale       TEXT,
+    idea_id         TEXT,            -- set if an idea was generated from this node
+    experiment_id   TEXT,            -- set if an experiment was run from this node
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+# A hypothesis_edge is the immutable evolution relationship parent -> child under
+# a named operator. Append-only. `combine` produces multiple edges into one child
+# (one per merged parent); all other operators produce exactly one edge.
+_CREATE_HYPOTHESIS_EDGE = """
+CREATE TABLE IF NOT EXISTS hypothesis_edge (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id TEXT NOT NULL,
+    parent_id   TEXT NOT NULL,
+    child_id    TEXT NOT NULL,
+    operator    TEXT NOT NULL,   -- refine/vary_bar/cross_market/add_filter/combine/negate
+    rationale   TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (parent_id, child_id, operator)
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -363,6 +409,13 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_campaign_state         ON research_campaign(state)",
     "CREATE INDEX IF NOT EXISTS idx_campaign_events_cid    ON campaign_state_events(campaign_id)",
     "CREATE INDEX IF NOT EXISTS idx_pending_ideas_campaign ON pending_ideas(campaign_id)",
+    # Milestone 10 PR-2 — hypothesis evolution tree
+    "CREATE INDEX IF NOT EXISTS idx_hnode_campaign        ON hypothesis_node(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hnode_parent          ON hypothesis_node(parent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hnode_root            ON hypothesis_node(root_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hedge_campaign        ON hypothesis_edge(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hedge_parent          ON hypothesis_edge(parent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hedge_child           ON hypothesis_edge(child_id)",
 ]
 
 
@@ -470,6 +523,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         # Milestone 10 — autonomous research campaign layer
         conn.execute(_CREATE_RESEARCH_CAMPAIGN)
         conn.execute(_CREATE_CAMPAIGN_STATE_EVENTS)
+        conn.execute(_CREATE_HYPOTHESIS_NODE)
+        conn.execute(_CREATE_HYPOTHESIS_EDGE)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).

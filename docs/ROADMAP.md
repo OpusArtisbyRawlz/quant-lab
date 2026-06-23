@@ -55,6 +55,17 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     config, and `reconcile()` / `reconcile_all()` / `rebuild_from_events()` make
     the row deletable and fully reconstructible from events + experiments after
     an interrupted transition.
+  - **PR-2 (done) — Hypothesis evolution tree.** Schema v9 adds two append-only
+    tables: `hypothesis_node` (one immutable, fully-auditable row per
+    hypothesis; the root has `parent_id` NULL, every other node records its
+    primary parent, root, depth, and the operator that produced it) and
+    `hypothesis_edge` (the immutable parent→child relationship labelled with the
+    evolution operator). The six operators are `refine`, `vary_bar`,
+    `cross_market`, `add_filter`, `combine`, `negate`; `combine` writes one edge
+    per merged parent into a single child (a DAG). The `HypothesisTreeManager`
+    is the sole writer, and an entire tree/forest is reconstructible from
+    storage (`reconstruct_tree` / `reconstruct_forest` / `lineage`). Touches
+    only `agents/`; no execution, approval, or experiment-storage changes.
 
 ## Upcoming
 
