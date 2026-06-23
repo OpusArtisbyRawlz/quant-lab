@@ -161,6 +161,27 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     (idempotent, no double execution), crash-after-ledger-write (R1 repair, no
     duplicate experiment), and cold-restart reconciliation. Touches only
     `agents/`.
+  - **PR-8 (done) — Exploration quota + anti-mode-collapse safeguards.** No
+    schema change — pure selection/ordering policy over already-stored state.
+    The new storage-free `agents/research_quota` `ExplorationPlanner` reserves
+    `ceil(exploration_fraction × window)` of every dispatch window for the best
+    **explore** ideas *before* exploit ideas fill it, so high-value exploit ideas
+    can never consume all approval slots; an idea is `explore` when its target M9
+    context cell is under-sampled (PR-5 EIG ≥ threshold), `exploit` otherwise. A
+    context-diversity cap (`SchedulerConfig.max_per_context`, default 2) stops one
+    `signal × market × universe × bar_type` context from dominating a tick
+    (retries exempt). The ResearchStrategist gains a frontier-expansion bound
+    (`max_children_per_frontier`, default 3) that retires a hypothesis node from
+    the frontier once it has spawned that many children, bounding repeated
+    expansion of the same node. Campaign-level explore/exploit accounting
+    (`ResearchScheduler.exploration_stats`) is derived purely from the
+    append-only `scheduler_event` log, so it is reconstructible and survives a
+    restart. The bucket is surfaced on `DispatchItem` and recorded in each
+    `dispatched` event; the loop reports per-tick explore/exploit counts in its
+    schedule-phase checkpoint. It never approves, executes, or evaluates anything,
+    adds no adaptive/self-modifying weights, and leaves the M7 execution path, the
+    M9 learning path, the human approval gate, and the PR-7 loop structure
+    untouched. Touches only `agents/`.
 
 ## Upcoming
 

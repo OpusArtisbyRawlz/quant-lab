@@ -35,6 +35,11 @@ from agents.research_prioritizer.prioritizer import (
     ResearchPrioritizer,
     PrioritizerConfig,
 )
+from agents.research_quota import (
+    ExplorationPlanner,
+    QuotaConfig,
+    Candidate,
+)
 
 # Campaign states whose ideas the scheduler is allowed to dispatch.
 _RUNNABLE_CAMPAIGN_STATES = frozenset({cm_states.STATE_ACTIVE})
@@ -59,6 +64,13 @@ class SchedulerConfig:
     global_dispatch_limit: int | None = None
     # Reasons that mark an interrupted dispatch as retry-eligible on recovery.
     interrupted_reason: str = "interrupted"
+    # PR-8 anti-mode-collapse safeguards over the fresh-idea dispatch window.
+    # Fraction of a dispatch window reserved for explore-bucket ideas; None ⇒
+    # fall back to the prioritizer's exploration_fraction.
+    exploration_fraction: float | None = None
+    # Max fresh ideas sharing one M9 context key in a single dispatch window;
+    # None ⇒ context diversity is not enforced. Retries are exempt.
+    max_per_context: int | None = 2
 
     @property
     def max_attempts(self) -> int:
@@ -76,6 +88,7 @@ class DispatchItem:
     rank: int                    # position within the computed plan (0-based)
     research_value: float | None  # prioritizer score (None for pure retries)
     reason: str = ""
+    bucket: str | None = None    # PR-8 "explore" | "exploit" (None for retries)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -86,6 +99,7 @@ class DispatchItem:
             "rank": self.rank,
             "research_value": self.research_value,
             "reason": self.reason,
+            "bucket": self.bucket,
         }
 
 
@@ -148,6 +162,20 @@ class ResearchScheduler:
             db_path, config=PrioritizerConfig()
         )
         self.campaigns = campaign_manager or CampaignManager(db_path)
+        # PR-8 exploration quota + context-diversity planner. The quota fraction
+        # defaults to the prioritizer's own exploration_fraction when not set, so
+        # the scheduler and prioritizer share one exploration policy.
+        self._exploration_fraction = (
+            self.config.exploration_fraction
+            if self.config.exploration_fraction is not None
+            else self.prioritizer.config.exploration_fraction
+        )
+        self.planner = ExplorationPlanner(
+            QuotaConfig(
+                exploration_fraction=self._exploration_fraction,
+                max_per_context=self.config.max_per_context,
+            )
+        )
 
     # ------------------------------------------------------------------ #
     # Queue 1 — campaigns
@@ -314,6 +342,9 @@ class ResearchScheduler:
             rank += 1
 
         # ---- (2) fresh ideas, campaign-ordered then ad-hoc ----
+        # Build a single value-ordered candidate stream: each runnable campaign's
+        # ranked ideas (in campaign_queue priority order), then ad-hoc ideas. The
+        # incoming order IS the value order the exploration planner preserves.
         ranked_groups: list[list[Any]] = []
         for camp in self.campaign_queue():
             ranked_groups.append(
@@ -321,10 +352,10 @@ class ResearchScheduler:
             )
         ranked_groups.append(self.priority_queue(campaign_id=_ADHOC))
 
+        candidates: list[Candidate] = []
+        order = 0
         for group in ranked_groups:
             for ranked in group:
-                if cap is not None and len(plan) >= cap:
-                    break
                 idea_id = ranked.idea_id
                 if idea_id in chosen:
                     continue
@@ -333,26 +364,48 @@ class ResearchScheduler:
                 # by retry_queue, so skip ideas already dispatched/exhausted.
                 if not self._is_fresh(idea_id):
                     continue
-                cid = ranked.idea.get("campaign_id")
-                rem = _budget_for(cid)
-                if rem is not None and rem <= 0:
-                    continue
-                plan.append(
-                    DispatchItem(
-                        idea_id=idea_id,
-                        campaign_id=cid,
-                        attempt=1,
-                        is_retry=False,
-                        rank=rank,
-                        research_value=ranked.breakdown.research_value,
-                        reason="fresh",
-                    )
-                )
-                chosen.add(idea_id)
-                _consume(cid)
-                rank += 1
-            if cap is not None and len(plan) >= cap:
-                break
+                b = ranked.breakdown
+                ev = b.evidence or {}
+                candidates.append(Candidate(
+                    idea_id=idea_id,
+                    bucket=b.bucket,
+                    context_key=(
+                        ev.get("primary_signal"), ev.get("market"),
+                        ev.get("universe"), ev.get("bar_type"),
+                    ),
+                    order=order,
+                    campaign_id=ranked.idea.get("campaign_id"),
+                    research_value=b.research_value,
+                    payload=ranked,
+                ))
+                order += 1
+
+        # The fresh window is whatever dispatch budget remains after retries.
+        window = (
+            len(candidates) if cap is None else max(0, cap - len(plan))
+        )
+
+        def _admit(c: Candidate) -> bool:
+            rem = _budget_for(c.campaign_id)
+            if rem is not None and rem <= 0:
+                return False
+            _consume(c.campaign_id)
+            return True
+
+        quota_plan = self.planner.plan(candidates, window, accept=_admit)
+        for c in quota_plan.selected:
+            plan.append(DispatchItem(
+                idea_id=c.idea_id,
+                campaign_id=c.campaign_id,
+                attempt=1,
+                is_retry=False,
+                rank=rank,
+                research_value=c.research_value,
+                reason="fresh",
+                bucket=c.bucket,
+            ))
+            chosen.add(c.idea_id)
+            rank += 1
         return plan
 
     # ------------------------------------------------------------------ #
@@ -381,10 +434,48 @@ class ResearchScheduler:
                     "rank": item.rank,
                     "is_retry": item.is_retry,
                     "research_value": item.research_value,
+                    "bucket": item.bucket,
                 },
                 db_path=self.db_path,
             )
         return plan
+
+    # ------------------------------------------------------------------ #
+    # exploration accounting — reconstructed purely from the dispatch log
+    # ------------------------------------------------------------------ #
+    def exploration_stats(
+        self, *, campaign_id: str | None = None
+    ) -> dict[str, Any]:
+        """Campaign-level explore/exploit accounting, derived from the log.
+
+        Counts every ``dispatched`` event by the ``bucket`` recorded in its
+        evidence. Because it reads only the append-only ``scheduler_event`` log,
+        the accounting is fully reconstructible from storage and therefore
+        survives process restarts — a fresh ResearchScheduler instance reports
+        the same numbers (PR-8 "restart/recovery preserves quota state").
+        """
+        explore = exploit = unknown = 0
+        for e in scheduler_store.list_events(
+            action=scheduler_store.ACTION_DISPATCHED, db_path=self.db_path
+        ):
+            if campaign_id is not None and e.get("campaign_id") != campaign_id:
+                continue
+            ev = e.get("evidence")
+            bucket = ev.get("bucket") if isinstance(ev, dict) else None
+            if bucket == "explore":
+                explore += 1
+            elif bucket == "exploit":
+                exploit += 1
+            else:
+                unknown += 1
+        total = explore + exploit + unknown
+        return {
+            "explore": explore,
+            "exploit": exploit,
+            "unknown": unknown,
+            "total": total,
+            "explore_fraction": round(explore / total, 6) if total else 0.0,
+        }
 
     # ------------------------------------------------------------------ #
     # record_result — outcome of a dispatched run (written by the loop layer)

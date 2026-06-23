@@ -73,6 +73,17 @@ taken — do not let debt live only in PR comments.
 > M7 execution path, the M9 learning path, and the human approval gate are
 > untouched. See `agents/TODOS.md` §12.
 
+> **M10 PR-8 (Exploration quota + anti-mode-collapse): no new debt.** PR-8 is
+> pure selection/ordering policy with **no schema change**. The new
+> `agents/research_quota.ExplorationPlanner` is storage-free and deterministic;
+> the scheduler reserves exploration slots and caps per-context fan-out over the
+> *already-approved* pool, the strategist bounds repeated frontier expansion from
+> the persisted tree, and campaign-level explore/exploit accounting is derived
+> purely from the append-only `scheduler_event` log (reconstructible across
+> restarts). All parameters are fixed config — no adaptive or self-modifying
+> weights. The M7 execution path, the M9 learning path, the human approval gate,
+> and the PR-7 loop structure are untouched. See `agents/TODOS.md` §14.
+
 | ID | Title | Status | Introduced | Scheduled |
 |----|-------|--------|------------|-----------|
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |

@@ -378,3 +378,50 @@ delegates to the executor unchanged). Recovery is tested for crash-before-
 dispatch, crash-after-dispatch (idempotent, no double execution), crash-after-
 ledger-write (R1 repair, no duplicate experiment), and cold-restart
 reconciliation.
+
+
+## 14. Exploration Quota + Anti-Mode-Collapse Safeguards (M10 PR-8)
+
+**Files:** `agents/research_quota/` (`quota.py`, `__init__.py`) — the new pure,
+storage-free `ExplorationPlanner`; wired into `agents/research_scheduler/
+scheduler.py`; frontier bound added to `agents/research_strategist/strategist.py`;
+per-tick accounting surfaced in `agents/research_loop/loop.py`. **No schema
+change** — PR-8 is policy over already-stored state.
+
+PR-8 stops the autonomous loop from collapsing onto a single high-value exploit
+context. Five safeguards, all deterministic and reconstructible from storage:
+
+1. **Exploit vs explore classification.** Reuses the PR-5 prioritizer's
+   `ScoreBreakdown.bucket` (`explore` when the target M9 context cell's EIG ≥
+   `explore_eig_threshold`, i.e. an under-sampled cell; else `exploit`). The
+   scheduler surfaces it on `DispatchItem.bucket` and records it in the
+   `dispatched` event's evidence.
+2. **Exploration quota enforcement.** The `ExplorationPlanner` reserves
+   `ceil(exploration_fraction × window)` of each dispatch window for the best
+   explore candidates *before* exploit ideas fill the window, so high-value
+   exploit ideas can never consume every slot. The fraction defaults to the
+   prioritizer's `exploration_fraction` so scheduler and prioritizer share one
+   policy; `SchedulerConfig.exploration_fraction` overrides.
+3. **Context-diversity safeguard.** No more than
+   `SchedulerConfig.max_per_context` (default 2) *fresh* ideas sharing one M9
+   context key (`signal × market × universe × bar_type`) enter a single dispatch
+   window; retries are exempt. Prevents one context dominating a tick.
+4. **Frontier-expansion control.** `StrategistConfig.max_children_per_frontier`
+   (default 3) retires a hypothesis node from the frontier once it has spawned
+   that many children, bounding repeated expansion of the same node across ticks.
+   The child count is read from the persisted tree, so the bound is deterministic.
+5. **Campaign-level exploration accounting.** `ResearchScheduler.exploration_stats
+   (campaign_id=…)` derives explore/exploit/total counts purely from the
+   append-only `scheduler_event` log, so the accounting is reconstructible and a
+   fresh scheduler instance after a restart reports identical numbers.
+
+**Invariants preserved (asserted by tests).** PR-8 is pure selection/ordering
+policy: it never approves, executes, or evaluates anything, adds no schema, and
+leaves the M7 execution path, the M9 learning path, the human approval gate, and
+the PR-7 loop structure untouched. The exploration quota and context-diversity
+caps only change *which approved ideas a human-approved pool dispatches first*,
+never *whether* an idea runs. Tests cover: exploit cannot consume all slots; the
+quota is respected across window sizes and fractions; explore selections map to
+under-sampled contexts; repeated frontier expansion is bounded; rankings stay
+deterministic; and quota accounting survives a simulated restart. No adaptive or
+self-modifying weights are introduced — all parameters are fixed config.
