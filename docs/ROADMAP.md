@@ -216,6 +216,22 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     renders the expected board; and a deterministic replay in a fresh DB produces
     an identical campaign fingerprint. No schema change, no production-readiness
     or statistical-validation checks. Touches only `agents/` and `docs/`.
+  - **PR-11 (done) — Final boundary guards & architectural validation.** A
+    test-only milestone (`agents/tests/test_m10_boundary_guards.py`, 11 tests)
+    that *seals* M10 and pins the M10 ⇄ M11 boundary against future regression
+    or scope creep. Combines **static (AST) guards** over the M10 control modules
+    (strategist / scheduler / loop / campaign manager / reporting) with
+    **behavioural guards** over the real components. Asserts: the strategist and
+    scheduler cannot execute experiments (never import an M7 executor); only the
+    loop imports M7, so only M7 executes; no M10 module calls an M9 signal-
+    intelligence writer (only M9 updates signal intelligence); no M10 module
+    calls `approve_idea` and a pending (un-approved) idea is never dispatched
+    (the human approval gate cannot be bypassed); the M10 public surface exposes
+    no significance / certification / deployment / auto-approve function and the
+    rendered report makes no such claim (M10 cannot certify significance or claim
+    deployment readiness — those are deferred to M11); the CampaignReporter
+    changes no row counts; and deterministic replay stays byte-stable. No schema
+    change. Touches only `agents/` and `docs/`. **M10 is complete.**
 
 ## Upcoming
 

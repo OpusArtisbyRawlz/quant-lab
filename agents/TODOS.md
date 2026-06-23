@@ -511,3 +511,42 @@ checkpoint survives a mid-campaign crash; the CampaignReporter renders the
 expected outputs; and a deterministic replay in a fresh DB produces an identical
 campaign fingerprint (tree shape + edges + overview). Out of scope by design:
 statistical validation, production-readiness checks, auto-approval, M11.
+
+## 17. Final boundary guards & architectural validation (M10 PR-11)
+
+A **test-only** milestone (`agents/tests/test_m10_boundary_guards.py`, 11 tests)
+that *seals* Milestone 10. No production code, no schema change. It pins the
+M10 ⇄ M11 boundary so future work cannot regress an M10 invariant or pull an M11
+responsibility into the M10 stack, using two complementary techniques.
+
+**Static (AST) guards** parse the M10 control modules (strategist, scheduler,
+loop, campaign manager) + the reporting package and assert structural facts:
+
+- **Execution-path integrity** — strategist and scheduler import no M7 executor
+  (`idea_executor`/`experiment_runner`/`cycle_runner`), so they *cannot* execute;
+  the loop is the *only* M10 module that imports M7 → **only M7 executes**.
+- **Learning-path integrity** — no M10 module calls an M9 signal-intelligence
+  writer (`upsert_signal`, `update_lifecycle`, …) → **only M9 updates signal
+  intelligence** (which happens inside the executor's learning step).
+- **No auto-approval surface** — no M10 module calls `approve_idea`, and no M10
+  public function name implies significance / certification / deployment /
+  auto-approve → **M10 cannot certify significance or claim deployment
+  readiness**.
+
+**Behavioural guards** drive the real components:
+
+- **Human approval gate cannot be bypassed** — a pending (un-approved) idea is
+  never selected by the scheduler nor executed by the loop's dispatch phase;
+  only the human-approved idea runs through the real M7 executor.
+- **Read-only reporting** — every CampaignReporter entry point leaves all table
+  row counts unchanged.
+- **Deterministic replay** — two independent rebuilds of a worked walk on fresh
+  databases produce a byte-identical storage-derived fingerprint.
+
+**Deferred to M11 (explicitly out of scope for M10).** Statistical-significance
+certification of results; deployment / production-readiness metrics and gating;
+auto-approval of ideas (any bypass of the human approval queue); promotion of a
+strategy to live trading. M10 stops at *proposing, scheduling, dispatching
+human-approved ideas through M7, learning via M9, and read-only reporting*.
+
+**M10 is complete** (PR-1 … PR-11).
