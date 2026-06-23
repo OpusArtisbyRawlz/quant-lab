@@ -14,6 +14,17 @@ from pathlib import Path
 from agents.storage.db import DB_PATH
 from . import report_store as rs
 from . import context_report_store as crs
+from . import campaign_report_store as cap
+from .campaign_report_store import (
+    CampaignOverviewStat,
+    CampaignRankStat,
+    StalledCampaignStat,
+    ExplorationStat,
+    ProductiveContextStat,
+    RecentLessonStat,
+    LifecycleBucketStat,
+    HypothesisTreeNode,
+)
 from .report_store import (
     SourceModelStat,
     GroupStat,
@@ -47,6 +58,23 @@ __all__ = [
     "context_leaderboard",
     "signal_generalization_summary",
     "lifecycle_audit_summary",
+    # Milestone 10 campaign reporting
+    "campaign_overview_summary",
+    "campaign_ranking_summary",
+    "stalled_campaign_summary",
+    "exploration_summary",
+    "productive_context_summary",
+    "recent_knowledge_summary",
+    "signal_lifecycle_board_summary",
+    "hypothesis_tree_summary",
+    "CampaignOverviewStat",
+    "CampaignRankStat",
+    "StalledCampaignStat",
+    "ExplorationStat",
+    "ProductiveContextStat",
+    "RecentLessonStat",
+    "LifecycleBucketStat",
+    "HypothesisTreeNode",
     # dataclasses re-exported for typed callers
     "ContextCellStat",
     "GeneralizationStat",
@@ -173,3 +201,57 @@ def lifecycle_audit_summary(
     db_path: Path = DB_PATH) -> list[LifecycleEventStat]:
     """Lifecycle transitions over time. Objective: when/why signals moved state."""
     return crs.lifecycle_audit_report(feature_name=feature_name, db_path=db_path)
+
+
+# ---------------------------------------------------------------------------
+# Milestone 10 — campaign reporting (read-only)
+# ---------------------------------------------------------------------------
+
+def campaign_overview_summary(
+    campaign_id: str | None = None, db_path: Path = DB_PATH
+):
+    """Campaign overview. One campaign if campaign_id given, else all of them."""
+    if campaign_id is None:
+        return cap.all_campaign_overviews(db_path=db_path)
+    return cap.campaign_overview(campaign_id, db_path=db_path)
+
+
+def campaign_ranking_summary(db_path: Path = DB_PATH) -> list[CampaignRankStat]:
+    """Deterministic campaign productivity ranking."""
+    return cap.campaign_ranking(db_path=db_path)
+
+
+def stalled_campaign_summary(db_path: Path = DB_PATH) -> list[StalledCampaignStat]:
+    """Campaigns whose event-log state is STALLED."""
+    return cap.stalled_campaigns(db_path=db_path)
+
+
+def exploration_summary(
+    campaign_id: str | None = None, db_path: Path = DB_PATH) -> ExplorationStat:
+    """Explore/exploit dispatch accounting (matches the scheduler's own)."""
+    return cap.exploration_report(campaign_id=campaign_id, db_path=db_path)
+
+
+def productive_context_summary(
+    top: int = 10, min_n: int | None = None, db_path: Path = DB_PATH,
+) -> list[ProductiveContextStat]:
+    """Most productive context cells overall."""
+    return cap.productive_contexts(top=top, min_n=min_n, db_path=db_path)
+
+
+def recent_knowledge_summary(
+    limit: int = 20, db_path: Path = DB_PATH) -> list[RecentLessonStat]:
+    """Most recently learned lessons."""
+    return cap.recent_knowledge(limit=limit, db_path=db_path)
+
+
+def signal_lifecycle_board_summary(
+    db_path: Path = DB_PATH) -> list[LifecycleBucketStat]:
+    """Signals grouped by lifecycle state."""
+    return cap.signal_lifecycle_board(db_path=db_path)
+
+
+def hypothesis_tree_summary(
+    campaign_id: str, db_path: Path = DB_PATH) -> list[HypothesisTreeNode]:
+    """Hypothesis evolution forest for a campaign, rendered from stored lineage."""
+    return cap.hypothesis_tree(campaign_id, db_path=db_path)

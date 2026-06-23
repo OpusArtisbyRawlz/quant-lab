@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agents.protocol import ExperimentSpec
+from agents.protocol import ExperimentSpec, normalize_bar_type
 
 # Mirror the Experiment Designer's defaults (agents/experiment_designer/designer.py).
 _DEFAULT_MODEL = "quantile_ranking"
@@ -54,6 +54,7 @@ def idea_to_spec(
         validation_method=_DEFAULT_VALIDATION_METHOD,
         success_criteria=dict(success_criteria or _DEFAULT_SUCCESS_CRITERIA),
         expected_improvement="Positive net Sharpe vs. random (LLM-proposed idea)",
+        bar_type=normalize_bar_type(idea_row.get("bar_type")),
         project=project,
         notes=f"Auto-generated from approved idea {idea_row.get('idea_id', '?')} "
               f"(source_model={idea_row.get('source_model', '?')}).",

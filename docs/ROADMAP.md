@@ -44,14 +44,194 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
   to test next and why*, never pulling the execution trigger or bypassing the
   human approval gate. Delivered incrementally by PR:
   - **PR-1 (done) — Research Campaign foundation.** Schema v8 adds
-    `research_campaign` and `campaign_state_events` (append-only audit), plus an
-    additive `pending_ideas.campaign_id` link. The `CampaignManager` agent owns
-    the campaign state machine
+    `campaign_state_events` (append-only, FK-less, the **source of truth**) and
+    `research_campaign` (a rebuildable projection), plus an additive
+    `pending_ideas.campaign_id` link. The `CampaignManager` agent owns the
+    campaign state machine
     (DRAFT → ACTIVE → {STALLED ↔ ACTIVE} → {COMPLETED | ARCHIVED | DISCARDED};
-    ARCHIVED may revive to ACTIVE), is the sole writer of the campaign tables,
-    emits an immutable event on every accepted transition, and derives campaign
-    progress from campaign-tagged experiments (the stored counter is only a
-    cache).
+    ARCHIVED may revive to ACTIVE) and is the sole writer of the campaign tables.
+    State is event-sourced: legality is judged against the log, the projection
+    row's `state`/`budget_spent` are caches, the genesis event carries the full
+    config, and `reconcile()` / `reconcile_all()` / `rebuild_from_events()` make
+    the row deletable and fully reconstructible from events + experiments after
+    an interrupted transition.
+  - **PR-2 (done) — Hypothesis evolution tree.** Schema v9 adds two append-only
+    tables: `hypothesis_node` (one immutable, fully-auditable row per
+    hypothesis; the root has `parent_id` NULL, every other node records its
+    primary parent, root, depth, and the operator that produced it) and
+    `hypothesis_edge` (the immutable parent→child relationship labelled with the
+    evolution operator). The six operators are `refine`, `vary_bar`,
+    `cross_market`, `add_filter`, `combine`, `negate`; `combine` writes one edge
+    per merged parent into a single child (a DAG). The `HypothesisTreeManager`
+    is the sole writer, and an entire tree/forest is reconstructible from
+    storage (`reconstruct_tree` / `reconstruct_forest` / `lineage`). Touches
+    only `agents/`; no execution, approval, or experiment-storage changes.
+  - **PR-3 (done) — Campaign attribution linkage.** Every hypothesis, approved
+    idea, experiment, lesson, and M9 observation is attributable to its
+    originating campaign, with attribution **derived at read time** from link
+    keys that already exist (`pending_ideas.campaign_id` / `.experiment_id` and
+    `hypothesis_node.campaign_id` / `.idea_id`) — no campaign_id column is added
+    to experiments, lessons, or observations, so execution, approval, and
+    evaluation are untouched. `campaign_store.link_idea_to_campaign` is a
+    write-once tag; the new read-only `campaign_attribution` module provides
+    forward (`*_for_campaign`, `attribution_summary`) and reverse
+    (`campaign_for_experiment`, `lineage_for_experiment`) views. Because the
+    anchors live on the ideas/hypotheses rather than the campaign row,
+    attribution survives deleting and rebuilding the `research_campaign`
+    projection, and non-campaign experiments simply resolve to no campaign.
+  - **PR-4 (done) — ResearchStrategist + first-class `bar_type` plumbing.**
+    Schema v10 makes `bar_type` a typed, first-class field carried end to end:
+    `hypothesis_node.bar_type` (PR-2) → `pending_ideas.bar_type` →
+    `ExperimentSpec.bar_type` → `config.json` → `experiments.bar_type`, all
+    additive `NOT NULL DEFAULT 'time'` migrations — never hidden in free text,
+    so the Alternative Bars campaign is executable as soon as a bar engine is
+    added (no further migration needed). Supported values are exactly `time,
+    volume, dollar, tick, volume_imbalance, dollar_imbalance`
+    (`agents.protocol.SUPPORTED_BAR_TYPES` / `normalize_bar_type`). The new
+    `agents/research_strategist` is a deterministic (no-LLM) decision layer
+    above the unchanged M7 execution core and M9 learning core: each tick it
+    reads campaign state + budget, M9 context evidence, and the hypothesis
+    frontier, then derives a bounded set of `Proposal`s and, on `apply`, writes
+    children into the hypothesis tree and enqueues them as `pending` ideas in
+    the existing human approval queue (the gate is preserved — it never
+    executes, schedules, approves, or evaluates). Auto-triggers cover
+    `vary_bar`, `cross_market`, `combine`, and `negate`; `refine`/`add_filter`
+    are interface-complete via `apply`. Explosion safeguards: campaign must be
+    ACTIVE and not budget-exhausted, `max_depth`, frontier dedup, terminal
+    `negate` children, one move per signal/market/universe lineage per tick, and
+    `max_proposals_per_tick`. Touches only `agents/`.
+  - **PR-5 (done) — ResearchPrioritizer + Research Value scoring.** A
+    deterministic, explainable ranking layer (`agents/research_prioritizer`)
+    over the existing approval queue. It scores `pending` ideas by *Research
+    Value* — a fixed, normalised weighted blend of five `[0,1]` components, each
+    surfaced in a per-idea `ScoreBreakdown`: **Expected Information Gain**
+    (`1/(1+n)` in the target M9 context cell's prior-experiment count),
+    **Novelty** (batch-structural anti-redundancy, `1/(1+d)` in sibling ideas
+    sharing the idea's signal/market/universe/bar key), **Memory Score**
+    (supportive vs cautionary research-memory alignment, neutral 0.5),
+    **Campaign Priority** (`goal_spec.priority`, neutral default off-campaign),
+    and **Cost** (bar-type construction complexity + signal count, folded in as
+    cheapness). Ordering is a total order with `idea_id` tie-breaks, so identical
+    inputs always yield identical rankings. An **exploration quota** reserves
+    `ceil(exploration_fraction * top_k)` of the selection window for the best
+    explore-bucket ideas (`EIG ≥ explore_eig_threshold`), so high-scoring
+    exploit ideas cannot crowd exploration out of the top_k. Read-only: it never
+    executes, schedules, approves, or mutates ideas; the human gate and the
+    M7/M9 paths are untouched. Touches only `agents/`.
+  - **PR-6 (done) — ResearchScheduler + queues.** Schema v11 adds the
+    append-only `scheduler_event` log (`dispatched / succeeded / failed /
+    retry_scheduled / exhausted`), the **source of truth** for every scheduler
+    decision; `agents/storage/scheduler_store.py` is its sole writer. The new
+    `agents/research_scheduler` is the deterministic ordering/planning layer above
+    the unchanged M7 execution core and M9 learning core: it decides *which
+    already-approved ideas run next and in what order*, but never approves,
+    claims, specs, or executes — dispatch candidates come only from
+    `approval_queue.list_approved`, so nothing is planned without clearing the
+    human gate, and its only write is to `scheduler_event`. Four queues are pure
+    projections of stored state: `campaign_queue` (ACTIVE, non-budget-exhausted
+    campaigns ordered by `goal_spec.priority` then `campaign_id`), `priority_queue`
+    (approved ideas ranked by PR-5 Research Value, in-flight excluded),
+    `experiment_queue` (the dispatch plan: due retries first, then fresh ideas by
+    campaign order then rank, respecting per-campaign `budget − produced −
+    in_flight` and an optional global cap), and `retry_queue` (failed ideas with
+    dispatch count below `max_retries + 1`, exhausted past it). `reconcile()`
+    recovers interrupted runs from ground-truth stored state (executed ⇒
+    succeeded, rejected ⇒ failed, still-pending ⇒ failed/`interrupted` and
+    retry-eligible) and delegates campaign reconciliation to
+    `CampaignManager.reconcile_all()`; it is idempotent. Because the log is
+    append-only and carries the attempt number, every decision is reconstructible
+    from storage. Touches only `agents/`.
+  - **PR-7 (done) — Deterministic research loop.** Schema v12 adds the
+    append-only `loop_checkpoint` log; `agents/storage/loop_store.py` is its sole
+    writer. The new `agents/research_loop` is the top-level orchestrator that ties
+    the M10 decision layer into a single resumable *tick* over one campaign,
+    walking a fixed six-phase sequence — **recover → generate → schedule →
+    dispatch → learn → checkpoint** — with every phase bracketed by
+    `started` / `completed` checkpoints. It is pure orchestration: it **may**
+    generate (ResearchStrategist), prioritize + schedule (ResearchScheduler /
+    ResearchPrioritizer), dispatch *already-approved* ideas through the unchanged
+    M7 executor (which runs the M9 learning path), and checkpoint; it **may not**
+    auto-approve ideas, execute unapproved ideas, modify experiment results, or
+    change M7 runner logic. Each phase is skipped when its `completed` checkpoint
+    already exists, so a crashed tick resumes exactly where it stopped without
+    repeating side effects; the deterministic `tick_id`
+    (`<campaign_id>#tNNNN`, resume-latest-unfinished-else-next) is derived purely
+    from the checkpoint log, making every tick reconstructible from storage.
+    Recovery is covered for crash-before-dispatch, crash-after-dispatch
+    (idempotent, no double execution), crash-after-ledger-write (R1 repair, no
+    duplicate experiment), and cold-restart reconciliation. Touches only
+    `agents/`.
+  - **PR-8 (done) — Exploration quota + anti-mode-collapse safeguards.** No
+    schema change — pure selection/ordering policy over already-stored state.
+    The new storage-free `agents/research_quota` `ExplorationPlanner` reserves
+    `ceil(exploration_fraction × window)` of every dispatch window for the best
+    **explore** ideas *before* exploit ideas fill it, so high-value exploit ideas
+    can never consume all approval slots; an idea is `explore` when its target M9
+    context cell is under-sampled (PR-5 EIG ≥ threshold), `exploit` otherwise. A
+    context-diversity cap (`SchedulerConfig.max_per_context`, default 2) stops one
+    `signal × market × universe × bar_type` context from dominating a tick
+    (retries exempt). The ResearchStrategist gains a frontier-expansion bound
+    (`max_children_per_frontier`, default 3) that retires a hypothesis node from
+    the frontier once it has spawned that many children, bounding repeated
+    expansion of the same node. Campaign-level explore/exploit accounting
+    (`ResearchScheduler.exploration_stats`) is derived purely from the
+    append-only `scheduler_event` log, so it is reconstructible and survives a
+    restart. The bucket is surfaced on `DispatchItem` and recorded in each
+    `dispatched` event; the loop reports per-tick explore/exploit counts in its
+    schedule-phase checkpoint. It never approves, executes, or evaluates anything,
+    adds no adaptive/self-modifying weights, and leaves the M7 execution path, the
+    M9 learning path, the human approval gate, and the PR-7 loop structure
+    untouched. Touches only `agents/`.
+  - **PR-9 (done) — CampaignReporter.** A strictly read-only reporting surface
+    over the M10 loop, added to the existing `agents/reporting/` package. The new
+    `campaign_report_store.py` mirrors `context_report_store.py`: it issues no SQL
+    of its own and composes the storage read APIs (`campaign_store`,
+    `campaign_attribution`, `scheduler_store`, `hypothesis_store`, `context_store`,
+    `signal_store`, `lessons_store`) into frozen dataclasses for eight reports —
+    campaign overview, deterministic campaign ranking, stalled-campaign board,
+    exploration-vs-exploitation accounting, productive contexts, recently-learned
+    knowledge, signal lifecycle board, and the hypothesis evolution tree. Campaign
+    state is derived via `campaign_store.reconstruct_state_from_events` (event log,
+    not projection row); exploration accounting reads the same `scheduler_event`
+    evidence as `ResearchScheduler.exploration_stats`, so a report can never
+    disagree with the live scheduler. `campaign_report.py` renders the markdown
+    campaign board. No schema change, no writes, no execution-module imports
+    (enforced by the globbed reporting guard tests). Touches only `agents/` and
+    `docs/`.
+  - **PR-10 (done) — Alternative Bars worked campaign (end-to-end).** A
+    test-only milestone (`agents/tests/test_altbars_campaign.py`) that validates
+    the entire M10 stack working together on the design's worked example: a
+    single campaign driven through `CampaignManager` (event-sourced create +
+    activate), `ResearchStrategist` (the Time → Volume → Dollar →
+    Volume-Imbalance bar-type ladder, then a Cross-Market generalisation, via the
+    six deterministic operators gated on M9 evidence), the human approval gate,
+    `ResearchScheduler` (exploration-quota + per-context diversity enforcement),
+    the real `ResearchLoop` six-phase tick over the *unchanged* M7 executor on
+    synthetic data (crash-before-dispatch recovery, checkpoint resume, no
+    duplicate experiment), and the read-only `CampaignReporter`. Asserts:
+    campaign creates successfully; the hypothesis tree evolves as expected;
+    exploration quota stays enforced (exploit cannot take all slots); frontier
+    expansion obeys `max_children_per_frontier`; campaign budget accounting is
+    correct; recovery/checkpoint survives a mid-campaign crash; the reporter
+    renders the expected board; and a deterministic replay in a fresh DB produces
+    an identical campaign fingerprint. No schema change, no production-readiness
+    or statistical-validation checks. Touches only `agents/` and `docs/`.
+  - **PR-11 (done) — Final boundary guards & architectural validation.** A
+    test-only milestone (`agents/tests/test_m10_boundary_guards.py`, 11 tests)
+    that *seals* M10 and pins the M10 ⇄ M11 boundary against future regression
+    or scope creep. Combines **static (AST) guards** over the M10 control modules
+    (strategist / scheduler / loop / campaign manager / reporting) with
+    **behavioural guards** over the real components. Asserts: the strategist and
+    scheduler cannot execute experiments (never import an M7 executor); only the
+    loop imports M7, so only M7 executes; no M10 module calls an M9 signal-
+    intelligence writer (only M9 updates signal intelligence); no M10 module
+    calls `approve_idea` and a pending (un-approved) idea is never dispatched
+    (the human approval gate cannot be bypassed); the M10 public surface exposes
+    no significance / certification / deployment / auto-approve function and the
+    rendered report makes no such claim (M10 cannot certify significance or claim
+    deployment readiness — those are deferred to M11); the CampaignReporter
+    changes no row counts; and deterministic replay stays byte-stable. No schema
+    change. Touches only `agents/` and `docs/`. **M10 is complete.**
 
 ## Upcoming
 

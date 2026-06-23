@@ -11,6 +11,111 @@ taken — do not let debt live only in PR comments.
 > shortcut. It is documented as intentional design in `agents/TODOS.md` §7 so it
 > is not later mis-logged here. PR-11 will add the TD-3 registry-seam entry.
 
+> **M10 PR-3 (Campaign attribution linkage): no new debt.** Attribution is
+> *derived* at read time from link keys that already exist
+> (`pending_ideas.campaign_id` / `.experiment_id`, `hypothesis_node.campaign_id`
+> / `.idea_id`); no campaign_id column is added to experiments, lessons, or
+> observations, so the M7 execution path, the approval gate, and M9 evaluation
+> are untouched. `link_idea_to_campaign` is write-once and the
+> `campaign_attribution` module is read-only — see `agents/TODOS.md` §9. Because
+> the anchors live on the ideas/hypotheses, attribution survives campaign-row
+> deletion/rebuild; this is intentional design, not an accepted shortcut.
+
+> **M10 PR-5 (ResearchPrioritizer + Research Value scoring): no new debt.**
+> The prioritizer (`agents/research_prioritizer`) is deterministic and
+> read-only: it reads ideas + M9/campaign/memory evidence and returns an
+> ordering with a full per-idea `ScoreBreakdown`; it never executes, schedules,
+> approves, or mutates ideas, adds no schema, and leaves the M7 execution path,
+> the M9 learning path, and the human approval gate untouched. The memory
+> sentiment read is intentionally keyword-based (not semantic); semantic memory
+> handling remains the pre-existing **TD-5** deferral and is not introduced here.
+> See `agents/TODOS.md` §11.
+
+> **M10 PR-4 (ResearchStrategist + `bar_type` plumbing): no new debt.**
+> `bar_type` is a first-class typed field migrated additively (`NOT NULL DEFAULT
+> 'time'`) across `hypothesis_node` → `pending_ideas` → `ExperimentSpec` /
+> `config.json` → `experiments`, so the path is complete and will *not* need a
+> follow-up migration when the bar-construction engine lands. That engine is a
+> deliberate, scoped deferral to a later milestone (not debt): the schema and
+> interfaces are complete now, and the runner currently only realizes `time`
+> bars; non-time `bar_type` ideas are representable, queueable, and auditable but
+> not yet executable. The `research_strategist` is deterministic, reads M9 +
+> campaign state read-only, and writes only hypothesis nodes/edges and `pending`
+> ideas through the existing approval queue — the human gate and the M7/M9 cores
+> are untouched.
+
+> **M10 PR-2 (Hypothesis evolution tree): no new debt.** `hypothesis_node` /
+> `hypothesis_edge` are append-only and storage-reconstructible (see
+> `agents/TODOS.md` §8). The two write-once link columns (`idea_id`,
+> `experiment_id`) are stamps applied after creation elsewhere, not mutations of
+> the hypothesis, so node auditability is preserved.
+
+> **M10 PR-7 (Deterministic research loop): no new debt.** The `loop_checkpoint`
+> table is append-only and storage-reconstructible; `agents/storage/loop_store.py`
+> is its sole writer. The `research_loop` is pure orchestration over already-built
+> components: each tick's six phases are bracketed by `started`/`completed`
+> checkpoints and skipped when already completed, so ticks are deterministic,
+> resumable, and idempotent. It delegates generation to the ResearchStrategist,
+> scheduling to the ResearchScheduler, and execution to the **unchanged M7
+> executor** (which runs the M9 learning path) — it never auto-approves, executes
+> unapproved ideas, modifies experiment results, or alters runner logic, so the
+> M7/M9 paths and the human approval gate are untouched. See `agents/TODOS.md`
+> §13.
+
+> **M10 PR-6 (ResearchScheduler + queues): no new debt.** The `scheduler_event`
+> table is append-only and storage-reconstructible (same event-sourced pattern as
+> `campaign_state_events`); `agents/storage/scheduler_store.py` is its sole
+> writer. The `research_scheduler` is a deterministic planning/ordering layer
+> whose four queues are pure read-only projections of stored state (approval-queue
+> statuses, campaign state, experiments, and the scheduler_event log). It selects
+> dispatch candidates only from `approval_queue.list_approved` and writes only
+> `scheduler_event` rows — it never approves, claims, specs, or executes — so the
+> M7 execution path, the M9 learning path, and the human approval gate are
+> untouched. See `agents/TODOS.md` §12.
+
+> **M10 PR-8 (Exploration quota + anti-mode-collapse): no new debt.** PR-8 is
+> pure selection/ordering policy with **no schema change**. The new
+> `agents/research_quota.ExplorationPlanner` is storage-free and deterministic;
+> the scheduler reserves exploration slots and caps per-context fan-out over the
+> *already-approved* pool, the strategist bounds repeated frontier expansion from
+> the persisted tree, and campaign-level explore/exploit accounting is derived
+> purely from the append-only `scheduler_event` log (reconstructible across
+> restarts). All parameters are fixed config — no adaptive or self-modifying
+> weights. The M7 execution path, the M9 learning path, the human approval gate,
+> and the PR-7 loop structure are untouched. See `agents/TODOS.md` §14.
+
+> **M10 PR-9 (CampaignReporter): no new debt.** PR-9 adds a strictly read-only
+> reporting surface (`agents/reporting/campaign_report_store.py` +
+> `campaign_report.py`) with **no schema change** and **no writes**. The store
+> issues no SQL of its own — it composes existing storage read APIs into frozen
+> dataclasses — and imports no execution modules; both properties are enforced by
+> the package-wide globbed reporting guard tests. Campaign state is read via the
+> event log and exploration accounting mirrors the scheduler's own evidence, so
+> reports are deterministic and reconstructible from stored state. The M7
+> execution path, M9 learning path, human approval gate, and M10 deterministic
+> architecture are untouched. See `agents/TODOS.md` §15.
+
+> **M10 PR-10 (Alternative Bars worked campaign): no new debt.** PR-10 is
+> **test-only** (`agents/tests/test_altbars_campaign.py`) — no production code, no
+> schema change. It exercises the full M10 stack end to end (CampaignManager →
+> ResearchStrategist → human approval gate → ResearchScheduler → real
+> ResearchLoop over the unchanged M7 executor → CampaignReporter) on the worked
+> Alternative-Bars example, asserting hypothesis-tree evolution, exploration-quota
+> enforcement, frontier-expansion limits, budget accounting, crash recovery /
+> checkpoint resume, reporter rendering, and deterministic replay. No statistical
+> validation, production-readiness checks, or auto-approval. See `agents/TODOS.md`
+> §16.
+
+> **M10 PR-11 (Final boundary guards & architectural validation): no new debt.**
+> PR-11 is **test-only** (`agents/tests/test_m10_boundary_guards.py`) — no
+> production code, no schema change. It seals M10 with static (AST) + behavioural
+> guards pinning the M10 ⇄ M11 boundary: strategist/scheduler cannot execute,
+> only M7 executes, only M9 mutates signal intelligence, the human approval gate
+> cannot be bypassed, M10 exposes no significance/deployment/auto-approve surface,
+> the CampaignReporter performs no writes, and deterministic replay stays stable.
+> The M7 execution path and M9 learning path are untouched. **M10 is complete.**
+> See `agents/TODOS.md` §17.
+
 | ID | Title | Status | Introduced | Scheduled |
 |----|-------|--------|------------|-----------|
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |

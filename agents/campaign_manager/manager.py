@@ -120,32 +120,70 @@ class CampaignManager:
 
         Raises CampaignError if a campaign with this id already exists.
         """
-        if campaign_store.get_campaign(campaign_id, db_path=self.db_path):
+        if campaign_store.reconstruct_state_from_events(
+            campaign_id, db_path=self.db_path
+        ) is not None:
             raise CampaignError(f"campaign already exists: {campaign_id}")
-        campaign_store.insert_campaign(
-            {
-                "campaign_id": campaign_id,
-                "theme": theme,
-                "goal_spec": goal_spec,
-                "scope": scope,
-                "state": STATE_DRAFT,
-                "budget_experiments": budget_experiments,
-                "exploration_fraction": exploration_fraction,
-                "stall_patience": stall_patience,
-                "stopping_spec": stopping_spec,
-            },
-            db_path=self.db_path,
-        )
-        # Genesis event: a creation marker (no prior state).
+
+        config = {
+            "theme": theme,
+            "goal_spec": goal_spec,
+            "scope": scope,
+            "budget_experiments": int(budget_experiments),
+            "exploration_fraction": float(exploration_fraction),
+            "stall_patience": int(stall_patience),
+            "stopping_spec": stopping_spec,
+        }
+        # The genesis event is the source of truth for the campaign's config and
+        # initial state. It is written FIRST so the campaign exists in the log
+        # even if the projection insert below is interrupted (reconcile rebuilds
+        # the row from this event). Its evidence carries the full config so the
+        # research_campaign row is fully reconstructible from the log alone.
         campaign_store.append_state_event(
             campaign_id,
             from_state=None,
             to_state=STATE_DRAFT,
             reason_code="created",
-            evidence={"theme": theme},
+            evidence={"config": config},
             db_path=self.db_path,
         )
+        self._write_projection(campaign_id, config, STATE_DRAFT, completed_at=None)
         return campaign_store.get_campaign(campaign_id, db_path=self.db_path)
+
+    def _write_projection(
+        self,
+        campaign_id: str,
+        config: dict[str, Any],
+        state: str,
+        *,
+        completed_at: str | None,
+    ) -> None:
+        """(Re)materialise the research_campaign projection row from config +
+        derived state. Idempotent: replaces any existing row."""
+        campaign_store.delete_campaign_row(campaign_id, db_path=self.db_path)
+        campaign_store.insert_campaign(
+            {
+                "campaign_id": campaign_id,
+                "theme": config.get("theme", ""),
+                "goal_spec": config.get("goal_spec"),
+                "scope": config.get("scope"),
+                "state": state,
+                "budget_experiments": config.get("budget_experiments", 0),
+                "exploration_fraction": config.get("exploration_fraction", 0.34),
+                "stall_patience": config.get("stall_patience", 3),
+                "stopping_spec": config.get("stopping_spec"),
+            },
+            db_path=self.db_path,
+        )
+        n = campaign_store.count_campaign_experiments(
+            campaign_id, db_path=self.db_path
+        )
+        if n:
+            campaign_store.set_budget_spent(campaign_id, n, db_path=self.db_path)
+        if completed_at is not None:
+            campaign_store.update_campaign_state(
+                campaign_id, state, completed_at=completed_at, db_path=self.db_path
+            )
 
     # -- transitions -------------------------------------------------------
 
@@ -162,10 +200,13 @@ class CampaignManager:
         Same-state transitions are idempotent no-ops (changed=False, no event).
         Raises CampaignError for an unknown campaign or an illegal transition.
         """
-        campaign = campaign_store.get_campaign(campaign_id, db_path=self.db_path)
-        if campaign is None:
+        # The authoritative current state is the event log, never the projection
+        # row's cached state column.
+        from_state = campaign_store.reconstruct_state_from_events(
+            campaign_id, db_path=self.db_path
+        )
+        if from_state is None:
             raise CampaignError(f"unknown campaign: {campaign_id}")
-        from_state = campaign["state"]
 
         if from_state == to_state:
             return TransitionResult(campaign_id, from_state, to_state, False, None)
@@ -175,6 +216,17 @@ class CampaignManager:
                 f"illegal transition for {campaign_id}: {from_state} -> {to_state}"
             )
 
+        # Append the event FIRST (the log leads); then refresh the projection
+        # cache. If interrupted between the two, reconcile() re-derives the
+        # cache from the log.
+        event_id = campaign_store.append_state_event(
+            campaign_id,
+            from_state=from_state,
+            to_state=to_state,
+            reason_code=reason_code,
+            evidence=evidence,
+            db_path=self.db_path,
+        )
         completed_at = (
             campaign_store._utcnow() if to_state in _STAMP_COMPLETED_AT else None
         )
@@ -182,14 +234,6 @@ class CampaignManager:
             campaign_id,
             to_state,
             completed_at=completed_at,
-            db_path=self.db_path,
-        )
-        event_id = campaign_store.append_state_event(
-            campaign_id,
-            from_state=from_state,
-            to_state=to_state,
-            reason_code=reason_code,
-            evidence=evidence,
             db_path=self.db_path,
         )
         return TransitionResult(campaign_id, from_state, to_state, True, event_id)
@@ -255,7 +299,76 @@ class CampaignManager:
         return n >= budget
 
     def is_terminal(self, campaign_id: str) -> bool:
-        campaign = campaign_store.get_campaign(campaign_id, db_path=self.db_path)
-        if campaign is None:
+        state = campaign_store.reconstruct_state_from_events(
+            campaign_id, db_path=self.db_path
+        )
+        if state is None:
             raise CampaignError(f"unknown campaign: {campaign_id}")
-        return campaign["state"] in TERMINAL_STATES
+        return state in TERMINAL_STATES
+
+    def current_state(self, campaign_id: str) -> str:
+        """Authoritative campaign state, derived from the event log."""
+        state = campaign_store.reconstruct_state_from_events(
+            campaign_id, db_path=self.db_path
+        )
+        if state is None:
+            raise CampaignError(f"unknown campaign: {campaign_id}")
+        return state
+
+    # -- reconciliation / rebuild -----------------------------------------
+
+    def rebuild_from_events(self, campaign_id: str) -> dict[str, Any]:
+        """Rebuild the research_campaign projection row entirely from the event
+        log (config from the genesis event, state from the latest event) plus
+        the derived experiment count. Works even if the row was deleted. Raises
+        CampaignError if the campaign has no events."""
+        genesis = campaign_store.genesis_event(campaign_id, db_path=self.db_path)
+        state = campaign_store.reconstruct_state_from_events(
+            campaign_id, db_path=self.db_path
+        )
+        if genesis is None or state is None:
+            raise CampaignError(f"no events to rebuild campaign: {campaign_id}")
+        config = (genesis.get("evidence") or {}).get("config", {})
+        completed_at = (
+            campaign_store._utcnow() if state in _STAMP_COMPLETED_AT else None
+        )
+        self._write_projection(campaign_id, config, state, completed_at=completed_at)
+        return campaign_store.get_campaign(campaign_id, db_path=self.db_path)
+
+    def reconcile(self, campaign_id: str) -> dict[str, Any]:
+        """Repair the projection row so it agrees with the event log — the fix
+        for a transition interrupted between event-append and cache-update (or a
+        missing/deleted row). Returns a report describing what was repaired.
+
+        The event log is treated as ground truth; the row is rewritten to match.
+        """
+        authoritative = campaign_store.reconstruct_state_from_events(
+            campaign_id, db_path=self.db_path
+        )
+        if authoritative is None:
+            raise CampaignError(f"unknown campaign: {campaign_id}")
+        row = campaign_store.get_campaign(campaign_id, db_path=self.db_path)
+        cached = row["state"] if row else None
+        repaired = (row is None) or (cached != authoritative)
+        if repaired:
+            self.rebuild_from_events(campaign_id)
+        else:
+            # State agrees; still refresh the derived progress cache.
+            self.refresh_progress(campaign_id)
+        return {
+            "campaign_id": campaign_id,
+            "authoritative_state": authoritative,
+            "cached_state": cached,
+            "row_existed": row is not None,
+            "repaired": repaired,
+        }
+
+    def reconcile_all(self) -> list[dict[str, Any]]:
+        """Startup reconciliation: reconcile every campaign present in the event
+        log, rebuilding any missing rows and repairing any stale caches."""
+        return [
+            self.reconcile(cid)
+            for cid in campaign_store.distinct_campaign_ids_in_events(
+                db_path=self.db_path
+            )
+        ]

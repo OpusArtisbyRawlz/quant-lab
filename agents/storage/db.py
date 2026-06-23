@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 12
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS experiments (
     model                   TEXT,
     market                  TEXT,
     universe                TEXT,
+    -- Milestone 10 PR-4: bar sampling clock for this experiment. First-class,
+    -- typed field (one of protocol.SUPPORTED_BAR_TYPES). Defaults to 'time' so
+    -- every pre-M10 experiment is unambiguously a time-bar experiment.
+    bar_type                TEXT NOT NULL DEFAULT 'time',
     validation_method       TEXT,
     expected_improvement    TEXT,
     success_criteria        TEXT,       -- JSON object
@@ -162,6 +166,10 @@ CREATE TABLE IF NOT EXISTS pending_ideas (
     -- self-contained and reproducible regardless of later default changes.
     market              TEXT NOT NULL DEFAULT 'unknown',
     universe            TEXT NOT NULL DEFAULT 'unknown',
+    -- Milestone 10 PR-4: bar sampling clock carried from the hypothesis through
+    -- to the experiment spec (one of protocol.SUPPORTED_BAR_TYPES). 'time' for
+    -- ad-hoc / pre-M10 ideas.
+    bar_type            TEXT NOT NULL DEFAULT 'time',
     metadata            TEXT,            -- JSON: {"scores": {...}, ...} advisory only
     status              TEXT NOT NULL,   -- pending / approved / executing / executed / rejected
     validation_ok       INTEGER NOT NULL,        -- 0/1
@@ -318,7 +326,12 @@ CREATE TABLE IF NOT EXISTS research_campaign (
 )
 """
 
-# Immutable audit of campaign state transitions. Mirrors signal_lifecycle_events.
+# Immutable, append-only audit of campaign state transitions and the SOURCE OF
+# TRUTH for campaign state. Mirrors signal_lifecycle_events: deliberately carries
+# NO foreign key to research_campaign, so the event log outlives (and can rebuild)
+# the research_campaign projection row. The campaign's authoritative state is
+# always the to_state of its most-recent event; research_campaign.state is a
+# rebuildable cache of that value.
 _CREATE_CAMPAIGN_STATE_EVENTS = """
 CREATE TABLE IF NOT EXISTS campaign_state_events (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -327,8 +340,90 @@ CREATE TABLE IF NOT EXISTS campaign_state_events (
     to_state        TEXT NOT NULL,
     reason_code     TEXT,
     evidence        TEXT,       -- JSON: supporting context for the transition
-    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    FOREIGN KEY (campaign_id) REFERENCES research_campaign(campaign_id)
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+# ===========================================================================
+# Milestone 10 PR-2 — hypothesis evolution tree
+# ===========================================================================
+
+# A hypothesis_node is an immutable, fully-auditable record of one research
+# hypothesis. Nodes form a tree (a DAG once `combine` merges two lineages): the
+# root has parent_id NULL; every other node records its primary parent. Nodes
+# are append-only — they are never updated in place, so the tree is reconstructible
+# from storage at any time. (The optional idea_id/experiment_id links are stamped
+# once when an idea/experiment is created from a node and are not mutated after.)
+_CREATE_HYPOTHESIS_NODE = """
+CREATE TABLE IF NOT EXISTS hypothesis_node (
+    node_id         TEXT PRIMARY KEY,
+    campaign_id     TEXT NOT NULL,
+    parent_id       TEXT,            -- NULL only for a tree root
+    root_id         TEXT NOT NULL,   -- the root of this node's tree (self for a root)
+    depth           INTEGER NOT NULL DEFAULT 0,
+    hypothesis      TEXT NOT NULL,
+    signals         TEXT,            -- JSON array of feature names
+    market          TEXT,
+    universe        TEXT,
+    bar_type        TEXT NOT NULL DEFAULT 'time',
+    origin_operator TEXT,            -- evolution operator that produced this node; NULL for root
+    rationale       TEXT,
+    idea_id         TEXT,            -- set if an idea was generated from this node
+    experiment_id   TEXT,            -- set if an experiment was run from this node
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+# A hypothesis_edge is the immutable evolution relationship parent -> child under
+# a named operator. Append-only. `combine` produces multiple edges into one child
+# (one per merged parent); all other operators produce exactly one edge.
+_CREATE_HYPOTHESIS_EDGE = """
+CREATE TABLE IF NOT EXISTS hypothesis_edge (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id TEXT NOT NULL,
+    parent_id   TEXT NOT NULL,
+    child_id    TEXT NOT NULL,
+    operator    TEXT NOT NULL,   -- refine/vary_bar/cross_market/add_filter/combine/negate
+    rationale   TEXT,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (parent_id, child_id, operator)
+)
+"""
+
+# ===========================================================================
+# Milestone 10 PR-6 — research scheduler decision log
+# ===========================================================================
+
+# A scheduler_event is an immutable, append-only record of one scheduler
+# decision about an *already human-approved* idea: dispatched / succeeded /
+# failed / retry_scheduled / exhausted. The ResearchScheduler is the SOLE writer
+# of this table. It records orchestration decisions only — it never approves or
+# executes anything. Because it is append-only and carries the attempt number and
+# supporting evidence, every scheduler decision (dispatch ordering, budget calls,
+# retries, recovery) is fully reconstructible from storage.
+_CREATE_SCHEDULER_EVENT = """
+CREATE TABLE IF NOT EXISTS scheduler_event (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    idea_id         TEXT NOT NULL,
+    campaign_id     TEXT,            -- NULL for ad-hoc (non-campaign) ideas
+    experiment_id   TEXT,            -- set once a dispatched run produces one
+    action          TEXT NOT NULL,   -- dispatched/succeeded/failed/retry_scheduled/exhausted
+    attempt         INTEGER NOT NULL DEFAULT 1,
+    reason          TEXT,
+    evidence        TEXT,            -- JSON: plan position, score breakdown, etc.
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+_CREATE_LOOP_CHECKPOINT = """
+CREATE TABLE IF NOT EXISTS loop_checkpoint (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    tick_id         TEXT NOT NULL,    -- deterministic per-tick identifier
+    campaign_id     TEXT,             -- NULL for the global (all-campaign) scope
+    phase           TEXT NOT NULL,    -- recover/generate/schedule/dispatch/learn/checkpoint
+    status          TEXT NOT NULL,    -- started / completed
+    evidence        TEXT,             -- JSON: per-phase counts + summary
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 )
 """
 
@@ -359,6 +454,21 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_campaign_state         ON research_campaign(state)",
     "CREATE INDEX IF NOT EXISTS idx_campaign_events_cid    ON campaign_state_events(campaign_id)",
     "CREATE INDEX IF NOT EXISTS idx_pending_ideas_campaign ON pending_ideas(campaign_id)",
+    # Milestone 10 PR-2 — hypothesis evolution tree
+    "CREATE INDEX IF NOT EXISTS idx_hnode_campaign        ON hypothesis_node(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hnode_parent          ON hypothesis_node(parent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hnode_root            ON hypothesis_node(root_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hedge_campaign        ON hypothesis_edge(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hedge_parent          ON hypothesis_edge(parent_id)",
+    "CREATE INDEX IF NOT EXISTS idx_hedge_child           ON hypothesis_edge(child_id)",
+    # Milestone 10 PR-6 — research scheduler decision log
+    "CREATE INDEX IF NOT EXISTS idx_sched_event_idea      ON scheduler_event(idea_id)",
+    "CREATE INDEX IF NOT EXISTS idx_sched_event_campaign  ON scheduler_event(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_sched_event_action    ON scheduler_event(action)",
+    # Milestone 10 PR-7 — research loop checkpoint log
+    "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_tick        ON loop_checkpoint(tick_id)",
+    "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_campaign    ON loop_checkpoint(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_phase       ON loop_checkpoint(phase)",
 ]
 
 
@@ -389,6 +499,8 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         # Milestone 7 provenance
         ("source_idea_id", "TEXT"),
         ("source_model", "TEXT"),
+        # Milestone 10 PR-4: first-class bar sampling clock (default 'time').
+        ("bar_type", "TEXT NOT NULL DEFAULT 'time'"),
     ],
     # Milestone 7: evolve pending_ideas for self-contained, executable ideas.
     # NOT NULL columns carry a DEFAULT so the ALTER succeeds on existing rows;
@@ -401,6 +513,8 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         # Milestone 10: link an idea to its originating research campaign
         # (NULL for ad-hoc ideas not generated under a campaign).
         ("campaign_id", "TEXT"),
+        # Milestone 10 PR-4: first-class bar sampling clock (default 'time').
+        ("bar_type", "TEXT NOT NULL DEFAULT 'time'"),
     ],
     # Milestone 9: activate the dormant signal_library lifecycle (TD-4). All
     # additive with back-compatible defaults so existing rows remain valid.
@@ -466,6 +580,10 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         # Milestone 10 — autonomous research campaign layer
         conn.execute(_CREATE_RESEARCH_CAMPAIGN)
         conn.execute(_CREATE_CAMPAIGN_STATE_EVENTS)
+        conn.execute(_CREATE_HYPOTHESIS_NODE)
+        conn.execute(_CREATE_HYPOTHESIS_EDGE)
+        conn.execute(_CREATE_SCHEDULER_EVENT)
+        conn.execute(_CREATE_LOOP_CHECKPOINT)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
