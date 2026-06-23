@@ -79,6 +79,27 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     anchors live on the ideas/hypotheses rather than the campaign row,
     attribution survives deleting and rebuilding the `research_campaign`
     projection, and non-campaign experiments simply resolve to no campaign.
+  - **PR-4 (done) — ResearchStrategist + first-class `bar_type` plumbing.**
+    Schema v10 makes `bar_type` a typed, first-class field carried end to end:
+    `hypothesis_node.bar_type` (PR-2) → `pending_ideas.bar_type` →
+    `ExperimentSpec.bar_type` → `config.json` → `experiments.bar_type`, all
+    additive `NOT NULL DEFAULT 'time'` migrations — never hidden in free text,
+    so the Alternative Bars campaign is executable as soon as a bar engine is
+    added (no further migration needed). Supported values are exactly `time,
+    volume, dollar, tick, volume_imbalance, dollar_imbalance`
+    (`agents.protocol.SUPPORTED_BAR_TYPES` / `normalize_bar_type`). The new
+    `agents/research_strategist` is a deterministic (no-LLM) decision layer
+    above the unchanged M7 execution core and M9 learning core: each tick it
+    reads campaign state + budget, M9 context evidence, and the hypothesis
+    frontier, then derives a bounded set of `Proposal`s and, on `apply`, writes
+    children into the hypothesis tree and enqueues them as `pending` ideas in
+    the existing human approval queue (the gate is preserved — it never
+    executes, schedules, approves, or evaluates). Auto-triggers cover
+    `vary_bar`, `cross_market`, `combine`, and `negate`; `refine`/`add_filter`
+    are interface-complete via `apply`. Explosion safeguards: campaign must be
+    ACTIVE and not budget-exhausted, `max_depth`, frontier dedup, terminal
+    `negate` children, one move per signal/market/universe lineage per tick, and
+    `max_proposals_per_tick`. Touches only `agents/`.
 
 ## Upcoming
 

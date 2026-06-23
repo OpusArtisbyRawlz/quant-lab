@@ -34,6 +34,7 @@ from typing import Any, Iterable
 
 from agents.storage.db import DB_PATH
 from agents.storage import hypothesis_store
+from agents.protocol import normalize_bar_type
 
 # The six fixed evolution operators. An edge's operator must be one of these.
 OP_REFINE = "refine"
@@ -106,7 +107,7 @@ class HypothesisTreeManager:
                 "signals": signals,
                 "market": market,
                 "universe": universe,
-                "bar_type": bar_type,
+                "bar_type": normalize_bar_type(bar_type),
                 "origin_operator": None,
                 "rationale": rationale,
             },
@@ -157,7 +158,9 @@ class HypothesisTreeManager:
             "signals": signals if signals is not None else parent.get("signals"),
             "market": market if market is not None else parent.get("market"),
             "universe": universe if universe is not None else parent.get("universe"),
-            "bar_type": bar_type if bar_type is not None else parent.get("bar_type", "time"),
+            "bar_type": normalize_bar_type(
+                bar_type if bar_type is not None else parent.get("bar_type", "time")
+            ),
             "origin_operator": operator,
             "rationale": rationale,
         }
@@ -215,7 +218,9 @@ class HypothesisTreeManager:
             "signals": signals,
             "market": market if market is not None else primary.get("market"),
             "universe": universe if universe is not None else primary.get("universe"),
-            "bar_type": bar_type if bar_type is not None else primary.get("bar_type", "time"),
+            "bar_type": normalize_bar_type(
+                bar_type if bar_type is not None else primary.get("bar_type", "time")
+            ),
             "origin_operator": OP_COMBINE,
             "rationale": rationale,
         }

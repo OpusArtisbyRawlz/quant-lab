@@ -240,6 +240,12 @@ def _upsert_from_bundle(bundle: ArtifactBundle, db_path: Path) -> None:
                 record["model"] = str(bundle.config[key])
                 break
 
+    # Milestone 10 PR-4: persist the bar sampling clock from the spec's
+    # config.json (additive; defaults to 'time' at the DB level when absent so
+    # every pre-M10 artifact remains a valid time-bar experiment).
+    if bundle.config and bundle.config.get("bar_type"):
+        record["bar_type"] = str(bundle.config["bar_type"])
+
     # Attach summary text (truncated for the DB column)
     if bundle.summary_text:
         record["result_summary"] = bundle.summary_text[:2000]

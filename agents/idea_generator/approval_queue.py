@@ -66,9 +66,9 @@ def enqueue(
             """
             INSERT INTO pending_ideas
                 (idea_id, cycle_id, hypothesis, suggested_signals, rationale,
-                 source_model, market, universe, metadata, status, validation_ok,
-                 validation_reasons, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
+                 source_model, market, universe, bar_type, metadata, status,
+                 validation_ok, validation_reasons, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
             """,
             (
                 idea_id,
@@ -79,6 +79,7 @@ def enqueue(
                 idea.source_model,
                 idea.market or "unknown",
                 idea.universe or "unknown",
+                getattr(idea, "bar_type", None) or "time",
                 json.dumps(metadata),
                 json.dumps([]),
                 _now(),
@@ -103,9 +104,9 @@ def record_rejected(
             """
             INSERT INTO pending_ideas
                 (idea_id, cycle_id, hypothesis, suggested_signals, rationale,
-                 source_model, market, universe, metadata, status, validation_ok,
-                 validation_reasons, created_at, reviewed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rejected', 0, ?, ?, ?)
+                 source_model, market, universe, bar_type, metadata, status,
+                 validation_ok, validation_reasons, created_at, reviewed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'rejected', 0, ?, ?, ?)
             """,
             (
                 idea_id,
@@ -116,6 +117,7 @@ def record_rejected(
                 idea.source_model,
                 idea.market or "unknown",
                 idea.universe or "unknown",
+                getattr(idea, "bar_type", None) or "time",
                 json.dumps(metadata),
                 json.dumps(reasons),
                 _now(),

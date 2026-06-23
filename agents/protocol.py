@@ -11,6 +11,56 @@ from datetime import datetime, timezone
 from typing import Any
 
 
+# ---------------------------------------------------------------------------
+# Milestone 10 PR-4 — bar sampling clock as a first-class, typed field
+#
+# The "bar type" is the clock used to sample the market into bars before any
+# signal is computed. It is a first-class field carried end-to-end:
+#     hypothesis_node.bar_type -> pending_ideas.bar_type -> ExperimentSpec.bar_type
+#                              -> config.json -> experiments.bar_type
+# so the Alternative Bars campaign becomes executable the moment a bar-
+# construction engine is added, with no further schema migration.
+#
+# NOTE: the bar-construction engine itself is deliberately NOT implemented here
+# (it belongs to a later milestone / the src/ pipeline). The runner may still
+# only realise 'time' bars for now; this module defines the *interface and
+# vocabulary* so nothing downstream has to hide the bar type inside free text.
+# ---------------------------------------------------------------------------
+
+DEFAULT_BAR_TYPE = "time"
+
+SUPPORTED_BAR_TYPES: tuple[str, ...] = (
+    "time",
+    "volume",
+    "dollar",
+    "tick",
+    "volume_imbalance",
+    "dollar_imbalance",
+)
+
+
+def is_supported_bar_type(bar_type: str) -> bool:
+    """True if ``bar_type`` is a recognised sampling clock."""
+    return bar_type in SUPPORTED_BAR_TYPES
+
+
+def normalize_bar_type(bar_type: str | None) -> str:
+    """Validate and canonicalise a bar type.
+
+    Returns the default ('time') for None/empty so legacy callers that never
+    specify a bar type keep working. Raises ValueError for an unrecognised
+    non-empty value, so a typo cannot silently flow downstream as data.
+    """
+    if bar_type is None or bar_type == "":
+        return DEFAULT_BAR_TYPE
+    if bar_type not in SUPPORTED_BAR_TYPES:
+        raise ValueError(
+            f"unsupported bar_type {bar_type!r}; "
+            f"expected one of {SUPPORTED_BAR_TYPES}"
+        )
+    return bar_type
+
+
 @dataclass
 class ExperimentSpec:
     """Fully-specified experiment ready for the backtest agent."""
@@ -26,6 +76,10 @@ class ExperimentSpec:
     project: str = ""
     notes: str = ""
     experiment_id: str = ""   # pre-set by caller; assigned by folder_writer if blank
+    # Milestone 10 PR-4: bar sampling clock (one of SUPPORTED_BAR_TYPES). A
+    # typed, serialised field — never hidden in `notes`. Defaults to 'time' so
+    # every existing spec is unambiguously a time-bar experiment.
+    bar_type: str = DEFAULT_BAR_TYPE
 
 
 @dataclass
@@ -147,6 +201,11 @@ class ProposedIdea:
     # not chosen by the LLM — consistent with "LLM output is data".
     market: str = ""
     universe: str = ""
+    # Milestone 10 PR-4: bar sampling clock for the proposed idea (one of
+    # SUPPORTED_BAR_TYPES). Supplied by the caller (e.g. the ResearchStrategist),
+    # not chosen by the LLM — consistent with "LLM output is data". Defaults to
+    # 'time'.
+    bar_type: str = DEFAULT_BAR_TYPE
 
 
 @dataclass

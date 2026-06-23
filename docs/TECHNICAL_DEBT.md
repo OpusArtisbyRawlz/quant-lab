@@ -21,6 +21,19 @@ taken — do not let debt live only in PR comments.
 > the anchors live on the ideas/hypotheses, attribution survives campaign-row
 > deletion/rebuild; this is intentional design, not an accepted shortcut.
 
+> **M10 PR-4 (ResearchStrategist + `bar_type` plumbing): no new debt.**
+> `bar_type` is a first-class typed field migrated additively (`NOT NULL DEFAULT
+> 'time'`) across `hypothesis_node` → `pending_ideas` → `ExperimentSpec` /
+> `config.json` → `experiments`, so the path is complete and will *not* need a
+> follow-up migration when the bar-construction engine lands. That engine is a
+> deliberate, scoped deferral to a later milestone (not debt): the schema and
+> interfaces are complete now, and the runner currently only realizes `time`
+> bars; non-time `bar_type` ideas are representable, queueable, and auditable but
+> not yet executable. The `research_strategist` is deterministic, reads M9 +
+> campaign state read-only, and writes only hypothesis nodes/edges and `pending`
+> ideas through the existing approval queue — the human gate and the M7/M9 cores
+> are untouched.
+
 > **M10 PR-2 (Hypothesis evolution tree): no new debt.** `hypothesis_node` /
 > `hypothesis_edge` are append-only and storage-reconstructible (see
 > `agents/TODOS.md` §8). The two write-once link columns (`idea_id`,
