@@ -472,3 +472,42 @@ campaign statistics match the underlying ledger; exploration accounting matches
 the scheduler's own evidence; and hypothesis trees render correctly from stored
 lineage. The M7 execution path, M9 learning path, human approval gate, and M10
 deterministic architecture are untouched.
+
+## 16. Alternative Bars worked campaign — end-to-end M10 validation (M10 PR-10)
+
+A **test-only** milestone (`agents/tests/test_altbars_campaign.py`) that proves
+the entire Milestone 10 stack functions together on the design's worked example.
+No production code, no schema change.
+
+**What it drives end to end.** One campaign through every M10 component:
+
+- **CampaignManager** — event-sourced create + activate; state reconstructed
+  from the log.
+- **ResearchStrategist** — the Alternative-Bars walk: Time → Volume → Dollar →
+  Volume-Imbalance (via `vary_bar`), then a Cross-Market generalisation (to
+  US/SP500 on the winning bar), through the six deterministic operators gated on
+  M9 context evidence. A shared `_confirm_node` helper stamps the experiment +
+  M9 observation per generation (and the idea's `experiment_id`) so the worked
+  walk is reproducible.
+- **Human approval gate** — generated ideas stay `pending`; the loop tests
+  approve via the queue and assert nothing is auto-approved.
+- **ResearchScheduler** — exploration-quota + per-context diversity enforced over
+  a controlled pool of explore (fresh-context) vs exploit (well-sampled) ideas;
+  exploit can never consume all slots; reporter accounting matches the log.
+- **ResearchLoop** — the real six-phase tick over the **unchanged** M7 executor
+  on synthetic OHLCV: a crash before dispatch resumes the same tick (schedule
+  skipped, no duplicate dispatch), the experiment lands in the ledger exactly
+  once, and the checkpoint marks the tick complete.
+- **CampaignReporter** — the read-only board renders overview, ranking, stalled,
+  exploration, productive-context, and hypothesis-tree sections from stored
+  state.
+
+**Required tests (all passing).** Campaign creates successfully; hypothesis tree
+evolves as expected (`time → volume → dollar → volume_imbalance`, then
+`cross_market`); exploration quota remains enforced; frontier expansion obeys
+`max_children_per_frontier`; campaign budget accounting is correct
+(`budget_spent`/`budget_exhausted` track attributed experiments); recovery /
+checkpoint survives a mid-campaign crash; the CampaignReporter renders the
+expected outputs; and a deterministic replay in a fresh DB produces an identical
+campaign fingerprint (tree shape + edges + overview). Out of scope by design:
+statistical validation, production-readiness checks, auto-approval, M11.

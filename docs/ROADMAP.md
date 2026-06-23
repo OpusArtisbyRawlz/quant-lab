@@ -198,6 +198,24 @@ milestones are summarised; upcoming ones are planned, not yet implemented.
     campaign board. No schema change, no writes, no execution-module imports
     (enforced by the globbed reporting guard tests). Touches only `agents/` and
     `docs/`.
+  - **PR-10 (done) — Alternative Bars worked campaign (end-to-end).** A
+    test-only milestone (`agents/tests/test_altbars_campaign.py`) that validates
+    the entire M10 stack working together on the design's worked example: a
+    single campaign driven through `CampaignManager` (event-sourced create +
+    activate), `ResearchStrategist` (the Time → Volume → Dollar →
+    Volume-Imbalance bar-type ladder, then a Cross-Market generalisation, via the
+    six deterministic operators gated on M9 evidence), the human approval gate,
+    `ResearchScheduler` (exploration-quota + per-context diversity enforcement),
+    the real `ResearchLoop` six-phase tick over the *unchanged* M7 executor on
+    synthetic data (crash-before-dispatch recovery, checkpoint resume, no
+    duplicate experiment), and the read-only `CampaignReporter`. Asserts:
+    campaign creates successfully; the hypothesis tree evolves as expected;
+    exploration quota stays enforced (exploit cannot take all slots); frontier
+    expansion obeys `max_children_per_frontier`; campaign budget accounting is
+    correct; recovery/checkpoint survives a mid-campaign crash; the reporter
+    renders the expected board; and a deterministic replay in a fresh DB produces
+    an identical campaign fingerprint. No schema change, no production-readiness
+    or statistical-validation checks. Touches only `agents/` and `docs/`.
 
 ## Upcoming
 
