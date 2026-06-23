@@ -425,3 +425,50 @@ quota is respected across window sizes and fractions; explore selections map to
 under-sampled contexts; repeated frontier expansion is bounded; rankings stay
 deterministic; and quota accounting survives a simulated restart. No adaptive or
 self-modifying weights are introduced — all parameters are fixed config.
+
+## 15. CampaignReporter — read-only M10 reporting (M10 PR-9)
+
+A strictly read-only reporting surface over the autonomous research loop, added
+to the existing `agents/reporting/` package. No schema change, no writes, no
+execution-module imports.
+
+**`agents/reporting/campaign_report_store.py`** mirrors the cleanest M8 pattern
+(`context_report_store.py`): it issues **no SQL of its own** and composes the
+storage read APIs (`campaign_store`, `campaign_attribution`, `scheduler_store`,
+`hypothesis_store`, `context_store`, `signal_store`, `lessons_store`) into frozen
+dataclasses. Eight reports:
+
+1. **Campaign overview** — state (via `reconstruct_state_from_events`), budget,
+   exploration fraction, and attributed artefact counts (hypotheses / ideas /
+   experiments / lessons / observations) plus avg & best net Sharpe from the
+   attributed experiments.
+2. **Campaign ranking** — deterministic productivity order (experiments desc,
+   then avg net Sharpe, then campaign_id).
+3. **Stalled campaigns** — campaigns whose event-log state is `STALLED`.
+4. **Exploration vs exploitation** — explore/exploit/total dispatch counts read
+   from the append-only `scheduler_event` evidence, mirroring
+   `ResearchScheduler.exploration_stats` exactly.
+5. **Productive contexts** — most productive M9 context cells (contribution
+   order from `context_store.context_performance`).
+6. **Recently learned knowledge** — latest `lessons_learned` rows.
+7. **Signal lifecycle board** — signals grouped by `lifecycle_state`.
+8. **Hypothesis evolution tree** — the campaign's hypothesis forest rebuilt from
+   stored `hypothesis_node` / `hypothesis_edge` lineage, with the producing
+   operator attached to each child.
+
+**`agents/reporting/campaign_report.py`** renders the markdown campaign board
+(the only filesystem write is to a caller-supplied report path, never the DB).
+Public wrappers live in `summaries.py`; everything is re-exported from
+`agents/reporting/__init__.py`.
+
+**Invariants preserved (asserted by tests).** PR-9 is read-only: it never
+approves, executes, or evaluates anything, and adds no schema. The package-wide
+globbed reporting guards (no write-SQL in query strings, no execution-module
+imports, no row-count change after generating every report) automatically cover
+the new modules. `test_campaign_reporting.py` adds the six required behavioural
+tests: reports are deterministic; reports perform no writes; overview state is
+reconstructed from the event log (even when the projection row has drifted);
+campaign statistics match the underlying ledger; exploration accounting matches
+the scheduler's own evidence; and hypothesis trees render correctly from stored
+lineage. The M7 execution path, M9 learning path, human approval gate, and M10
+deterministic architecture are untouched.

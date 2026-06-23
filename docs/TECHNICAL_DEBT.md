@@ -84,6 +84,17 @@ taken — do not let debt live only in PR comments.
 > weights. The M7 execution path, the M9 learning path, the human approval gate,
 > and the PR-7 loop structure are untouched. See `agents/TODOS.md` §14.
 
+> **M10 PR-9 (CampaignReporter): no new debt.** PR-9 adds a strictly read-only
+> reporting surface (`agents/reporting/campaign_report_store.py` +
+> `campaign_report.py`) with **no schema change** and **no writes**. The store
+> issues no SQL of its own — it composes existing storage read APIs into frozen
+> dataclasses — and imports no execution modules; both properties are enforced by
+> the package-wide globbed reporting guard tests. Campaign state is read via the
+> event log and exploration accounting mirrors the scheduler's own evidence, so
+> reports are deterministic and reconstructible from stored state. The M7
+> execution path, M9 learning path, human approval gate, and M10 deterministic
+> architecture are untouched. See `agents/TODOS.md` §15.
+
 | ID | Title | Status | Introduced | Scheduled |
 |----|-------|--------|------------|-----------|
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |
