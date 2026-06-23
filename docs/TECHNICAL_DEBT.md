@@ -106,6 +106,16 @@ taken — do not let debt live only in PR comments.
 > validation, production-readiness checks, or auto-approval. See `agents/TODOS.md`
 > §16.
 
+> **M10 PR-11 (Final boundary guards & architectural validation): no new debt.**
+> PR-11 is **test-only** (`agents/tests/test_m10_boundary_guards.py`) — no
+> production code, no schema change. It seals M10 with static (AST) + behavioural
+> guards pinning the M10 ⇄ M11 boundary: strategist/scheduler cannot execute,
+> only M7 executes, only M9 mutates signal intelligence, the human approval gate
+> cannot be bypassed, M10 exposes no significance/deployment/auto-approve surface,
+> the CampaignReporter performs no writes, and deterministic replay stays stable.
+> The M7 execution path and M9 learning path are untouched. **M10 is complete.**
+> See `agents/TODOS.md` §17.
+
 | ID | Title | Status | Introduced | Scheduled |
 |----|-------|--------|------------|-----------|
 | TD-1 | Forward-return horizon treated as per-period | Open | M3 (pipeline), surfaced in M5 | Roadmap → "Horizon-correct returns" (post-M5) |
