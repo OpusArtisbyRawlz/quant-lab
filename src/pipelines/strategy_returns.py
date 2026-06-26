@@ -1,5 +1,6 @@
 from src.pipelines.cross_sectional import run_market_alpha_pipeline
 from src.signals.combine import apply_signal_combo
+from src.portfolio.rebalance import apply_rebalance_frequency
 from src.risk.allocation import compare_base_vs_dd_overlay
 import src.risk.drawdown as dd
 import src.risk.vol_target as vt
@@ -13,10 +14,16 @@ def build_strategy_return_stack(
     max_leverage=1.5,
     floor=0.55,
     k=5,
+    rebalance_frequency=1,
 ):
     champion = apply_signal_combo(
         run_market_alpha_pipeline(market_data),
         signal_names=signal_names,
+    )
+
+    champion = apply_rebalance_frequency(
+        champion,
+        rebalance_frequency=rebalance_frequency,
     )
 
     compare_df, base_ret, dd_ret, dd_exposure = compare_base_vs_dd_overlay(
