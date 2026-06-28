@@ -233,6 +233,84 @@ def rebalance_analysis(
     return pd.DataFrame(rows)
 
 
+def rebalance_cost_grid(
+    returns: pd.Series,
+    weights: pd.DataFrame,
+    transaction_costs: Sequence[float],
+    rebalance_frequencies: Sequence[RebalanceFrequency],
+    date_col: str = "Date",
+    asset_col: str = "ticker",
+    periods_per_year: int = 252,
+) -> pd.DataFrame:
+    """
+    Build the ``rebalance frequency x transaction cost`` decision grid.
+
+    For each rebalance frequency the deployed weight path is re-held at that
+    cadence (via :func:`src.portfolio.rebalance.apply_rebalance_frequency`),
+    its turnover is recomputed with :func:`compute_turnover`, and that turnover
+    is stressed across the cost sweep by reusing :func:`transaction_cost_stress`.
+
+    The *gross* return series is assumed unchanged by re-holding — only the
+    turnover (and therefore the cost drag) varies with the rebalance cadence.
+    This is the standard deployment approximation: it lets a single deployed
+    return + weight path be scored across ``(frequency, cost)`` without
+    reconstructing the strategy, which is exactly what the decision pivot in
+    :func:`select_best_per_group` / :func:`pivot_metric_table` consumes.
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Daily gross (pre-cost) portfolio return series.
+    weights : pd.DataFrame
+        Wide weight matrix indexed by date, columns are assets.
+    transaction_costs : sequence of float
+        One-way costs in basis points (e.g. ``[0, 5, 10]``).
+    rebalance_frequencies : sequence of int or str
+        Frequencies to sweep, e.g. ``[1, 5, "weekly"]``.
+    date_col, asset_col : str
+        Names used when round-tripping the wide matrix through the long-format
+        rebalance helper.
+    periods_per_year : int, default 252
+        Annualisation factor.
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per ``(rebalance frequency, cost)`` with columns
+        ``Rebalance Frequency``, ``Cost bps``, ``Sharpe``, ``MDD``, ``CAGR``,
+        ``Calmar`` and ``Mean Turnover``.
+    """
+    returns = pd.Series(returns).astype(float)
+
+    wide = weights.copy()
+    wide.index = wide.index.rename(date_col)
+    long = wide.reset_index().melt(
+        id_vars=date_col, var_name=asset_col, value_name="weight"
+    )
+
+    frames = []
+    for freq in rebalance_frequencies:
+        held_long = apply_rebalance_frequency(
+            long,
+            rebalance_frequency=freq,
+            date_col=date_col,
+            asset_col=asset_col,
+            weight_col="weight",
+        )
+        held_wide = weights_to_wide(
+            held_long, date_col=date_col, asset_col=asset_col, weight_col="weight"
+        )
+        held_turnover = compute_turnover(held_wide)
+
+        stressed = transaction_cost_stress(
+            returns, held_turnover, transaction_costs, periods_per_year=periods_per_year
+        )
+        stressed.insert(0, "Rebalance Frequency", str(freq))
+        frames.append(stressed)
+
+    return pd.concat(frames, ignore_index=True)
+
+
 def run_deployment_validation(
     returns: pd.Series,
     weights: pd.DataFrame,
@@ -274,6 +352,7 @@ def run_deployment_validation(
             "turnover": pd.Series,
             "transaction_cost_stress": pd.DataFrame,
             "rebalance_analysis": pd.DataFrame,
+            "rebalance_cost_grid": pd.DataFrame,
             "rolling_metrics": pd.DataFrame,
             "regime_analysis": pd.DataFrame,
         }``
@@ -287,6 +366,13 @@ def run_deployment_validation(
         ),
         "rebalance_analysis": rebalance_analysis(
             weights, rebalance_frequencies
+        ),
+        "rebalance_cost_grid": rebalance_cost_grid(
+            returns,
+            weights,
+            transaction_costs,
+            rebalance_frequencies,
+            periods_per_year=periods_per_year,
         ),
         "rolling_metrics": rolling_metrics(
             returns, window=rolling_window, periods_per_year=periods_per_year
