@@ -1,0 +1,10 @@
+{
+  "slug": "candidate_hist_base",
+  "name": "Historical v2 base (raw, no overlay)",
+  "group": "C \u2014 historical low-MDD challenger",
+  "source": "final_returns_v2_with_dates.csv + overlay (robustness nb)",
+  "version": "-",
+  "overlay": "none",
+  "is_v1": false,
+  "has_book": false
+}
