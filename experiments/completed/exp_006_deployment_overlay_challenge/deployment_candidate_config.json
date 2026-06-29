@@ -1,0 +1,47 @@
+{
+  "candidate": "weighted_multi_strategy_with_dd_only_portfolio_overlay",
+  "status": "PROMOTED (lead deployment candidate) \u2014 exp_006_deployment_overlay_challenge",
+  "promoted_over": "exp_005_risk_engine_final/weighted_multi_strategy_with_strategy_and_portfolio_smooth_dd",
+  "historical_baseline_retained": "experiments/completed/exp_005_risk_engine_final/ (untouched)",
+  "portfolio_level_overlay": {
+    "method": "drawdown_exposure_smooth (DD-only, no vol scaling, no clip)",
+    "floor": 0.3,
+    "k": 5,
+    "application": "exposure lagged 1 day (apply_exposure_to_return)"
+  },
+  "base": {
+    "source": "exp_005 dual-layer product, portfolio-level overlay stripped",
+    "base_return": "portfolio_return_t / exposure_{t-1}",
+    "base_book": "final_weight_t / exposure_t"
+  },
+  "n_days": 2558,
+  "date_range": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "metrics_full_sample": {
+    "candidate_dd_only": {
+      "Sharpe": 2.351633191360877,
+      "CAGR": 0.4070989448361555,
+      "MDD": -0.2946753659433812,
+      "Calmar": 1.3815167193662716,
+      "Vol": 0.1500649756280721
+    },
+    "incumbent_baseline": {
+      "Sharpe": 2.0901126366076075,
+      "CAGR": 0.37702089838981023,
+      "MDD": -0.36694948853663256,
+      "Calmar": 1.0274463111894274,
+      "Vol": 0.15917505750943411
+    }
+  },
+  "promotion_gate": {
+    "reproduction_pass": true,
+    "param_grid_pass": true,
+    "walk_forward_pass": true,
+    "overall_pass": true,
+    "selected_floor": 0.3,
+    "selected_k": 5
+  },
+  "promotion_caveat": "floor selected in-sample; walk-forward optimiser preferred the grid lower boundary (floor=0.2). (0.3,5) is a conservative point that still beats the baseline OOS in 6/7 folds (Sharpe) and 7/7 (MDD). Re-fit floor/k on new data periodically before live capital changes."
+}
