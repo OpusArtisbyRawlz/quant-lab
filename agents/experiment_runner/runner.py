@@ -58,6 +58,7 @@ from agents.experiment_runner.robustness import (
 )
 
 # src/ imports — permitted only inside experiment_runner
+from src.data.bars import BarEngine
 from src.pipelines.cross_sectional import run_market_alpha_pipeline
 from src.signals.combine import apply_signal_combo
 
@@ -186,6 +187,31 @@ def run_experiment(
                 error=err,
             )
         data_dict = bundle.data_dict
+
+    # ------------------------------------------------------------------
+    # 5b. Bar sampling — hand raw data to the Bar Engine and continue with
+    #     its output. The executor is deliberately bar-type-agnostic: it
+    #     never branches on the clock and never imports a bar implementation.
+    #     All dispatch/validation/construction lives inside BarEngine.build.
+    #     ``spec.bar_type`` is a plain string; the engine coerces it to a
+    #     SamplingSpec internally. In BE-1/identity mode this is a faithful
+    #     pass-through, so results are byte-identical to the pre-engine path.
+    # ------------------------------------------------------------------
+    try:
+        bar_result = BarEngine.build(data_dict, spec.bar_type)
+    except Exception:
+        err = traceback.format_exc()
+        log.exception("Bar sampling failed for %s", experiment_id)
+        write_error_txt(folder, err)
+        _ingest_failed(folder, db_path)
+        return RunResult(
+            experiment_id=experiment_id,
+            status="failed",
+            artifact_path=folder,
+            warnings=warnings,
+            error=err,
+        )
+    data_dict = bar_result.data
 
     # ------------------------------------------------------------------
     # 6. Run backtest pipeline
