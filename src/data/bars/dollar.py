@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from .base import SamplingSpec, DEFAULT_PERIODS_PER_YEAR
+from .base import SamplingSpec
 from ._aggregate import assign_threshold_bars, aggregate_by_bar_id
+from .periods import event_periods_per_year
 
 
 def _threshold(spec: SamplingSpec) -> float:
@@ -40,5 +41,4 @@ def build_dollar_bars(
         value = (df["Close"].to_numpy(dtype=float) * df["Volume"].to_numpy(dtype=float))
         bar_ids = assign_threshold_bars(value, thr)
         out[ticker] = aggregate_by_bar_id(df, bar_ids)
-    periods_per_year = spec.periods_per_year or DEFAULT_PERIODS_PER_YEAR
-    return out, periods_per_year
+    return out, event_periods_per_year(spec, out)

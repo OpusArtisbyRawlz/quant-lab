@@ -16,8 +16,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .base import SamplingSpec, DEFAULT_PERIODS_PER_YEAR
+from .base import SamplingSpec
 from ._aggregate import aggregate_by_bar_id
+from .periods import event_periods_per_year
 
 
 def _threshold(spec: SamplingSpec) -> int:
@@ -39,5 +40,4 @@ def build_tick_bars(
     for ticker, df in raw_data.items():
         bar_ids = np.arange(len(df), dtype=np.int64) // thr
         out[ticker] = aggregate_by_bar_id(df, bar_ids)
-    periods_per_year = spec.periods_per_year or DEFAULT_PERIODS_PER_YEAR
-    return out, periods_per_year
+    return out, event_periods_per_year(spec, out)

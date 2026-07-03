@@ -30,8 +30,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from .base import SamplingSpec, DEFAULT_PERIODS_PER_YEAR
+from .base import SamplingSpec
 from ._aggregate import assign_imbalance_bars, aggregate_by_bar_id
+from .periods import event_periods_per_year
 
 
 def tick_signs(close: np.ndarray) -> np.ndarray:
@@ -88,8 +89,7 @@ def _build_imbalance(
         weights = _weights(df, kind, signs)
         bar_ids = assign_imbalance_bars(weights, thr)
         out[ticker] = aggregate_by_bar_id(df, bar_ids)
-    periods_per_year = spec.periods_per_year or DEFAULT_PERIODS_PER_YEAR
-    return out, periods_per_year
+    return out, event_periods_per_year(spec, out)
 
 
 def build_tick_imbalance_bars(raw_data, spec):
