@@ -30,6 +30,11 @@ from .time import build_time_bars
 from .tick import build_tick_bars
 from .volume import build_volume_bars
 from .dollar import build_dollar_bars
+from .imbalance import (
+    build_tick_imbalance_bars,
+    build_volume_imbalance_bars,
+    build_dollar_imbalance_bars,
+)
 
 # Type alias for a bar builder: (raw_data, spec) -> (data, periods_per_year).
 _Builder = Callable[..., tuple[dict, float]]
@@ -42,6 +47,9 @@ _BUILDERS: dict[str, _Builder] = {
     "tick": build_tick_bars,
     "volume": build_volume_bars,
     "dollar": build_dollar_bars,
+    "tick_imbalance": build_tick_imbalance_bars,
+    "volume_imbalance": build_volume_imbalance_bars,
+    "dollar_imbalance": build_dollar_imbalance_bars,
 }
 
 

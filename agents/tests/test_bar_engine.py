@@ -162,7 +162,11 @@ def test_from_bar_type_defaults_to_time():
 # 6. Unimplemented-but-recognised bar types raise (never silently wrong)
 # ===========================================================================
 
-@pytest.mark.parametrize("bar_type", sorted(set(BAR_TYPES) - IMPLEMENTED_BAR_TYPES))
+_UNIMPLEMENTED = sorted(set(BAR_TYPES) - IMPLEMENTED_BAR_TYPES)
+
+
+@pytest.mark.skipif(not _UNIMPLEMENTED, reason="all recognised bar types are implemented (BE-4)")
+@pytest.mark.parametrize("bar_type", _UNIMPLEMENTED or ["_placeholder_"])
 def test_unimplemented_bar_types_raise(bar_type):
     raw = _make_data_dict()
     with pytest.raises(NotImplementedError):
@@ -170,13 +174,11 @@ def test_unimplemented_bar_types_raise(bar_type):
 
 
 def test_implemented_and_production_bar_types():
-    # BE-3 implements the count/volume/dollar event builders in the engine...
-    assert IMPLEMENTED_BAR_TYPES == frozenset({"time", "tick", "volume", "dollar"})
+    # BE-4: every recognised bar type now has a builder in the engine...
+    assert IMPLEMENTED_BAR_TYPES == frozenset(BAR_TYPES)
     # ...but only time is enabled for production / real campaigns.
     assert PRODUCTION_BAR_TYPES == frozenset({"time"})
     assert PRODUCTION_BAR_TYPES <= IMPLEMENTED_BAR_TYPES
-    for bt in IMPLEMENTED_BAR_TYPES:
-        assert bt in BAR_TYPES
 
 
 # ===========================================================================
