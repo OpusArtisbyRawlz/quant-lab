@@ -166,6 +166,23 @@ The M7 executor consumes `BarResult.periods_per_year` and forwards it as a plain
 float into the metrics path — it never inspects the clock, preserving
 bar-agnosticism.
 
+## Intraday input (genuine event bars)
+
+The event builders treat **each input row as one atomic observation** and
+accumulate a threshold across rows, so their finest resolution is the input
+cadence. On daily OHLCV an event bar can therefore never close *within* a day.
+Fed **intraday** observations (e.g. one row per minute) the same builders close
+bars *inside* a session — exactly what event sampling is for — and
+`realized_periods_per_year` measures the correspondingly higher cadence.
+
+The Bar Engine itself does **no I/O**: it accepts any `ticker -> DataFrame` whose
+index is a `DatetimeIndex`, daily or sub-daily alike. Intraday **ingestion** is a
+separate concern in the executor's data layer
+(`agents/experiment_runner/intraday_loader.py`, `load_intraday`) — the sub-daily
+counterpart to the daily `load_data`. It reads timestamped CSVs into the same
+shape the engine consumes; sampling stays entirely inside `BarEngine.build`, and
+the daily/time production path is untouched.
+
 ## Module layout
 
 | File | Responsibility |
