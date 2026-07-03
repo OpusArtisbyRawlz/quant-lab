@@ -143,6 +143,29 @@ It is a **pure** function and, for already-aligned gap-free time bars, the
 auto-applied inside `BarEngine.build`; it is the alignment layer the event-bar
 path will use once those bars are production-enabled (a separate prerequisite).
 
+## Realised periods-per-year (`realized_periods_per_year`)
+
+Risk-adjusted metrics annualise a per-period return series by a *periods-per-year*
+factor (`sharpe = sqrt(ppy) * mean / std`). Daily time bars have a fixed cadence
+of **252**; event bars close at **irregular, data-driven** timestamps, so
+annualising them with 252 would misstate their metrics. Every event builder
+therefore returns a **measured** cadence on `BarResult.periods_per_year`:
+
+```python
+ppy = DAYS_PER_YEAR * (Σ bar_intervals) / (Σ span_in_days)   # pooled across tickers
+```
+
+- **Time bars** keep the fixed **252** (or an explicit `SamplingSpec.periods_per_year`
+  override) → the production path is byte-identical.
+- **Event bars** report their realised cadence (typically well below 252, since
+  each bar aggregates several daily rows). An explicit spec override always wins.
+- Degenerate input (no ticker with ≥2 bars, or zero span) falls back to 252.
+
+`event_periods_per_year(spec, bars)` is the single resolver the builders share.
+The M7 executor consumes `BarResult.periods_per_year` and forwards it as a plain
+float into the metrics path — it never inspects the clock, preserving
+bar-agnosticism.
+
 ## Module layout
 
 | File | Responsibility |
@@ -153,6 +176,7 @@ path will use once those bars are production-enabled (a separate prerequisite).
 | `tick.py` / `volume.py` / `dollar.py` | Event-driven builders (BE-3). |
 | `imbalance.py` | Tick/volume/dollar imbalance builders + tick rule (BE-4). |
 | `align.py` | Cross-sectional alignment of irregular event bars onto a common grid. |
+| `periods.py` | Realised periods-per-year cadence measured from bar-close timestamps. |
 | `_aggregate.py` | Shared threshold + signed-imbalance assignment + OHLCV aggregation. |
 | `builder.py` | `BarEngine.build` — total dict dispatch + production gate + spec coercion. |
 | `__init__.py` | Public surface. |

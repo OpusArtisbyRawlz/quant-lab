@@ -217,7 +217,12 @@ def run_experiment(
     # 6. Run backtest pipeline
     # ------------------------------------------------------------------
     try:
-        metrics, variant_row = _run_pipeline(spec, data_dict, cost_config or CostConfig.load())
+        metrics, variant_row = _run_pipeline(
+            spec,
+            data_dict,
+            cost_config or CostConfig.load(),
+            periods_per_year=bar_result.periods_per_year,
+        )
     except Exception:
         err = traceback.format_exc()
         log.exception("Pipeline failed for %s", experiment_id)
@@ -285,16 +290,27 @@ def _run_pipeline(
     spec: ExperimentSpec,
     data_dict: dict[str, pd.DataFrame],
     cost_config: CostConfig,
+    *,
+    periods_per_year: float | None = None,
 ) -> tuple[dict, dict]:
     """
     Build the panel, apply signal combo, compute gross + net metrics, turnover,
     costs, and robustness checks. Return the full metric bundle and a
     strategy_comparison row.
 
+    ``periods_per_year`` is the annualisation cadence for the sampled bars,
+    supplied by the Bar Engine (``BarResult.periods_per_year``). For daily time
+    bars this is 252 — identical to the historical default — so time-bar runs
+    are unchanged; event bars carry their realised cadence instead. The executor
+    stays bar-agnostic: it forwards a single float and never inspects the clock.
+    When ``None`` the cost-config cadence is used (backwards-compatible default).
+
     Returns
     -------
     (metrics_dict, variant_row_dict)
     """
+    if periods_per_year is None:
+        periods_per_year = cost_config.periods_per_year
     # Build panel with features and forward returns
     base_panel = run_market_alpha_pipeline(data_dict)
 
@@ -309,7 +325,7 @@ def _run_pipeline(
         panel,
         portfolio_returns,
         cost_config,
-        periods_per_year=cost_config.periods_per_year,
+        periods_per_year=periods_per_year,
     )
 
     # ── Robustness: subperiod stability + parameter sensitivity ───────────
@@ -319,7 +335,7 @@ def _run_pipeline(
         spec.features,
         _portfolio_returns,
         cost_config,
-        periods_per_year=cost_config.periods_per_year,
+        periods_per_year=periods_per_year,
     )
     # Net return series for subperiod analysis (recompute from costs once).
     from agents.experiment_runner.cost_model import compute_turnover, apply_costs
@@ -331,7 +347,7 @@ def _run_pipeline(
         gross_sharpe=metrics.get("sharpe"),
         net_sharpe=net_block.get("sharpe"),
         sensitivity=sensitivity,
-        periods_per_year=cost_config.periods_per_year,
+        periods_per_year=periods_per_year,
     )
     metrics["robustness"] = {
         "subperiod_sharpes": robustness["subperiod_sharpes"],
