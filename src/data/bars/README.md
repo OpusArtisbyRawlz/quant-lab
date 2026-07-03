@@ -118,6 +118,31 @@ M7 executor with **zero behavioural change**.
 Calendar down-sampling (`freq`) and all non-time bar builders are deliberate
 non-goals for BE-1 and raise `NotImplementedError`.
 
+## Cross-sectional alignment (`align_cross_section`)
+
+The cross-sectional alpha pipeline ranks peers per shared `Date`
+(`groupby("Date")`). Time bars share a daily grid so this works directly; event
+bars close at **per-ticker, irregular** timestamps and would collapse each group
+to ~one ticker. `align_cross_section(bars, method="asof")` fixes this:
+
+```python
+from src.data.bars import BarEngine, SamplingSpec, align_cross_section
+
+bars = BarEngine.build(raw, SamplingSpec("volume", params={"threshold": 3_000_000}),
+                       allow_experimental=True).data
+aligned = align_cross_section(bars)   # every ticker now shares one union grid
+```
+
+- **Union grid** = sorted union of all tickers' bar-close timestamps.
+- **As-of / forward-fill**: at grid time `t`, each ticker takes its most recently
+  *closed* bar at or before `t` (no lookahead). Points before a ticker's first
+  bar are `NaN`.
+
+It is a **pure** function and, for already-aligned gap-free time bars, the
+**identity** — so the current production path is unaffected. It is **not**
+auto-applied inside `BarEngine.build`; it is the alignment layer the event-bar
+path will use once those bars are production-enabled (a separate prerequisite).
+
 ## Module layout
 
 | File | Responsibility |
@@ -127,6 +152,7 @@ non-goals for BE-1 and raise `NotImplementedError`.
 | `time.py` | `build_time_bars` — identity pass-through clock. |
 | `tick.py` / `volume.py` / `dollar.py` | Event-driven builders (BE-3). |
 | `imbalance.py` | Tick/volume/dollar imbalance builders + tick rule (BE-4). |
+| `align.py` | Cross-sectional alignment of irregular event bars onto a common grid. |
 | `_aggregate.py` | Shared threshold + signed-imbalance assignment + OHLCV aggregation. |
 | `builder.py` | `BarEngine.build` — total dict dispatch + production gate + spec coercion. |
 | `__init__.py` | Public surface. |
