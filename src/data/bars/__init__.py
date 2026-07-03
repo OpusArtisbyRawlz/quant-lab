@@ -30,6 +30,7 @@ from .base import (
     REQUIRED_COLUMNS,
 )
 from .validation import validate_bars, BarValidationError
+from .align import align_cross_section, ALIGNMENT_METHODS
 from .builder import BarEngine, build
 
 __all__ = [
@@ -39,6 +40,8 @@ __all__ = [
     "BarResult",
     "validate_bars",
     "BarValidationError",
+    "align_cross_section",
+    "ALIGNMENT_METHODS",
     "BAR_TYPES",
     "IMPLEMENTED_BAR_TYPES",
     "PRODUCTION_BAR_TYPES",
