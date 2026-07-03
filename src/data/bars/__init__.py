@@ -25,6 +25,7 @@ from .base import (
     BarResult,
     BAR_TYPES,
     IMPLEMENTED_BAR_TYPES,
+    PRODUCTION_BAR_TYPES,
     DEFAULT_PERIODS_PER_YEAR,
     REQUIRED_COLUMNS,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "BarValidationError",
     "BAR_TYPES",
     "IMPLEMENTED_BAR_TYPES",
+    "PRODUCTION_BAR_TYPES",
     "DEFAULT_PERIODS_PER_YEAR",
     "REQUIRED_COLUMNS",
 ]

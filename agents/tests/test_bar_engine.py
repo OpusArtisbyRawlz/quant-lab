@@ -28,6 +28,7 @@ from src.data.bars import (
     BarValidationError,
     BAR_TYPES,
     IMPLEMENTED_BAR_TYPES,
+    PRODUCTION_BAR_TYPES,
     DEFAULT_PERIODS_PER_YEAR,
 )
 from src.pipelines.cross_sectional import run_market_alpha_pipeline
@@ -168,9 +169,14 @@ def test_unimplemented_bar_types_raise(bar_type):
         BarEngine.build(raw, SamplingSpec(type=bar_type))
 
 
-def test_time_is_the_only_implemented_type_in_be1():
-    assert IMPLEMENTED_BAR_TYPES == frozenset({"time"})
-    assert "time" in BAR_TYPES
+def test_implemented_and_production_bar_types():
+    # BE-3 implements the count/volume/dollar event builders in the engine...
+    assert IMPLEMENTED_BAR_TYPES == frozenset({"time", "tick", "volume", "dollar"})
+    # ...but only time is enabled for production / real campaigns.
+    assert PRODUCTION_BAR_TYPES == frozenset({"time"})
+    assert PRODUCTION_BAR_TYPES <= IMPLEMENTED_BAR_TYPES
+    for bt in IMPLEMENTED_BAR_TYPES:
+        assert bt in BAR_TYPES
 
 
 # ===========================================================================
