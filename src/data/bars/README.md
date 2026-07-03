@@ -50,12 +50,44 @@ the engine itself is already spec-shaped.
 ```python
 BAR_TYPES = ("time","tick","volume","dollar",
              "tick_imbalance","volume_imbalance","dollar_imbalance")
-IMPLEMENTED_BAR_TYPES = frozenset({"time"})   # BE-1
+IMPLEMENTED_BAR_TYPES = frozenset({"time","tick","volume","dollar"})  # BE-3
+PRODUCTION_BAR_TYPES  = frozenset({"time"})                           # real-campaign gate
 ```
 
 Dispatch is **total** over the recognised vocabulary:
-- a recognised-but-unimplemented type → `NotImplementedError` (never silently wrong)
+- a recognised-but-unimplemented type (the imbalance family) → `NotImplementedError`
 - an unrecognised type → rejected at `SamplingSpec` construction (`ValueError`)
+
+### Two-tier gating: implemented vs production-enabled
+
+`IMPLEMENTED_BAR_TYPES` is what the engine *can build*; `PRODUCTION_BAR_TYPES` is
+what real callers *may build*. `BarEngine.build(...)` honours the production gate
+by default, so the M7 executor (and any real campaign) can only ever produce
+time bars today. The BE-3 event bars (tick / volume / dollar) are fully
+implemented and unit-tested but require an explicit opt-in:
+
+```python
+BarEngine.build(raw, SamplingSpec("volume", params={"threshold": 2_000_000}))              # NotImplementedError
+BarEngine.build(raw, SamplingSpec("volume", params={"threshold": 2_000_000}),
+                allow_experimental=True)                                                    # runs
+```
+
+This keeps event bars out of real backtests until their cross-sectional
+alignment and annualisation story lands in a later PR — without the executor
+ever knowing individual bar types exist.
+
+### Event-bar algorithms (BE-3)
+
+Input is daily OHLCV, so each row is one atomic observation. A bar closes when an
+accumulator crosses `params["threshold"]`; constituent rows aggregate to one
+OHLCV bar (Open=first, High=max, Low=min, Close=last, Volume=sum, stamped at the
+closing timestamp). Trailing rows below the threshold form a final partial bar.
+
+| Type | Accumulator | `threshold` meaning |
+| --- | --- | --- |
+| `tick` | row count | rows per bar (int) |
+| `volume` | `Volume` | traded volume per bar |
+| `dollar` | `Close * Volume` | traded value per bar |
 
 ## BE-1 scope
 
@@ -75,5 +107,7 @@ non-goals for BE-1 and raise `NotImplementedError`.
 | `base.py` | Vocabulary constants + immutable `SamplingSpec` / `BarResult`. |
 | `validation.py` | `validate_bars` — structural checks (raise) + quality warnings (collect). |
 | `time.py` | `build_time_bars` — identity pass-through clock. |
-| `builder.py` | `BarEngine.build` dispatch + spec coercion. |
+| `tick.py` / `volume.py` / `dollar.py` | Event-driven builders (BE-3). |
+| `_aggregate.py` | Shared threshold-assignment + OHLCV aggregation for event bars. |
+| `builder.py` | `BarEngine.build` — total dict dispatch + production gate + spec coercion. |
 | `__init__.py` | Public surface. |

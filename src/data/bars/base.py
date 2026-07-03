@@ -39,11 +39,20 @@ BAR_TYPES: tuple[str, ...] = (
     "dollar_imbalance",
 )
 
-# Bar types actually constructible in this PR. BE-1 ships identity/time only;
-# later PRs (BE-3/BE-4) add the event-driven builders. Requesting a recognised
-# but not-yet-implemented type raises a clear NotImplementedError rather than
-# silently returning wrong bars.
-IMPLEMENTED_BAR_TYPES: frozenset[str] = frozenset({"time"})
+# Bar types the engine can actually construct. BE-1 shipped identity/time; BE-3
+# adds the count/volume/dollar event-driven builders. Requesting a recognised
+# but not-yet-implemented type (the imbalance family) raises a clear
+# NotImplementedError rather than silently returning wrong bars.
+IMPLEMENTED_BAR_TYPES: frozenset[str] = frozenset({"time", "tick", "volume", "dollar"})
+
+# Bar types approved for PRODUCTION / real-campaign execution. This is a
+# deliberately narrower gate than IMPLEMENTED_BAR_TYPES: an algorithm can be
+# fully implemented and unit-tested (BE-3) while remaining disabled on real
+# campaigns until its cross-sectional-alignment and annualisation story lands in
+# a later PR. ``BarEngine.build`` honours this gate by default; unit tests opt in
+# explicitly via ``allow_experimental=True``. Real callers (the M7 executor) use
+# the default, so event bars can never silently reach a real backtest yet.
+PRODUCTION_BAR_TYPES: frozenset[str] = frozenset({"time"})
 
 # Annualisation cadence for daily time bars. Event-driven builders will compute
 # and return their own realised cadence instead of this constant.
