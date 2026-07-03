@@ -40,10 +40,18 @@ BAR_TYPES: tuple[str, ...] = (
 )
 
 # Bar types the engine can actually construct. BE-1 shipped identity/time; BE-3
-# adds the count/volume/dollar event-driven builders. Requesting a recognised
-# but not-yet-implemented type (the imbalance family) raises a clear
-# NotImplementedError rather than silently returning wrong bars.
-IMPLEMENTED_BAR_TYPES: frozenset[str] = frozenset({"time", "tick", "volume", "dollar"})
+# added the count/volume/dollar event builders; BE-4 adds the imbalance family.
+# The whole recognised vocabulary now has a builder — an unrecognised type is
+# still rejected at SamplingSpec construction rather than reaching dispatch.
+IMPLEMENTED_BAR_TYPES: frozenset[str] = frozenset({
+    "time",
+    "tick",
+    "volume",
+    "dollar",
+    "tick_imbalance",
+    "volume_imbalance",
+    "dollar_imbalance",
+})
 
 # Bar types approved for PRODUCTION / real-campaign execution. This is a
 # deliberately narrower gate than IMPLEMENTED_BAR_TYPES: an algorithm can be

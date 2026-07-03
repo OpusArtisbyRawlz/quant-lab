@@ -50,6 +50,28 @@ def assign_threshold_bars(values: np.ndarray, threshold: float) -> np.ndarray:
     return bar_ids
 
 
+def assign_imbalance_bars(signed_values: np.ndarray, threshold: float) -> np.ndarray:
+    """Map a 1-D array of *signed* per-row weights to contiguous bar ids.
+
+    Identical accumulation walk to :func:`assign_threshold_bars`, but the bar
+    closes when the **absolute** running imbalance reaches ``threshold`` — the
+    accumulator can move in either direction and only its magnitude triggers a
+    boundary. Trailing rows below the threshold form a final (partial) bar.
+
+    A non-positive threshold is rejected by the callers before reaching here.
+    """
+    bar_ids = np.empty(len(signed_values), dtype=np.int64)
+    acc = 0.0
+    cur = 0
+    for i, v in enumerate(signed_values):
+        acc += float(v)
+        bar_ids[i] = cur
+        if abs(acc) >= threshold:
+            cur += 1
+            acc = 0.0
+    return bar_ids
+
+
 def aggregate_by_bar_id(df: pd.DataFrame, bar_ids: np.ndarray) -> pd.DataFrame:
     """Reduce ``df`` (OHLCV, DatetimeIndex) to one OHLCV row per bar id.
 

@@ -50,12 +50,13 @@ the engine itself is already spec-shaped.
 ```python
 BAR_TYPES = ("time","tick","volume","dollar",
              "tick_imbalance","volume_imbalance","dollar_imbalance")
-IMPLEMENTED_BAR_TYPES = frozenset({"time","tick","volume","dollar"})  # BE-3
-PRODUCTION_BAR_TYPES  = frozenset({"time"})                           # real-campaign gate
+IMPLEMENTED_BAR_TYPES = frozenset(BAR_TYPES)   # BE-4: whole vocabulary has a builder
+PRODUCTION_BAR_TYPES  = frozenset({"time"})    # real-campaign gate
 ```
 
 Dispatch is **total** over the recognised vocabulary:
-- a recognised-but-unimplemented type (the imbalance family) → `NotImplementedError`
+- every recognised type has a builder; a non-production one still raises
+  `NotImplementedError` unless `allow_experimental=True`
 - an unrecognised type → rejected at `SamplingSpec` construction (`ValueError`)
 
 ### Two-tier gating: implemented vs production-enabled
@@ -89,6 +90,23 @@ closing timestamp). Trailing rows below the threshold form a final partial bar.
 | `volume` | `Volume` | traded volume per bar |
 | `dollar` | `Close * Volume` | traded value per bar |
 
+### Imbalance bars (BE-4)
+
+Each row is signed by the **tick rule** (`b_t = sign(ΔClose)`, carrying the prior
+sign on no change, `b_0 = +1`). A bar closes when the **absolute signed
+imbalance** since the last bar crosses `params["threshold"]`:
+
+| Type | Signed per-row weight |
+| --- | --- |
+| `tick_imbalance` | `b_t` |
+| `volume_imbalance` | `b_t * Volume` |
+| `dollar_imbalance` | `b_t * Close * Volume` |
+
+This is the **fixed-threshold** formulation — pure and deterministic. Adaptive
+(EWMA expected-imbalance) thresholding from AFML carries estimation state across
+bars and is a deliberate non-goal; it can later arrive as extra `params` without
+changing the call shape.
+
 ## BE-1 scope
 
 BE-1 ships **identity / time sampling only**. Daily OHLCV is already
@@ -108,6 +126,7 @@ non-goals for BE-1 and raise `NotImplementedError`.
 | `validation.py` | `validate_bars` — structural checks (raise) + quality warnings (collect). |
 | `time.py` | `build_time_bars` — identity pass-through clock. |
 | `tick.py` / `volume.py` / `dollar.py` | Event-driven builders (BE-3). |
-| `_aggregate.py` | Shared threshold-assignment + OHLCV aggregation for event bars. |
+| `imbalance.py` | Tick/volume/dollar imbalance builders + tick rule (BE-4). |
+| `_aggregate.py` | Shared threshold + signed-imbalance assignment + OHLCV aggregation. |
 | `builder.py` | `BarEngine.build` — total dict dispatch + production gate + spec coercion. |
 | `__init__.py` | Public surface. |
