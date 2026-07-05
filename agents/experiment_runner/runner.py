@@ -58,7 +58,7 @@ from agents.experiment_runner.robustness import (
 )
 
 # src/ imports — permitted only inside experiment_runner
-from src.data.bars import BarEngine
+from src.data.bars import BarEngine, align_cross_section
 from src.pipelines.cross_sectional import run_market_alpha_pipeline
 from src.signals.combine import apply_signal_combo
 
@@ -211,7 +211,13 @@ def run_experiment(
             warnings=warnings,
             error=err,
         )
-    data_dict = bar_result.data
+    #     Cross-sectional alignment onto a common grid. For gap-free daily time
+    #     bars this is the identity (the production path stays byte-identical);
+    #     for irregular event bars it forward-fills each ticker onto the union
+    #     of bar-close timestamps so the peer-ranking pipeline still works. The
+    #     executor applies it unconditionally — it is bar-agnostic and never
+    #     inspects the clock to decide.
+    data_dict = align_cross_section(bar_result.data)
 
     # ------------------------------------------------------------------
     # 6. Run backtest pipeline

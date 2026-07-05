@@ -77,6 +77,30 @@ This keeps event bars out of real backtests until their cross-sectional
 alignment and annualisation story lands in a later PR — without the executor
 ever knowing individual bar types exist.
 
+**Production-enablement verdict.** The alignment, realised-cadence, intraday, and
+default-threshold prerequisites are all merged, so event bars can now run through
+the real executor. A time-vs-event **comparison study** (`bar_comparison.py`,
+`docs/BAR_ENGINE_PRODUCTION.md`) grades each type against the time baseline on
+Sharpe / MDD / turnover / robustness. On the available (synthetic) evidence no
+event bar is a *stable* improvement, so `PRODUCTION_BAR_TYPES` stays `{"time"}`:
+promotion is now a one-line, study-backed flip rather than a leap of faith.
+
+### Data-derived default thresholds (`defaults.py`)
+
+Event builders need a `params["threshold"]`, but the executor hands the engine
+only a bare bar-type string. When no threshold is supplied the engine derives a
+**pooled default from the data** (`resolve_threshold` / `default_threshold`),
+targeting `TARGET_BARS_PER_TICKER` bars per ticker:
+
+```
+tick    : Σ rows        / (n_tickers * target)   # rows per bar
+volume  : Σ Volume      / (n_tickers * target)
+dollar  : Σ Close*Volume/ (n_tickers * target)
+```
+
+Imbalance variants reuse their base weight's scale. An explicit threshold always
+wins, so tuned runs never change. Pure and deterministic.
+
 ### Event-bar algorithms (BE-3)
 
 Input is daily OHLCV, so each row is one atomic observation. A bar closes when an
@@ -195,5 +219,6 @@ the daily/time production path is untouched.
 | `align.py` | Cross-sectional alignment of irregular event bars onto a common grid. |
 | `periods.py` | Realised periods-per-year cadence measured from bar-close timestamps. |
 | `_aggregate.py` | Shared threshold + signed-imbalance assignment + OHLCV aggregation. |
+| `defaults.py` | Data-derived default thresholds so event bars run from a bare bar-type string. |
 | `builder.py` | `BarEngine.build` — total dict dispatch + production gate + spec coercion. |
 | `__init__.py` | Public surface. |

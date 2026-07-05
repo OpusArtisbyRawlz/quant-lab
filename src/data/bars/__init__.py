@@ -32,6 +32,7 @@ from .base import (
 from .validation import validate_bars, BarValidationError
 from .align import align_cross_section, ALIGNMENT_METHODS
 from .periods import realized_periods_per_year, event_periods_per_year
+from .defaults import default_threshold, resolve_threshold, TARGET_BARS_PER_TICKER
 from .builder import BarEngine, build
 
 __all__ = [
@@ -45,6 +46,9 @@ __all__ = [
     "ALIGNMENT_METHODS",
     "realized_periods_per_year",
     "event_periods_per_year",
+    "default_threshold",
+    "resolve_threshold",
+    "TARGET_BARS_PER_TICKER",
     "BAR_TYPES",
     "IMPLEMENTED_BAR_TYPES",
     "PRODUCTION_BAR_TYPES",

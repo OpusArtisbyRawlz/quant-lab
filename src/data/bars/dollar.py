@@ -19,13 +19,12 @@ import pandas as pd
 from .base import SamplingSpec
 from ._aggregate import assign_threshold_bars, aggregate_by_bar_id
 from .periods import event_periods_per_year
+from .defaults import resolve_threshold
 
 
-def _threshold(spec: SamplingSpec) -> float:
-    thr = spec.param("threshold")
-    if thr is None:
-        raise ValueError("dollar bars require params['threshold'] (dollar value per bar)")
-    thr = float(thr)
+def _threshold(spec: SamplingSpec, raw_data: dict[str, pd.DataFrame]) -> float:
+    """Explicit ``params['threshold']`` if given, else a data-derived default."""
+    thr = resolve_threshold("dollar", spec.param("threshold"), raw_data)
     if thr <= 0:
         raise ValueError(f"dollar threshold must be positive, got {thr}")
     return thr
@@ -35,7 +34,7 @@ def build_dollar_bars(
     raw_data: dict[str, pd.DataFrame], spec: SamplingSpec
 ) -> tuple[dict[str, pd.DataFrame], float]:
     """Accumulate ``Close * Volume`` per ticker; emit a bar each time it crosses ``threshold``."""
-    thr = _threshold(spec)
+    thr = _threshold(spec, raw_data)
     out: dict[str, pd.DataFrame] = {}
     for ticker, df in raw_data.items():
         value = (df["Close"].to_numpy(dtype=float) * df["Volume"].to_numpy(dtype=float))

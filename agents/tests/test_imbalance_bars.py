@@ -200,10 +200,20 @@ def test_imbalance_do_not_mutate_input(bar_type):
 # ===========================================================================
 
 @pytest.mark.parametrize("bar_type", IMBALANCE_TYPES)
-def test_imbalance_require_threshold(bar_type):
+def test_imbalance_derive_default_threshold(bar_type):
+    """No explicit threshold → the engine derives a pooled default from data.
+
+    Imbalance variants reuse the scale of their non-imbalance counterpart, so a
+    bare bar-type string still yields valid, deterministic bars.
+    """
     raw = _make_data_dict()
-    with pytest.raises(ValueError):
-        _build(raw, SamplingSpec(type=bar_type))
+    result = _build(raw, SamplingSpec(type=bar_type))
+    assert set(result.data) == set(raw)
+    for df in result.data.values():
+        assert len(df) >= 1
+    again = _build(raw, SamplingSpec(type=bar_type))
+    for t in result.data:
+        pd.testing.assert_frame_equal(result.data[t], again.data[t])
 
 
 @pytest.mark.parametrize("bar_type", IMBALANCE_TYPES)
