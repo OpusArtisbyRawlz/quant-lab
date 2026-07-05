@@ -33,6 +33,7 @@ import pandas as pd
 from .base import SamplingSpec
 from ._aggregate import assign_imbalance_bars, aggregate_by_bar_id
 from .periods import event_periods_per_year
+from .defaults import resolve_threshold
 
 
 def tick_signs(close: np.ndarray) -> np.ndarray:
@@ -55,13 +56,14 @@ def tick_signs(close: np.ndarray) -> np.ndarray:
     return signs
 
 
-def _threshold(spec: SamplingSpec) -> float:
-    thr = spec.param("threshold")
-    if thr is None:
-        raise ValueError(
-            f"{spec.type} bars require params['threshold'] (imbalance magnitude per bar)"
-        )
-    thr = float(thr)
+def _threshold(spec: SamplingSpec, raw_data: dict[str, pd.DataFrame]) -> float:
+    """Explicit ``params['threshold']`` if given, else a data-derived default.
+
+    Imbalance variants reuse the scale of their non-imbalance counterpart (the
+    signed accumulator simply crosses less often), so the same pooled default
+    that sizes ``volume``/``dollar``/``tick`` bars applies here.
+    """
+    thr = resolve_threshold(spec.type, spec.param("threshold"), raw_data)
     if thr <= 0:
         raise ValueError(f"{spec.type} threshold must be positive, got {thr}")
     return thr
@@ -82,7 +84,7 @@ def _weights(df: pd.DataFrame, kind: str, signs: np.ndarray) -> np.ndarray:
 def _build_imbalance(
     raw_data: dict[str, pd.DataFrame], spec: SamplingSpec, kind: str
 ) -> tuple[dict[str, pd.DataFrame], float]:
-    thr = _threshold(spec)
+    thr = _threshold(spec, raw_data)
     out: dict[str, pd.DataFrame] = {}
     for ticker, df in raw_data.items():
         signs = tick_signs(df["Close"].to_numpy(dtype=float))

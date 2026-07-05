@@ -209,10 +209,23 @@ def test_event_bars_do_not_mutate_input(bar_type):
 # ===========================================================================
 
 @pytest.mark.parametrize("bar_type", ["tick", "volume", "dollar"])
-def test_event_bars_require_threshold(bar_type):
+def test_event_bars_derive_default_threshold(bar_type):
+    """With no explicit threshold, the engine derives a pooled default from data.
+
+    This keeps the M7 executor bar-agnostic: it hands the engine only a bare
+    bar-type string, and the engine sizes the threshold from the input itself.
+    The result must still be a valid, non-empty set of bars.
+    """
     raw = _make_data_dict()
-    with pytest.raises(ValueError):
-        _build(raw, SamplingSpec(type=bar_type))            # no threshold
+    result = _build(raw, SamplingSpec(type=bar_type))       # no threshold → default
+    assert isinstance(result, BarResult)
+    assert set(result.data) == set(raw)
+    for df in result.data.values():
+        assert len(df) >= 1
+    # Deterministic: same input → identical default-sized bars.
+    again = _build(raw, SamplingSpec(type=bar_type))
+    for t in result.data:
+        pd.testing.assert_frame_equal(result.data[t], again.data[t])
 
 
 @pytest.mark.parametrize("bar_type", ["tick", "volume", "dollar"])

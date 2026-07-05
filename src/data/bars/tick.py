@@ -19,13 +19,12 @@ import pandas as pd
 from .base import SamplingSpec
 from ._aggregate import aggregate_by_bar_id
 from .periods import event_periods_per_year
+from .defaults import resolve_threshold
 
 
-def _threshold(spec: SamplingSpec) -> int:
-    thr = spec.param("threshold")
-    if thr is None:
-        raise ValueError("tick bars require params['threshold'] (ticks per bar)")
-    thr = int(thr)
+def _threshold(spec: SamplingSpec, raw_data: dict[str, pd.DataFrame]) -> int:
+    """Explicit ``params['threshold']`` if given, else a data-derived default."""
+    thr = int(resolve_threshold("tick", spec.param("threshold"), raw_data))
     if thr <= 0:
         raise ValueError(f"tick threshold must be a positive integer, got {thr}")
     return thr
@@ -35,7 +34,7 @@ def build_tick_bars(
     raw_data: dict[str, pd.DataFrame], spec: SamplingSpec
 ) -> tuple[dict[str, pd.DataFrame], float]:
     """Group every ``threshold`` rows per ticker into one OHLCV bar."""
-    thr = _threshold(spec)
+    thr = _threshold(spec, raw_data)
     out: dict[str, pd.DataFrame] = {}
     for ticker, df in raw_data.items():
         bar_ids = np.arange(len(df), dtype=np.int64) // thr
