@@ -1,0 +1,10 @@
+{
+  "slug": "candidate_hist_dd_only",
+  "name": "Historical DD Only (floor0.3,k5)",
+  "group": "C \u2014 historical low-MDD challenger",
+  "source": "final_returns_v2_with_dates.csv + overlay (robustness nb)",
+  "version": "-",
+  "overlay": "smooth DD floor0.3 k5 (nb cell 20)",
+  "is_v1": false,
+  "has_book": false
+}

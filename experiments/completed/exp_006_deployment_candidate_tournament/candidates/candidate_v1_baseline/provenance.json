@@ -1,0 +1,11 @@
+{
+  "experiment": "exp_006_deployment_candidate_tournament",
+  "git_commit": "30a28f94eadc48b32017b807376d77d70665374f",
+  "candidate": "Deployment Candidate V1 (baseline)",
+  "group": "A \u2014 V1 baseline",
+  "data_source": "exp_005_risk_engine_final (as shipped)",
+  "overlay_recipe": "dual-layer smooth-DD (strategy+portfolio, k5 floor0.55)",
+  "has_position_book": true,
+  "book_dependent_stages_evaluable": true,
+  "lookahead_safe": "exposure applied via apply_exposure_to_return (shift(1)); drawdown uses causal cummax"
+}

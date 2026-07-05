@@ -1,0 +1,6 @@
+metric,value
+max_abs_error,3.469446951953614e-18
+mean_abs_error,7.083851109193324e-20
+tolerance,1e-12
+n_days,2558.0
+passed,1.0

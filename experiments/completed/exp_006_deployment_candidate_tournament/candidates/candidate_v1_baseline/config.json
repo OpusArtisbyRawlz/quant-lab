@@ -1,0 +1,10 @@
+{
+  "slug": "candidate_v1_baseline",
+  "name": "Deployment Candidate V1 (baseline)",
+  "group": "A \u2014 V1 baseline",
+  "source": "exp_005_risk_engine_final (as shipped)",
+  "version": "V1",
+  "overlay": "dual-layer smooth-DD (strategy+portfolio, k5 floor0.55)",
+  "is_v1": true,
+  "has_book": true
+}

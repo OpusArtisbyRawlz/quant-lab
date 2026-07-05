@@ -1,0 +1,8 @@
+{
+  "reproduction_pass": true,
+  "param_grid_pass": true,
+  "walk_forward_pass": true,
+  "overall_pass": true,
+  "selected_floor": 0.3,
+  "selected_k": 5
+}
