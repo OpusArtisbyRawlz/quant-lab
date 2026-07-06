@@ -1,0 +1,11 @@
+{
+  "experiment": "exp_006_deployment_candidate_tournament",
+  "git_commit": "30a28f94eadc48b32017b807376d77d70665374f",
+  "candidate": "Historical Floor 0.3 (clip0.5-1.3)",
+  "group": "C \u2014 historical low-MDD challenger",
+  "data_source": "final_returns_v2_with_dates.csv + overlay (robustness nb)",
+  "overlay_recipe": "floor sweep 0.3 (nb cell 15)",
+  "has_position_book": false,
+  "book_dependent_stages_evaluable": false,
+  "lookahead_safe": "exposure applied via apply_exposure_to_return (shift(1)); drawdown uses causal cummax"
+}

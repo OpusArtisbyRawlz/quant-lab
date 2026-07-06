@@ -1,0 +1,10 @@
+{
+  "slug": "candidate_dd_k1",
+  "name": "DD k=1 (m*smooth(0.6,1),clip0.3-1.5)",
+  "group": "B \u2014 deployment-base challenger",
+  "source": "recovered deployment base + overlay",
+  "version": "-",
+  "overlay": "k-sweep k=1",
+  "is_v1": false,
+  "has_book": true
+}

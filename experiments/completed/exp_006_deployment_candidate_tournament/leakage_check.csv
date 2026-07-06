@@ -1,0 +1,3 @@
+base,max_abs_diff_causal_vs_fn,Sharpe_causal,Sharpe_if_contemporaneous_leak,note
+deployment,0.0,2.351633191360877,2.64279556248642,fn lags exposure 1 day; matches manual causal to ~0; contemporaneous (leaky) variant shown only to size the gap
+v2,0.0,2.397791941509426,2.6502629537542055,fn lags exposure 1 day; matches manual causal to ~0; contemporaneous (leaky) variant shown only to size the gap
