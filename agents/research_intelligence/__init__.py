@@ -15,5 +15,7 @@ promotion, retirement, confidence, or deployment decision is made here.
 from __future__ import annotations
 
 from .evidence_recorder import EvidenceRecorder
+from .evidence_projector import EvidenceProjector
+from . import statistics
 
-__all__ = ["EvidenceRecorder"]
+__all__ = ["EvidenceRecorder", "EvidenceProjector", "statistics"]

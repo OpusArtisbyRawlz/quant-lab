@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -476,6 +476,77 @@ CREATE TABLE IF NOT EXISTS evidence_event (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-2 — Bayesian posterior projection (rebuildable caches)
+#
+# These two tables are **droppable, rebuildable projections** folded purely from
+# the immutable ``evidence_event`` log by ``EvidenceProjector`` (method
+# ``stat_v1``). They store *measurements* — a posterior over the latent effect
+# and the four separated evidence axes Q/R/G/V, each with a credible interval —
+# and carry **no decision**: ``stage`` is the initial lifecycle value
+# ``'Candidate'`` and no promotion/retirement transition is made in PR-2 (that is
+# PR-3). Losing these caches never loses knowledge; they re-derive from the log.
+#
+# Cell-level posteriors live in this M11-owned ``context_cell_posterior`` table
+# rather than as new columns on the M9 ``signal_context_performance`` cache, so
+# the M9 roll-up path is entirely untouched (its INSERT-OR-REPLACE rebuild would
+# otherwise clobber M11 columns). This preserves the M9 boundary.
+# ===========================================================================
+_CREATE_HYPOTHESIS_STATE = """
+CREATE TABLE IF NOT EXISTS hypothesis_state (
+    hypothesis_id       TEXT PRIMARY KEY,
+    stage               TEXT NOT NULL DEFAULT 'Candidate',
+    -- Posterior over the latent effect (point estimate + uncertainty)
+    posterior_mean      REAL,
+    posterior_sd        REAL,
+    ci_low              REAL,
+    ci_high             REAL,
+    tau2                REAL,
+    n_eff               REAL,
+    n_supporting        INTEGER NOT NULL DEFAULT 0,
+    n_contradicting     INTEGER NOT NULL DEFAULT 0,
+    -- Q — statistical quality
+    q_stat_prob         REAL,   -- π_h = Pr(θ_h > S0)
+    q_precision         REAL,   -- prec_h
+    -- R — reproducibility
+    r_sign              REAL,
+    r_disp              REAL,
+    r_replicas          REAL,   -- R^cnt
+    stability           REAL,   -- within-experiment stability (mean), nullable
+    -- G — generalisation
+    g_count             INTEGER NOT NULL DEFAULT 0,
+    g_coverage          REAL,
+    -- V — economic value (kept in Sharpe units)
+    v_net_sharpe        REAL,
+    v_ci_low            REAL,
+    v_ci_high           REAL,
+    -- cross-check (not a decision)
+    lfdr                REAL,   -- local false-discovery prob = 1 - π_h
+    method              TEXT NOT NULL DEFAULT 'stat_v1',
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+_CREATE_CONTEXT_CELL_POSTERIOR = """
+CREATE TABLE IF NOT EXISTS context_cell_posterior (
+    hypothesis_id       TEXT NOT NULL,
+    market              TEXT NOT NULL,
+    universe            TEXT NOT NULL,
+    regime              TEXT NOT NULL,
+    bar_type            TEXT NOT NULL,
+    post_mu             REAL,
+    post_sigma          REAL,
+    post_ci_low         REAL,
+    post_ci_high        REAL,
+    post_exceed_prob    REAL,   -- Pr(θ_c > S0)
+    n_eff               REAL,
+    m                   INTEGER NOT NULL DEFAULT 0,   -- distinct experiments
+    method              TEXT NOT NULL DEFAULT 'stat_v1',
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (hypothesis_id, market, universe, regime, bar_type)
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -524,6 +595,10 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_evidence_campaign     ON evidence_event(campaign_id)",
     "CREATE INDEX IF NOT EXISTS idx_evidence_source       ON evidence_event(evidence_source)",
     "CREATE INDEX IF NOT EXISTS idx_evidence_context      ON evidence_event(market, universe, regime, bar_type)",
+    # Milestone 11 PR-2 — Bayesian posterior projections
+    "CREATE INDEX IF NOT EXISTS idx_hyp_state_stage       ON hypothesis_state(stage)",
+    "CREATE INDEX IF NOT EXISTS idx_ccp_hypothesis        ON context_cell_posterior(hypothesis_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ccp_context           ON context_cell_posterior(market, universe, regime, bar_type)",
 ]
 
 
@@ -641,6 +716,9 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_LOOP_CHECKPOINT)
         # Milestone 11 PR-1 — evidence capture and provenance
         conn.execute(_CREATE_EVIDENCE_EVENT)
+        # Milestone 11 PR-2 — Bayesian posterior projections
+        conn.execute(_CREATE_HYPOTHESIS_STATE)
+        conn.execute(_CREATE_CONTEXT_CELL_POSTERIOR)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).

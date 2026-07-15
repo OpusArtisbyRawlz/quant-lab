@@ -208,6 +208,16 @@ def distinct_experiment_ids(db_path: Path = DB_PATH) -> list[str]:
     return [r["experiment_id"] for r in rows]
 
 
+def distinct_hypothesis_ids(db_path: Path = DB_PATH) -> list[str]:
+    """Every non-null hypothesis_id present in the evidence log (for projection)."""
+    with get_connection(db_path) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT hypothesis_id FROM evidence_event "
+            "WHERE hypothesis_id IS NOT NULL ORDER BY hypothesis_id"
+        ).fetchall()
+    return [r["hypothesis_id"] for r in rows]
+
+
 def count(db_path: Path = DB_PATH) -> int:
     """Total number of evidence events stored."""
     with get_connection(db_path) as conn:
