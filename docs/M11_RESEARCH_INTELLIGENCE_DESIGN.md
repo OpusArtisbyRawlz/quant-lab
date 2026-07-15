@@ -3,6 +3,14 @@
 **Status:** design-only. No code in this PR. This document is the design
 verification + architecture proposal for M11.
 
+> **ARCHITECTURE FROZEN (M11-0).** The component boundaries, storage tables,
+> event/evidence flow, agent-extension seams, and PR breakdown in this document
+> are locked. Subsequent M11 work implements against this contract; changes to
+> the *architecture* require an explicit design revision. The **quantitative
+> methodology** that fills in `statistics.py`, the promotion predicates, and the
+> decay/holdout/correction policies is specified separately and normatively in
+> [`M11_STATISTICAL_METHODOLOGY.md`](./M11_STATISTICAL_METHODOLOGY.md).
+
 **Thesis.** M10 made the platform *automatically execute experiments*. M11 makes
 it *automatically get better at research* — not by changing models or execution,
 but by accumulating statistical **evidence** and letting that evidence drive
@@ -47,9 +55,9 @@ a rebuildable projection, sole-writer, deterministic ids, versioned method tags.
 | Component | File | What it does today | M11 hook (no behavioural change to existing path) |
 | --- | --- | --- | --- |
 | **ResearchStrategist** | `research_strategist/strategist.py` | Evolves the hypothesis tree. Fires operators on a **binary** heuristic: `_confirmed` = `n_experiments >= min_n AND contribution_score > threshold` (:485); `_refuted` mirror (:494); `_generalises` hard-codes `len(markets) >= 2` (:522). | Replace the three predicates `_confirmed`/`_refuted`/`_generalises` with reads of the new **evidence projection**. `StrategistConfig.exploration_fraction` is already an unused hook (:81). |
-| **ResearchPrioritizer** | `research_prioritizer/prioritizer.py` | Ranks pending ideas by a **fixed weighted sum** over an explainable `ScoreBreakdown` (:287): `w_eig/w_novelty/w_memory/w_campaign/w_cost`. `_eig = 1/(1+n_prior)` (:318); `_memory_score` is keyword sentiment (:339, flagged "deliberately simple"). | **Most direct target.** Add `confidence`, `stability`, `reproducibility`, `generalisation` components + weights to `PrioritizerConfig`; feed them from the evidence projection. `ScoreBreakdown` is already built for extension and is already fully explainable. |
+| **ResearchPrioritizer** | `research_prioritizer/prioritizer.py` | Ranks pending ideas by a **fixed weighted sum** over an explainable `ScoreBreakdown` (:287): `w_eig/w_novelty/w_memory/w_campaign/w_cost`. `_eig = 1/(1+n_prior)` (:318); `_memory_score` is keyword sentiment (:339, flagged "deliberately simple"). | **Most direct target.** Add the **four separated axes** ($Q$ statistical quality, $R$ reproducibility, $G$ generalisation, $V$ economic value) as distinct `ScoreBreakdown` components + weights on `PrioritizerConfig`, plus the evidence-budget cap — never a single "confidence" component. `ScoreBreakdown` is already built for extension and fully explainable. |
 | **ResearchScheduler** | `research_scheduler/scheduler.py` | Orders campaigns `(-priority, campaign_id)` (:199); budget gate `remaining_budget` (:283); diversity `max_per_context`. | Weight `campaign_queue` by **aggregate campaign evidence**, not just `goal_spec.priority`. Evidence/stage metadata rides on the `Candidate` already passed to the planner (:369). |
-| **ExplorationPlanner** | `research_quota/quota.py` | Pure quota: reserve `ceil(frac*window)` explore slots, fill by value; `accept` budget predicate; `max_per_context`. | Reserve slots by **promotion stage / uncertainty** instead of binary explore/exploit; `accept` callback (:119) is a clean evidence-admission hook. Stays pure. |
+| **ExplorationPlanner** | `research_quota/quota.py` | Pure quota: reserve `ceil(frac*window)` explore slots, fill by value; `accept` budget predicate; `max_per_context`. | Consume the **evidence budget** $b_h$ (EVOI-allocated, hard per-hypothesis ceiling $a_{\max}$) as a per-hypothesis admission cap via the `accept` callback (:119); reserve slots by uncertainty/stage instead of binary explore/exploit. Stays pure. |
 | **ResearchLoop** | `research_loop/loop.py` | Six-phase resumable tick `recover→generate→schedule→dispatch→learn→checkpoint` (:135). `_stamp_node_experiment` links experiment→node (:299). | Add a **new deterministic phase `assess`** (or extend `_do_learn`, :314) after `learn`: recompute evidence, run promotion/retirement transitions, write explanations. Bracketed by `loop_checkpoint` like every other phase → resumable. |
 | **SignalLibrarian** | `signal_librarian/librarian.py` | Post-Ledger, no-LLM. Classifies regime, appends observations, rebuilds cache, computes `_generalization_class` (:291: universal/market_specific/…), `_lifecycle_state` (:315: observed→candidate→promoted/retired). Docstring: *"Formal statistical confirmation is deferred to M11"* (:28). | The **anchor point.** M11's evidence recompute extends `record_experiment` (:114) / `backfill` (:176); `_write_promotion_memory` (:361) is the robustness-memory write hook. Promotion here is currently cross-context-consistency only — M11 adds the statistical layer the docstring promised. |
 | **Context Store** | `storage/context_store.py` | `signal_context_performance` projection: counts, averages, `keep_rate`, `contribution_score`, `min_n_met`. No dispersion/CI/stability. | Add statistical columns (see §Part B) computed in `rebuild_context_cache` (:233) from the **already-retained** per-experiment net metrics in observations. |
@@ -91,9 +99,13 @@ ResearchLoop.dispatch ──► RunResult.metrics + CritiqueResult + node link
         │        │                                       │
         │        ▼                                       │
         │  EvidenceProjector ─► hypothesis_evidence      │  rebuildable cache
-        │                       signal_context_perf(+)   │  (confidence, stability,
-        │                       generalisation_matrix    │   reproducibility, …)
+        │                       signal_context_perf(+)   │  Bayesian posterior
+        │                       generalisation_matrix    │  (θ mean/sd + CI) and
+        │                                                │  four separated axes:
+        │                                                │  Q quality · R reproduce
+        │                                                │  G generalise · V value
         │        │                                       │
+        │        ├─► EvidenceBudget ─► budget_alloc       │  EVOI, ceiling a_max
         │        ├─► PromotionEngine ─► stage transitions│  evidence-gated
         │        ├─► RetirementEngine ─► retire + freeze  │  evidence-gated
         │        ├─► FailureClassifier ─► reason codes    │  deterministic taxonomy
@@ -102,7 +114,7 @@ ResearchLoop.dispatch ──► RunResult.metrics + CritiqueResult + node link
                                    │
         reads (through existing knobs) ▼
    Strategist   Prioritizer   Scheduler   Quota   Reporter
-   (_confirmed) (new weights) (campaign)  (slots) (boards)
+   (_confirmed) (Q/R/G/V)     (campaign)  (budget)(boards)
 ```
 
 **Core principle: separate _measuring_ evidence from _acting_ on it.**
@@ -117,9 +129,10 @@ isolation, and makes the whole layer reconstructible from the event log.
 | --- | --- | --- |
 | `agents/research_intelligence/evidence_recorder.py` | writer | On each finished experiment, extract the full metric bundle (net block, robustness_flags, turnover/cost), the critic decision, the regime label, and the hypothesis-node link; append **one immutable `evidence_event`**. Sole writer. |
 | `.../evidence_projector.py` | pure projector | Fold the event log into projections: per-hypothesis evidence, extended context performance (statistical columns), generalisation matrix. Must be **replay-deterministic** (identical output from identical log). |
-| `.../statistics.py` | pure lib | Deterministic estimators: pooled effect size, t-stat, bootstrap-free CI (closed-form), stability (sign-consistency + dispersion), reproducibility (independent-replication agreement), generalisation breadth. Versioned (`method="stat_v1"`). No RNG, or fixed-seed only. |
-| `.../promotion_engine.py` | pure policy | Given a hypothesis's evidence, decide stage transitions. Evidence-gated, never heuristic. Emits transition events + explanation. |
-| `.../retirement_engine.py` | pure policy | Decide retirement (overwhelming refutation / saturation / duplication). Freezes budget, preserves history. |
+| `.../statistics.py` | pure lib | **Bayesian** estimators: Normal–Normal posterior per cell (skeptical prior), hierarchical cell→hypothesis pooling, closed-form credible intervals, and the **four separated axes** $Q,R,G,V$ (no single confidence). Versioned (`method="stat_v1"`). No RNG, or fixed-seed only. |
+| `.../promotion_engine.py` | pure policy | Decide promotion stage transitions as an **AND of per-axis gates** over $(Q,R,G,V,\text{holdout})$ — never a weighted sum. Evidence-gated, hysteretic. Emits transition events + explanation. |
+| `.../retirement_engine.py` | pure policy | **First-class retirement track:** enter `Retired-{Refuted,Saturated,Redundant,Decayed}` from any live stage on posterior predicates. Freezes evidence budget, preserves history, reopenable only on genuinely new evidence. |
+| `.../evidence_budget.py` | pure policy | Allocate future experiment slots per hypothesis by **expected value of information (EVOI)** with a hard per-hypothesis ceiling $a_{\max}$ and exploration floor; retired ⇒ 0. Feeds the quota/scheduler. Versioned (`budget_v1`). |
 | `.../failure_classifier.py` | pure policy | Map a failed/rejected experiment to a **reason code** from a fixed taxonomy using existing signals (robustness_flags, sample size, cost drag, subperiod signs, sensitivity spread). |
 | `.../explanation.py` | writer | Render a `decision_record` for every prioritisation/promotion/retirement/rejection: evidence used, confidence, supporting + contradictory experiments. |
 | `.../research_memory_query.py` | pure reader | Answer standing questions ("what momentum signals survive?", "which markets transfer?", "what parameter ranges overfit?") purely from projections — no re-running. |
@@ -136,15 +149,17 @@ explicit and importable by decision agents but not by execution agents.
   which runs the projector + promotion/retirement/failure engines and writes
   explanations. Checkpointed like every other phase.
 - **ResearchStrategist** — `_confirmed`/`_refuted`/`_generalises` read the
-  hypothesis-evidence projection instead of the raw `contribution_score`
-  heuristic. Same call shape, richer signal. Stage gates whether a node is
-  `_expandable`.
-- **ResearchPrioritizer** — four new `ScoreBreakdown` components
-  (confidence, stability, reproducibility, generalisation) + weights; `_eig` and
-  `_memory_score` upgraded to read evidence. Output stays fully explainable.
+  posterior + axis vector instead of the raw `contribution_score` heuristic. Same
+  call shape, richer signal. Promotion/retirement stage gates whether a node is
+  `_expandable`; retired nodes stop expanding.
+- **ResearchPrioritizer** — four **separate** `ScoreBreakdown` components — $Q$,
+  $R$, $G$, $V$ — plus the evidence-budget cap; `_eig` becomes EVOI and
+  `_memory_score` reads robustness memory. **No single confidence component.**
+  Output stays fully explainable (each axis shown separately).
 - **ResearchScheduler / ExplorationPlanner** — campaign priority and quota
-  reservation become evidence/stage-aware via metadata already threaded on
-  `Candidate`.
+  reservation become evidence/stage-aware, and the quota's `accept` enforces the
+  per-hypothesis **evidence-budget ceiling** $b_h$, via metadata already threaded
+  on `Candidate`.
 - **Campaign Reporter** — new read-only boards. No decision logic.
 
 No other agent changes. Commander, Critic, Designer, Ledger, Experiment Runner,
@@ -173,11 +188,16 @@ added to existing tables):
   method, created_at` (structured sibling to prose `lessons_learned`).
 
 **Rebuildable projections** (droppable caches, re-derivable from the logs)
-- `hypothesis_state` — PK `node_id`: `stage, confidence, stability,
-  reproducibility, generalisation_score, n_experiments, n_supporting,
-  n_contradicting, budget_frozen, last_rebuilt_at, method`.
-- `signal_context_performance` **extended** (additive columns): `effect_size,
-  t_stat, ci_low, ci_high, stability_score, reproducibility_score`.
+- `hypothesis_state` — PK `node_id`. Stores the **posterior** and the **four
+  separated axes** (never a single confidence): `stage` (promotion *or*
+  retirement state), `posterior_mean, posterior_sd, ci_low, ci_high`,
+  `q_stat_prob (π_h), q_precision`, `r_sign, r_disp, r_replicas, stability`,
+  `g_count, g_coverage`, `v_net_sharpe, v_ci_low`, `n_eff, n_supporting,
+  n_contradicting`, `evoi, budget_alloc, budget_frozen`, `last_rebuilt_at,
+  method`. See `M11_STATISTICAL_METHODOLOGY.md` §§2–4 for each field.
+- `signal_context_performance` **extended** (additive columns): posterior
+  `mu, sigma, ci_low, ci_high`, `post_exceed_prob`, `t_stat`, `q_value`,
+  `stability_score, reproducibility_score`.
 - `generalisation_matrix` — per hypothesis × dimension (market/universe/regime/
   bar_type/period): survival counts, for the generalisation score and Reporter.
 
@@ -195,10 +215,11 @@ loop.run_tick(campaign):
      1. For each experiment dispatched this tick:        │
           EvidenceRecorder.record(experiment_id)  ──► evidence_event (idempotent on experiment_id)
      2. EvidenceProjector.refresh(affected nodes/contexts) ──► projections (pure fold)
-     3. PromotionEngine.evaluate(nodes) ──► hypothesis_evidence_event + decision_record
-     4. RetirementEngine.evaluate(nodes) ──► events + budget_frozen
-     5. FailureClassifier.classify(failed/rejected) ──► failure_reason
-     6. ExplanationWriter.flush() ──► decision_record
+     3. PromotionEngine.evaluate(nodes) ──► hypothesis_evidence_event + decision_record   (AND-of-axes)
+     4. RetirementEngine.evaluate(nodes) ──► events + budget_frozen   (Refuted/Saturated/Redundant/Decayed)
+     5. EvidenceBudget.allocate(live nodes) ──► budget_alloc (EVOI, ceiling a_max) + decision_record
+     6. FailureClassifier.classify(failed/rejected) ──► failure_reason
+     7. ExplanationWriter.flush() ──► decision_record
 ```
 
 Idempotency: every writer keys on natural ids (`experiment_id`, `node_id`,
@@ -212,23 +233,33 @@ guarantee `loop_checkpoint` already gives the other five phases.
 per-experiment net metrics + robustness_flags + regime + node link
         │  (immutable)  evidence_event
         ▼
-pooled per (hypothesis, context) estimators  [statistics.py, method-versioned]
-        │
-        ├─ Confidence      = f(effect_size, t_stat, n)          → higher with more, stronger, consistent evidence
-        ├─ Stability       = sign-consistency + inverse dispersion across subperiods/params
-        ├─ Reproducibility = agreement across *independent* experiments (distinct experiment_ids, same cell)
-        └─ Generalisation  = breadth of contexts survived (markets × universes × regimes × bar_types × periods)
+Bayesian posterior per (hypothesis, context)  [statistics.py, method-versioned]
+   θ_c ~ N(μ_c, σ_c²) updated per experiment; hierarchical pool → θ_h ~ N(μ_h, σ_h²)
+        │  (point estimate μ_h ALWAYS paired with credible interval CI_h)
         ▼
-PromotionEngine (pure thresholds on the above, versioned policy) → stage
-RetirementEngine (overwhelming-refutation / saturation / duplication) → retire
+   FOUR SEPARATED AXES (never summed into one score):
+        ├─ Q  Statistical Quality  = posterior P(θ_h>break-even) + precision, with CI
+        ├─ R  Reproducibility      = independent-trial sign/dispersion agreement + replicas + stability
+        ├─ G  Generalisation       = breadth × coverage over markets/universes/regimes/bar_types/periods
+        └─ V  Economic Value       = posterior net-Sharpe magnitude after costs/turnover/drawdown, with CI
         ▼
-Strategist / Prioritizer / Scheduler read stage + scores through existing knobs
+PromotionEngine  — AND of per-axis gates (never a weighted sum)  → promote/demote
+RetirementEngine — first-class track: Refuted / Saturated / Redundant / Decayed → retire + freeze budget
+EvidenceBudget   — EVOI-proportional allocation with hard per-hypothesis ceiling a_max
         ▼
-every transition emits a decision_record (evidence used, supporting/contradictory)
+Strategist / Prioritizer / Scheduler / Quota read the axis vector + stage + budget through existing knobs
+        ▼
+every transition emits a decision_record (posterior, CI, four axes, EVOI, budget, supporting/contradictory)
 ```
 
-Promotion ladder (evidence-gated, never heuristic):
-`Candidate → Promising → Validated → Production Candidate → Archived`.
+Learning is **Bayesian posterior updating**: each experiment sharpens θ; decay is
+exponential forgetting; retirement is where the posterior concludes an edge is
+absent, saturated, redundant, or faded. Full detail: `M11_STATISTICAL_METHODOLOGY.md`.
+
+Lifecycle (evidence-gated, never heuristic) — **two first-class tracks**:
+`Candidate → Promising → Validated → Production Candidate → Archived` (promotion)
+and, from any live stage, `→ Retired-{Refuted|Saturated|Redundant|Decayed}`
+(retirement, terminal, budget frozen, history preserved).
 Each edge has an explicit, versioned evidence predicate (e.g. *Validated* requires
 confidence ≥ τ_c **and** reproducibility across ≥ k independent experiments **and**
 generalisation across ≥ m contexts **and** no unresolved robustness flag). Thresholds
@@ -291,15 +322,22 @@ approval — the cadence used through BE-1…BE-4 and production enablement.
   wire into `SignalLibrarian.record_experiment`/`backfill`. Proves the full
   metric bundle (net, robustness, cost) is now queryable. No decisions yet;
   existing behaviour unchanged.
-- **M11-2 — Statistics + projection.** `statistics.py` (`stat_v1`) +
-  `EvidenceProjector`; extend `signal_context_performance` with statistical
-  columns; `hypothesis_state` projection. Replay-determinism tests.
-- **M11-3 — Promotion & retirement engines.** Stage ladder + evidence-gated
-  transitions + `hypothesis_evidence_event`; new `assess` loop phase (checkpointed).
-  Budget-freeze on retirement. History preserved.
+- **M11-2 — Bayesian statistics + projection.** `statistics.py` (`stat_v1`):
+  Normal–Normal posteriors, hierarchical pooling, credible intervals, the four
+  separated axes $Q,R,G,V$; `EvidenceProjector`; extend
+  `signal_context_performance` with posterior columns; `hypothesis_state`
+  projection. Posterior-convergence + replay-determinism tests.
+- **M11-3 — Promotion & retirement engines.** Promotion ladder (AND-of-axes,
+  hysteretic) **and first-class retirement track** (Refuted/Saturated/Redundant/
+  Decayed) + `hypothesis_evidence_event`; new `assess` loop phase (checkpointed).
+  Budget-freeze on retirement; history preserved; reopen-on-new-evidence.
+- **M11-3b — Evidence budget.** `evidence_budget.py` (`budget_v1`): EVOI
+  allocation with hard ceiling $a_{\max}$; enforced through the quota `accept`
+  seam. Tests: ceiling never exceeded, retired ⇒ 0, EVOI ranking.
 - **M11-4 — Decision consumption.** Extend Strategist predicates and Prioritizer
-  `ScoreBreakdown`/weights and Scheduler/Quota to read evidence + stage. Prove
-  the old heuristic path is recovered when evidence is absent (back-compat).
+  `ScoreBreakdown` (four separate axis components) and Scheduler/Quota to read the
+  axis vector + stage + budget. Prove the old heuristic path is recovered when
+  evidence is absent (back-compat).
 - **M11-5 — Failure taxonomy + robustness memory.** `failure_reason` +
   `FailureClassifier`; scoped `research_memory` writes for robustness facts.
 - **M11-6 — Generalisation.** `generalisation_matrix` + breadth scoring feeding
