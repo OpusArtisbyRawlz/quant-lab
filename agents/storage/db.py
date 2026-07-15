@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -427,6 +427,55 @@ CREATE TABLE IF NOT EXISTS loop_checkpoint (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-1 — evidence capture and provenance
+#
+# ``evidence_event`` is the minimum durable evidence layer of the approved M11
+# design: one immutable, fully-provenanced row per (experiment x evidence source)
+# captured from a *finished* experiment. It is append-only truth — it makes no
+# promotion, retirement, confidence, or deployment decision; later M11 components
+# read it. Every column beyond the natural key is nullable so **legacy** and
+# partially-instrumented experiments are representable without corrupting data.
+#
+# Idempotency is enforced by the natural key (experiment_id, evidence_source):
+# re-recording the same finished experiment is a no-op (ON CONFLICT DO NOTHING),
+# while distinct evidence sources (in_sample / validation / embargo /
+# walk_forward / holdout / live_paper) remain separately captured. Both key
+# columns are NOT NULL (with a default source) so the UNIQUE constraint always
+# fires — SQLite treats NULLs as distinct, which would defeat idempotency.
+# ===========================================================================
+_CREATE_EVIDENCE_EVENT = """
+CREATE TABLE IF NOT EXISTS evidence_event (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    experiment_id       TEXT NOT NULL,
+    -- Provenance / lineage (all nullable: preserved where available)
+    hypothesis_id       TEXT,            -- hypothesis_node.node_id link
+    campaign_id         TEXT,
+    source_idea_id      TEXT,            -- originating pending_ideas.idea_id
+    source_model        TEXT,            -- model that proposed the idea
+    market              TEXT,
+    universe            TEXT,
+    regime              TEXT,
+    bar_type            TEXT NOT NULL DEFAULT 'time',
+    feature_names       TEXT,            -- JSON array of feature/signal names
+    dataset_id          TEXT,            -- dataset identity (hash / name / path)
+    date_start          TEXT,            -- evaluation window start
+    date_end            TEXT,            -- evaluation window end
+    -- Evidence classification: one of EVIDENCE_SOURCES. Part of the natural key.
+    evidence_source     TEXT NOT NULL DEFAULT 'in_sample',
+    methodology_version TEXT,            -- research methodology version
+    stat_method_version TEXT,            -- statistical-method version
+    -- Captured results (immutable snapshot from the finished experiment)
+    metrics             TEXT,            -- JSON object of result metrics
+    robustness_flags    TEXT,            -- JSON array of flag strings
+    capacity_metrics    TEXT,            -- JSON object: Project 06 capacity/deployment
+    critic_decision     TEXT,            -- keep / reject / retest (advisory copy)
+    provenance          TEXT,            -- JSON: any additional provenance
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (experiment_id, evidence_source)
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -469,6 +518,12 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_tick        ON loop_checkpoint(tick_id)",
     "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_campaign    ON loop_checkpoint(campaign_id)",
     "CREATE INDEX IF NOT EXISTS idx_loop_ckpt_phase       ON loop_checkpoint(phase)",
+    # Milestone 11 PR-1 — evidence capture and provenance
+    "CREATE INDEX IF NOT EXISTS idx_evidence_experiment   ON evidence_event(experiment_id)",
+    "CREATE INDEX IF NOT EXISTS idx_evidence_hypothesis   ON evidence_event(hypothesis_id)",
+    "CREATE INDEX IF NOT EXISTS idx_evidence_campaign     ON evidence_event(campaign_id)",
+    "CREATE INDEX IF NOT EXISTS idx_evidence_source       ON evidence_event(evidence_source)",
+    "CREATE INDEX IF NOT EXISTS idx_evidence_context      ON evidence_event(market, universe, regime, bar_type)",
 ]
 
 
@@ -584,6 +639,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_HYPOTHESIS_EDGE)
         conn.execute(_CREATE_SCHEDULER_EVENT)
         conn.execute(_CREATE_LOOP_CHECKPOINT)
+        # Milestone 11 PR-1 — evidence capture and provenance
+        conn.execute(_CREATE_EVIDENCE_EVENT)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
