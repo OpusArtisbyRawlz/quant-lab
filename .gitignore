@@ -12,6 +12,8 @@ Thumbs.db
 .ipynb_checkpoints/
 # Notebooks are tracked but must be stripped of outputs before commit.
 # To strip: jupyter nbconvert --clear-output --inplace <notebook.ipynb>
+# Executed-notebook build artifacts (nbconvert --execute output) are not source.
+*.executed.ipynb
 
 # Data files — raw and processed market data are not committed.
 # Anchored to the repository root so the source package src/data/ (the panel
