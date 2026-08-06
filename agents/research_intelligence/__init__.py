@@ -16,6 +16,11 @@ from __future__ import annotations
 
 from .evidence_recorder import EvidenceRecorder
 from .evidence_projector import EvidenceProjector
+from .promotion_engine import PromotionEngine
 from . import statistics
+from . import promotion
 
-__all__ = ["EvidenceRecorder", "EvidenceProjector", "statistics"]
+__all__ = [
+    "EvidenceRecorder", "EvidenceProjector", "PromotionEngine",
+    "statistics", "promotion",
+]

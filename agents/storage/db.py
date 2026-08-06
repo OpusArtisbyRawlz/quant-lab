@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 14
+SCHEMA_VERSION = 15
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -547,6 +547,50 @@ CREATE TABLE IF NOT EXISTS context_cell_posterior (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-3 — promotion recommendations (rebuildable projection)
+#
+# ``promotion_recommendation`` is a droppable cache, one row per hypothesis,
+# folded purely from PR-2's ``hypothesis_state`` posterior projection plus cheap
+# provenance reads of the PR-1 ``evidence_event`` log (replica count + robustness
+# flags). It carries a *recommendation* only — nothing here auto-promotes a
+# hypothesis. Versioned ``promotion_v1``; losing it never loses knowledge because
+# it re-derives deterministically from the immutable evidence log.
+# ===========================================================================
+_CREATE_PROMOTION_RECOMMENDATION = """
+CREATE TABLE IF NOT EXISTS promotion_recommendation (
+    hypothesis_id       TEXT PRIMARY KEY,
+    recommended_stage   TEXT NOT NULL,
+    promotion_tier      INTEGER NOT NULL,   -- ordinal ladder position (NOT an axis sum)
+    -- Posterior echo (point estimate + uncertainty) for a self-contained record
+    posterior_mean      REAL,
+    posterior_sd        REAL,
+    ci_low              REAL,
+    ci_high             REAL,
+    -- Q — statistical quality (reported, never collapsed with R/G/V)
+    confidence_score    REAL,   -- π_h = Pr(θ_h > S0); the Q-axis exceedance prob
+    q_precision         REAL,
+    -- R — reproducibility (component-wise, per §2)
+    r_sign              REAL,
+    r_disp              REAL,
+    r_replicas          REAL,   -- R^cnt
+    replica_count       INTEGER NOT NULL DEFAULT 0,   -- m_h from the evidence log
+    -- G — generalisation (component-wise, per §2)
+    g_count             INTEGER NOT NULL DEFAULT 0,
+    g_coverage          REAL,
+    -- V — economic value (Sharpe units)
+    v_net_sharpe        REAL,
+    v_ci_low            REAL,
+    v_ci_high           REAL,
+    -- Robustness input consumed for the Validated gate
+    has_critical_flag   INTEGER NOT NULL DEFAULT 0,
+    -- Per-gate audit trail (pass/fail + failure reasons + unavailable inputs)
+    gate_detail         TEXT,   -- JSON
+    method              TEXT NOT NULL DEFAULT 'promotion_v1',
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -599,6 +643,9 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_hyp_state_stage       ON hypothesis_state(stage)",
     "CREATE INDEX IF NOT EXISTS idx_ccp_hypothesis        ON context_cell_posterior(hypothesis_id)",
     "CREATE INDEX IF NOT EXISTS idx_ccp_context           ON context_cell_posterior(market, universe, regime, bar_type)",
+    # Milestone 11 PR-3 — promotion recommendations
+    "CREATE INDEX IF NOT EXISTS idx_promo_reco_stage      ON promotion_recommendation(recommended_stage)",
+    "CREATE INDEX IF NOT EXISTS idx_promo_reco_tier       ON promotion_recommendation(promotion_tier)",
 ]
 
 
@@ -719,6 +766,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         # Milestone 11 PR-2 — Bayesian posterior projections
         conn.execute(_CREATE_HYPOTHESIS_STATE)
         conn.execute(_CREATE_CONTEXT_CELL_POSTERIOR)
+        # Milestone 11 PR-3 — promotion recommendations
+        conn.execute(_CREATE_PROMOTION_RECOMMENDATION)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
