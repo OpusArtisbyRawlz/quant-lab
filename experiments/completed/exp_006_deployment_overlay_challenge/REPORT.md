@@ -1,7 +1,7 @@
 # exp_006 — Deployment Overlay Challenge
 
 **Question:** Can any drawdown/risk overlay discovered in
-`research/project_06_failure_analysis/notebooks/05_robustness_checks.ipynb`
+`research/project_06_deployment_validation/notebooks/05_robustness_checks.ipynb`
 beat the *current* US deployment candidate when forced through the **exact same**
 deployment-validation battery?
 

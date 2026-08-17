@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pandas as pd
 
-# quant-lab repo root: tests/ -> project_06_failure_analysis/ -> research/ -> root
+# quant-lab repo root: tests/ -> project_06_deployment_validation/ -> research/ -> root
 ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -43,7 +43,7 @@ EXP_DIR = ROOT / "experiments/completed/exp_005_risk_engine_final"
 UNIVERSE_DIR = ROOT / "data/raw/project_04_universe"
 GOLDEN_PATH = (
     ROOT
-    / "research/project_06_failure_analysis/results/deployment_reference_metrics.json"
+    / "research/project_06_deployment_validation/results/deployment_reference_metrics.json"
 )
 
 # Sweep grids — identical to notebook 11.
