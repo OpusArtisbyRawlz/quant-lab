@@ -1,7 +1,7 @@
 """
 Market data loader.
 
-Moved from research/project_06_failure_analysis/notebooks/07_cross_market_research_engine.ipynb.
+Moved from research/project_06_deployment_validation/notebooks/07_cross_market_research_engine.ipynb.
 Preserves existing download behavior exactly; callers that referenced df["ret"]
 should update to df["ret_1"].
 """

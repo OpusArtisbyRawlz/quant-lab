@@ -8,7 +8,7 @@ committed golden baseline. Any future code change that shifts these numbers
 beyond tolerance fails here.
 
 Regenerate the baseline intentionally with:
-    python research/project_06_failure_analysis/tests/deployment_reference.py
+    python research/project_06_deployment_validation/tests/deployment_reference.py
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from research.project_06_failure_analysis.tests.deployment_reference import (
+from research.project_06_deployment_validation.tests.deployment_reference import (
     GOLDEN_PATH,
     compute_reference_metrics,
 )

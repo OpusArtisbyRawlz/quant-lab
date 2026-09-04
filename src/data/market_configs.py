@@ -6,7 +6,7 @@ Each config contains:
   benchmark  — benchmark index ticker (yfinance symbol)
   tickers    — list of constituent tickers to download
 
-Moved from research/project_06_failure_analysis/notebooks/07_cross_market_research_engine.ipynb.
+Moved from research/project_06_deployment_validation/notebooks/07_cross_market_research_engine.ipynb.
 Do not change tickers or benchmarks without updating the corresponding experiment records.
 """
 
