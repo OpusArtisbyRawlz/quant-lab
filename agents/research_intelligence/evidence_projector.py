@@ -49,6 +49,52 @@ def _num(value: Any) -> float | None:
         return None
 
 
+def rows_to_evidence(rows: list[dict[str, Any]],
+                     policy: StatPolicy = DEFAULT_POLICY) -> list[ExperimentEvidence]:
+    """Convert ``evidence_event`` rows into ``ExperimentEvidence`` (stat_v1 input).
+
+    The single source of truth for the row→evidence mapping, reused by both
+    ``EvidenceProjector`` (development posterior) and the M11 PR-4 ``HoldoutEngine``
+    (IS/OOS posteriors) so the two never drift. Deterministic and insertion-order
+    independent: rows are sorted by a stable run-time proxy so the decay clock Δ is
+    replay-/shuffle-stable, then Δ_i is the event-count since experiment i (the
+    most recent has Δ=0). Rows without a usable performance number are skipped.
+    """
+    rows = sorted(
+        rows,
+        key=lambda r: (r.get("date_end") or "", r.get("date_start") or "",
+                       r["experiment_id"]),
+    )
+    last = len(rows) - 1
+    out: list[ExperimentEvidence] = []
+    for seq, r in enumerate(rows):
+        metrics = r.get("metrics") or {}
+        metrics = metrics if isinstance(metrics, dict) else {}
+        net = _num(metrics.get("net_sharpe"))
+        if net is None:
+            net = _num(metrics.get("sharpe"))
+        if net is None:
+            continue  # no usable performance number → skip this row
+        T = (_num(metrics.get("T")) or _num(metrics.get("n_periods"))
+             or policy.default_T)
+        N = (_num(metrics.get("N")) or _num(metrics.get("periods_per_year"))
+             or policy.default_N)
+        K = int(_num(metrics.get("K")) or _num(metrics.get("n_configs")) or 1)
+        out.append(ExperimentEvidence(
+            experiment_id=r["experiment_id"],
+            net_sharpe=net, T=T, N=N, K=K,
+            delta=float(last - seq),
+            market=r.get("market") or "unknown",
+            universe=r.get("universe") or "unknown",
+            regime=r.get("regime") or "all",
+            bar_type=r.get("bar_type") or "time",
+            date_start=r.get("date_start"),
+            date_end=r.get("date_end"),
+            stability=_num(metrics.get("stability")),
+        ))
+    return out
+
+
 class EvidenceProjector:
     def __init__(self, db_path: Path = DB_PATH,
                  policy: StatPolicy = DEFAULT_POLICY,
@@ -59,43 +105,7 @@ class EvidenceProjector:
 
     # -- evidence_event row → ExperimentEvidence ---------------------------
     def _to_evidence(self, rows: list[dict[str, Any]]) -> list[ExperimentEvidence]:
-        # Deterministic run-order (independent of DB insertion order) by a stable
-        # run-time proxy, so the decay clock Δ is replay-/shuffle-stable.
-        rows = sorted(
-            rows,
-            key=lambda r: (r.get("date_end") or "", r.get("date_start") or "",
-                           r["experiment_id"]),
-        )
-        # Δ_i = experiments elapsed since i (event count): the most recent
-        # experiment has Δ=0, the oldest the largest Δ.
-        last = len(rows) - 1
-        out: list[ExperimentEvidence] = []
-        for seq, r in enumerate(rows):
-            metrics = r.get("metrics") or {}
-            metrics = metrics if isinstance(metrics, dict) else {}
-            net = _num(metrics.get("net_sharpe"))
-            if net is None:
-                net = _num(metrics.get("sharpe"))
-            if net is None:
-                continue  # no usable performance number → skip this row
-            T = (_num(metrics.get("T")) or _num(metrics.get("n_periods"))
-                 or self.policy.default_T)
-            N = (_num(metrics.get("N")) or _num(metrics.get("periods_per_year"))
-                 or self.policy.default_N)
-            K = int(_num(metrics.get("K")) or _num(metrics.get("n_configs")) or 1)
-            out.append(ExperimentEvidence(
-                experiment_id=r["experiment_id"],
-                net_sharpe=net, T=T, N=N, K=K,
-                delta=float(last - seq),
-                market=r.get("market") or "unknown",
-                universe=r.get("universe") or "unknown",
-                regime=r.get("regime") or "all",
-                bar_type=r.get("bar_type") or "time",
-                date_start=r.get("date_start"),
-                date_end=r.get("date_end"),
-                stability=_num(metrics.get("stability")),
-            ))
-        return out
+        return rows_to_evidence(rows, self.policy)
 
     # -- rebuild one hypothesis -------------------------------------------
     def rebuild_hypothesis(self, hypothesis_id: str) -> dict[str, Any] | None:
