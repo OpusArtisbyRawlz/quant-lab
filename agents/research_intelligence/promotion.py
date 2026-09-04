@@ -20,13 +20,15 @@ Scope boundaries fixed for PR-3 (see the PR-3 design doc):
 
   * **Recommendation only.** Nothing is auto-promoted; this policy returns a
     recommended stage, it does not mutate any hypothesis's authoritative stage.
-  * **Cap at Validated.** The Production-Candidate gate additionally mandates a
-    holdout pass (§5) and a Benjamini–Hochberg FDR ``q_h ≤ 0.05`` (§7.2). Neither
-    subsystem exists yet, so those two inputs are *unavailable*; a mandatory gate
-    input that is unavailable is treated as **not satisfied** (conservative — it
-    can only ever hold a hypothesis back, never over-promote it). In practice the
-    engine therefore recommends at most **Validated** until those PRs land. No
-    threshold is invented and no spec-mandated gate is bypassed.
+  * **Consumed gate inputs (never computed here).** The Validated gate requires
+    Bayesian-FDR admission (§7.1); the Production-Candidate gate additionally
+    requires a holdout pass (§5) and a Benjamini–Hochberg FDR ``q_h ≤ 0.05``
+    (§7.2). These come from the sibling engines (HoldoutEngine, FdrEngine). A
+    mandatory gate input that has not been evaluated for a hypothesis is treated
+    as **not satisfied** (conservative — it can only hold a hypothesis back, never
+    over-promote it); no threshold is invented and no spec-mandated gate is
+    bypassed. With all engines run, a fully-qualified hypothesis can now reach
+    Production Candidate.
   * **Archived is never auto-derived.** Archived means "reached Production
     Candidate *and accepted/superseded downstream*" — a downstream signal, not a
     posterior predicate. It is a modelled lifecycle value but this pure policy
@@ -162,8 +164,11 @@ class PromotionInputs:
     # Robustness (from the evidence log).
     has_unresolved_critical_flag: bool = False
     # Not-yet-available higher-gate inputs (later PRs).
-    q_value: float | None = None      # BH-FDR q_h (§7.2) — unavailable in PR-3
-    holdout_pass: bool | None = None  # §5 holdout gate — unavailable in PR-3
+    # Consumed from the sibling engines (never computed here). None = not yet
+    # evaluated for this hypothesis ⇒ the gate that needs it cannot pass.
+    q_value: float | None = None            # BH-FDR q_h (§7.2), from FdrEngine
+    holdout_pass: bool | None = None        # §5 holdout gate, from HoldoutEngine
+    bayes_fdr_admitted: bool | None = None  # §7.1 Bayesian-FDR set D, from FdrEngine
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +239,15 @@ def _validated_gate(x: PromotionInputs, p: PromotionPolicy) -> GateResult:
         failures.append(f"ci_low<S0({p.S0})")
     if x.has_unresolved_critical_flag:
         failures.append("unresolved_critical_robustness_flag")
-    return GateResult(VALIDATED, not failures, tuple(failures))
+    # §7.1: only hypotheses in the Bayesian-FDR admitted set D are eligible for
+    # Validated+ promotion. Consumed from the FdrEngine; absent ⇒ unavailable.
+    unavailable: list[str] = []
+    if x.bayes_fdr_admitted is None:
+        unavailable.append("bayes_fdr_admission (§7.1 not evaluated)")
+    elif not x.bayes_fdr_admitted:
+        failures.append("not_fdr_admitted")
+    passed = not failures and not unavailable
+    return GateResult(VALIDATED, passed, tuple(failures), tuple(unavailable))
 
 
 def _production_candidate_gate(x: PromotionInputs, p: PromotionPolicy) -> GateResult:
@@ -253,11 +266,11 @@ def _production_candidate_gate(x: PromotionInputs, p: PromotionPolicy) -> GateRe
     # Mandatory gate inputs not yet produced by any merged PR. Absent ⇒ the
     # AND-gate cannot pass; recorded as unavailable, never bypassed.
     if x.q_value is None:
-        unavailable.append("bh_fdr_q_value (§7.2 not implemented)")
+        unavailable.append("bh_fdr_q_value (§7.2 not evaluated)")
     elif not (x.q_value <= p.q_max):
         failures.append(f"q>{p.q_max}")
     if x.holdout_pass is None:
-        unavailable.append("holdout_pass (§5 not implemented)")
+        unavailable.append("holdout_pass (§5 not evaluated)")
     elif not x.holdout_pass:
         failures.append("holdout_fail")
     passed = not failures and not unavailable

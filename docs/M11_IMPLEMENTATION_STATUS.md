@@ -7,7 +7,7 @@ versions), and completion state. The **architecture** is frozen by
 `M11_STATISTICAL_METHODOLOGY.md`; this file tracks what has been *implemented*
 against that contract.
 
-_Last updated: 2026-09-04 — after PR-4 opened for review._
+_Last updated: 2026-09-04 — after PR-5 opened for review._
 
 ## Status at a glance
 
@@ -16,8 +16,8 @@ _Last updated: 2026-09-04 — after PR-4 opened for review._
 | PR-1 | Evidence Capture & Provenance | ✅ Merged | — | `evidence_event` | yes (#34) |
 | PR-2 | Bayesian Posterior Updating | ✅ Merged | `stat_v1` | `hypothesis_state`, `context_cell_posterior` | yes (#35) |
 | PR-3 | Promotion Engine | ✅ Merged | `promotion_v1` | `promotion_recommendation` | yes (#36) |
-| PR-4 | Holdout Validation | 🔷 Open for review | `holdout_v1` | `holdout_evaluation` | PR open |
-| PR-5 | Multiple-Testing (FDR) | ⬜ Not started | `fdr_v1` (planned) | (planned) | — |
+| PR-4 | Holdout Validation | ✅ Merged | `holdout_v1` | `holdout_evaluation` | yes (#37) |
+| PR-5 | Multiple-Testing (FDR) | 🔷 Open for review | `fdr_v1` | `fdr_evaluation` | PR open |
 | PR-6 | Retirement Engine | ⬜ Not started | (planned) | `hypothesis_evidence_event` (planned) | — |
 | PR-7 | Evidence Budget / Decision Consumption | ⬜ Not started | `budget_v1` (planned) | (planned) | — |
 
@@ -63,13 +63,14 @@ _Last updated: 2026-09-04 — after PR-4 opened for review._
 - **Interfaces:** `promotion.py` (`promotion_v1` policy + `recommend`);
   `promotion_engine.py` (`PromotionEngine`); table `promotion_recommendation`.
 - **Consumes:** PR-2 `hypothesis_state` (verbatim) + PR-1 provenance (replica
-  count, robustness flags); **PR-4 `holdout_evaluation`** (read-only, added in PR-4).
-- **Cap:** recommends at most **Validated** until holdout (§5) and FDR (§7.2)
-  inputs exist. Holdout now available (PR-4); FDR still pending (PR-5), so
-  Production Candidate remains gated.
-- **State:** merged.
+  count, robustness flags); **PR-4 `holdout_evaluation`** and **PR-5
+  `fdr_evaluation`** (both read-only).
+- **Gate inputs now complete:** Validated requires §7.1 Bayesian-FDR admission;
+  Production Candidate requires holdout pass (§5) + `q ≤ 0.05` (§7.2). With every
+  engine run, Production Candidate is reachable (PR-5).
+- **State:** merged (gate wiring extended by PR-4 and PR-5 as required by §5/§7).
 
-## PR-4 — Holdout Validation 🔷
+## PR-4 — Holdout Validation ✅
 
 - **Responsibility:** methodology §5. Deterministic calendar partition of a
   hypothesis's evidence into IS/OOS, two separate `stat_v1` posteriors, and the
@@ -84,19 +85,28 @@ _Last updated: 2026-09-04 — after PR-4 opened for review._
 - **Consumed by:** PR-3 `PromotionEngine` (via `holdout_store`).
 - **Key constant:** Δ_max = 0.5 (= S★), a `HoldoutPolicy` knob (not enumerated in
   §10).
+- **State:** merged (#37). Additive, deterministic, replay-safe, separate from
+  Promotion.
+
+## PR-5 — Multiple-Testing / False-Discovery Control 🔷
+
+- **Responsibility:** methodology §7. §7.1 Bayesian FDR admission set D (from the
+  stat_v1 lfdr) as primary; §7.2 Benjamini–Hochberg `q_h` (one-sided Stouffer-
+  combined frequentist p-values) as the cross-check, over the whole active
+  population. Supplies both promotion inputs: §7.1 admission gates Validated+, and
+  `q_h ≤ 0.05` gates Production Candidate.
+- **Interfaces:** `fdr.py` (`fdr_v1` policy: `bayesian_fdr_admit`,
+  `hypothesis_pvalue`, `benjamini_hochberg`); `fdr_engine.py` (`FdrEngine`,
+  population-level); table `fdr_evaluation`; `fdr_store.py`.
+- **Consumes:** PR-2 `hypothesis_state.lfdr`; PR-1 `evidence_event` (reuses
+  `_measure` / `rows_to_evidence`). **Module, not an agent.**
+- **Consumed by:** `PromotionEngine` (via `fdr_store`): `bayes_fdr_admitted` +
+  `q_value`.
+- **Milestone:** Production Candidate becomes reachable for the first time (all
+  gate inputs now exist). Full assess flow: EvidenceProjector → HoldoutEngine →
+  FdrEngine → PromotionEngine.
 - **State:** open for review (this PR). Additive, deterministic, replay-safe,
-  separate from Promotion.
-
-## PR-5 — Multiple-Testing / False-Discovery Control ⬜ (planned)
-
-- **Responsibility:** methodology §7 — Bayesian FDR (lfdr set) as primary and
-  Benjamini–Hochberg `q_h` as the frequentist cross-check over the active
-  population. Supplies the `q_h ≤ 0.05` input the Production-Candidate gate still
-  lacks.
-- **Planned interfaces:** an FDR engine over `hypothesis_state`; a projection
-  carrying `q_h` / lfdr-admission; consumed by `PromotionEngine`
-  (`q_value` input).
-- **State:** not started.
+  no statistical leakage (development-source only).
 
 ## PR-6 — Retirement Engine ⬜ (planned)
 

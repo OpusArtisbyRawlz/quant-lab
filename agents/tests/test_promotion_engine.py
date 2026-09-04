@@ -13,7 +13,7 @@ import pytest
 
 from agents.storage.db import create_all_tables, get_connection
 from agents.storage import evidence_store, promotion_store, hypothesis_state_store
-from agents.research_intelligence import EvidenceProjector, PromotionEngine
+from agents.research_intelligence import EvidenceProjector, PromotionEngine, FdrEngine
 from agents.research_intelligence.promotion import (
     CANDIDATE, PROMISING, VALIDATED, PRODUCTION_CANDIDATE,
 )
@@ -42,6 +42,9 @@ def _seed(db, hypothesis_id="H1", n=8, sharpe=1.0,
 
 def _project_and_promote(db, policy=None):
     EvidenceProjector(db_path=db).rebuild_all()
+    # §7.1 Bayesian-FDR admission is required for Validated+; run the FdrEngine as
+    # part of the standard flow so eligible hypotheses can be admitted.
+    FdrEngine(db_path=db).rebuild_all()
     eng = PromotionEngine(db_path=db) if policy is None else PromotionEngine(db_path=db, policy=policy)
     return eng.rebuild_all()
 
@@ -110,10 +113,13 @@ def test_strong_hypothesis_capped_at_validated(tmp_path):
     _seed(db, "H", n=10, sharpe=1.6, market="US", regime="high_vol", start_i=100)
     _project_and_promote(db)
     r = promotion_store.get_recommendation("H", db_path=db)
-    assert r["recommended_stage"] == VALIDATED   # never Production Candidate in PR-3
+    # FDR-admitted and Validated, but capped below Production Candidate: only 2
+    # context cells (ProdC needs G_cnt≥3) and no holdout run here.
+    assert r["recommended_stage"] == VALIDATED
     prodc = [g for g in r["gate_detail"] if g["stage"] == PRODUCTION_CANDIDATE][0]
     assert prodc["passed"] is False
-    assert any("not implemented" in u for u in prodc["unavailable"])
+    assert any("g_count" in f for f in prodc["failures"])
+    assert any("holdout" in u for u in prodc["unavailable"])
 
 
 def test_unresolved_critical_robustness_flag_caps_below_validated(tmp_path):

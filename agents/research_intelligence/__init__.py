@@ -18,11 +18,13 @@ from .evidence_recorder import EvidenceRecorder
 from .evidence_projector import EvidenceProjector
 from .promotion_engine import PromotionEngine
 from .holdout_engine import HoldoutEngine
+from .fdr_engine import FdrEngine
 from . import statistics
 from . import promotion
 from . import holdout
+from . import fdr
 
 __all__ = [
     "EvidenceRecorder", "EvidenceProjector", "PromotionEngine", "HoldoutEngine",
-    "statistics", "promotion", "holdout",
+    "FdrEngine", "statistics", "promotion", "holdout", "fdr",
 ]

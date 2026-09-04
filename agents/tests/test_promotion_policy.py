@@ -30,6 +30,10 @@ def _inputs(hid="H", **kw) -> PromotionInputs:
         g_count=4, g_coverage=0.7,
         v_net_sharpe=0.9, v_ci_low=0.6, v_ci_high=1.2,
         has_unresolved_critical_flag=False,
+        # FDR admission (§7.1) is required for Validated+; the "perfect" baseline
+        # is admitted. Holdout (§5) and BH-q (§7.2) still start unavailable so the
+        # ProdC gate stays capped unless a test supplies them.
+        bayes_fdr_admitted=True,
         q_value=None, holdout_pass=None,
     )
     base.update(kw)
@@ -56,8 +60,8 @@ def test_perfect_axes_are_capped_at_validated_without_holdout_and_fdr():
     # The block is *unavailability*, not a numeric failure.
     assert prodc.failures == ()
     assert set(prodc.unavailable) == {
-        "bh_fdr_q_value (§7.2 not implemented)",
-        "holdout_pass (§5 not implemented)",
+        "bh_fdr_q_value (§7.2 not evaluated)",
+        "holdout_pass (§5 not evaluated)",
     }
 
 
@@ -67,6 +71,22 @@ def test_production_candidate_reachable_once_holdout_and_fdr_supplied():
     reco = recommend(_inputs(q_value=0.01, holdout_pass=True))
     assert reco.recommended_stage == PRODUCTION_CANDIDATE
     assert reco.gates[-1].passed is True
+
+
+def test_missing_fdr_admission_makes_validated_unavailable():
+    # §7.1: absent Bayesian-FDR admission ⇒ Validated cannot pass (unavailable).
+    reco = recommend(_inputs(bayes_fdr_admitted=None))
+    assert reco.recommended_stage == PROMISING
+    validated = reco.gates[1]
+    assert validated.stage == VALIDATED and validated.passed is False
+    assert any("bayes_fdr_admission" in u for u in validated.unavailable)
+
+
+def test_not_fdr_admitted_blocks_validated():
+    # §7.1: a hypothesis outside the admitted set D is not eligible for Validated+.
+    reco = recommend(_inputs(bayes_fdr_admitted=False))
+    assert reco.recommended_stage == PROMISING
+    assert "not_fdr_admitted" in reco.gates[1].failures
 
 
 def test_archived_is_never_auto_derived():

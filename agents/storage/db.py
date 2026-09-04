@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -632,6 +632,38 @@ CREATE TABLE IF NOT EXISTS holdout_evaluation (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-5 — multiple-testing / false-discovery-rate (rebuildable)
+#
+# ``fdr_evaluation`` is a droppable cache, one row per hypothesis, folded over the
+# WHOLE active population (§7): the §7.1 Bayesian FDR admission set D (from the
+# stat_v1 lfdr) and the §7.2 BH q-values (from one-sided frequentist p-values).
+# It is computed by the FdrEngine and *consumed* by the Promotion Engine — which
+# never computes FDR. Population-level snapshot columns (alpha, sizes, variant)
+# ride on every row for auditability. Versioned ``fdr_v1``; rebuildable.
+# ===========================================================================
+_CREATE_FDR_EVALUATION = """
+CREATE TABLE IF NOT EXISTS fdr_evaluation (
+    hypothesis_id       TEXT PRIMARY KEY,
+    -- §7.1 Bayesian FDR (primary)
+    lfdr                REAL,   -- 1 - π_h, from the stat_v1 posterior
+    bayes_admitted      INTEGER NOT NULL DEFAULT 0,   -- in the admitted set D
+    bayes_avg_lfdr      REAL,   -- average lfdr of D (population snapshot)
+    -- §7.2 Benjamini–Hochberg (frequentist cross-check)
+    p_value             REAL,   -- one-sided Stouffer-combined p_h (nullable)
+    q_value             REAL,   -- BH/BY-adjusted q_h (nullable)
+    bh_admitted         INTEGER NOT NULL DEFAULT 0,   -- q_h ≤ alpha
+    -- Population snapshot (a discovery is relative to everything tried)
+    population_size     INTEGER NOT NULL DEFAULT 0,   -- |active set| (Bayesian)
+    bh_population       INTEGER NOT NULL DEFAULT 0,    -- M with a usable p-value
+    alpha               REAL,
+    q_max               REAL,
+    variant             TEXT,   -- 'bh' | 'by'
+    method              TEXT NOT NULL DEFAULT 'fdr_v1',
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -689,6 +721,9 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_promo_reco_tier       ON promotion_recommendation(promotion_tier)",
     # Milestone 11 PR-4 — holdout validation
     "CREATE INDEX IF NOT EXISTS idx_holdout_pass          ON holdout_evaluation(holdout_pass)",
+    # Milestone 11 PR-5 — false-discovery-rate control
+    "CREATE INDEX IF NOT EXISTS idx_fdr_bayes_admitted    ON fdr_evaluation(bayes_admitted)",
+    "CREATE INDEX IF NOT EXISTS idx_fdr_bh_admitted       ON fdr_evaluation(bh_admitted)",
 ]
 
 
@@ -813,6 +848,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_PROMOTION_RECOMMENDATION)
         # Milestone 11 PR-4 — holdout validation
         conn.execute(_CREATE_HOLDOUT_EVALUATION)
+        # Milestone 11 PR-5 — false-discovery-rate control
+        conn.execute(_CREATE_FDR_EVALUATION)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
