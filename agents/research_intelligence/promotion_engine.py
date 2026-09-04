@@ -24,6 +24,7 @@ from typing import Any
 from agents.storage.db import DB_PATH
 from agents.storage import (
     evidence_store, hypothesis_state_store, promotion_store, holdout_store,
+    fdr_store,
 )
 from .evidence_projector import DEVELOPMENT_SOURCES
 from .promotion import (
@@ -97,6 +98,12 @@ class PromotionEngine:
         holdout = holdout_store.get_holdout(hypothesis_id, db_path=self.db_path)
         holdout_pass = None if holdout is None else bool(holdout["holdout_pass"])
 
+        # Consume the FdrEngine's §7 evaluation (PR-5) if present. Promotion reads
+        # FDR and never computes it: absent ⇒ inputs stay None (unavailable).
+        fdr = fdr_store.get_fdr(hypothesis_id, db_path=self.db_path)
+        bayes_fdr_admitted = None if fdr is None else bool(fdr["bayes_admitted"])
+        q_value = None if fdr is None else fdr["q_value"]  # may be None even if row exists
+
         inputs = PromotionInputs(
             hypothesis_id=hypothesis_id,
             posterior_mean=state["posterior_mean"],
@@ -116,11 +123,11 @@ class PromotionEngine:
             v_ci_low=state["v_ci_low"],
             v_ci_high=state["v_ci_high"],
             has_unresolved_critical_flag=has_critical,
-            # §5 holdout is consumed from the HoldoutEngine (PR-4). §7.2 BH-FDR is
-            # a later PR → q_value stays unavailable, so Production Candidate
-            # remains gated until the FDR engine lands.
-            q_value=None,
+            # §5 holdout (PR-4) and §7 FDR (PR-5) consumed from the sibling
+            # engines; each None until that engine has evaluated this hypothesis.
+            q_value=q_value,
             holdout_pass=holdout_pass,
+            bayes_fdr_admitted=bayes_fdr_admitted,
         )
 
         reco = recommend(inputs, self.policy)
