@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -591,6 +591,47 @@ CREATE TABLE IF NOT EXISTS promotion_recommendation (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-4 — holdout validation (rebuildable projection)
+#
+# ``holdout_evaluation`` is a droppable cache, one row per hypothesis, folded
+# purely from the immutable ``evidence_event`` log: the log is split by the §5.1
+# calendar boundary into IS / OOS windows, two separate stat_v1 posteriors are
+# computed, and the four §5.2 gate conditions are evaluated. It is computed by the
+# HoldoutEngine and *consumed* by the Promotion Engine — the promotion side never
+# computes holdout. Versioned ``holdout_v1``; deterministically rebuildable.
+# ===========================================================================
+_CREATE_HOLDOUT_EVALUATION = """
+CREATE TABLE IF NOT EXISTS holdout_evaluation (
+    hypothesis_id       TEXT PRIMARY KEY,
+    -- In-sample (development) posterior
+    is_mean             REAL,
+    is_sd               REAL,
+    is_n                INTEGER NOT NULL DEFAULT 0,
+    -- Out-of-sample (holdout) posterior
+    oos_mean            REAL,
+    oos_sd              REAL,
+    oos_n               INTEGER NOT NULL DEFAULT 0,
+    oos_exceed_prob     REAL,   -- Pr(θ_OOS > S0)
+    -- §5.2 gate quantities
+    retention           REAL,   -- μ_OOS / μ_IS
+    overlap_prob        REAL,   -- Pr(θ_IS − θ_OOS > Δ_max)
+    haircut             REAL,   -- μ_IS / μ_OOS (nullable)
+    -- Per-condition audit (a)/(b)/(c)/(d)
+    cond_sign           INTEGER NOT NULL DEFAULT 0,
+    cond_exceed         INTEGER NOT NULL DEFAULT 0,
+    cond_retention      INTEGER NOT NULL DEFAULT 0,
+    cond_overlap        INTEGER NOT NULL DEFAULT 0,
+    holdout_pass        INTEGER NOT NULL DEFAULT 0,
+    -- Policy constants used (auditability / reproducibility)
+    holdout_fraction    REAL,
+    retention_min       REAL,
+    delta_max           REAL,
+    method              TEXT NOT NULL DEFAULT 'holdout_v1',
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -646,6 +687,8 @@ _INDEXES = [
     # Milestone 11 PR-3 — promotion recommendations
     "CREATE INDEX IF NOT EXISTS idx_promo_reco_stage      ON promotion_recommendation(recommended_stage)",
     "CREATE INDEX IF NOT EXISTS idx_promo_reco_tier       ON promotion_recommendation(promotion_tier)",
+    # Milestone 11 PR-4 — holdout validation
+    "CREATE INDEX IF NOT EXISTS idx_holdout_pass          ON holdout_evaluation(holdout_pass)",
 ]
 
 
@@ -768,6 +811,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_CONTEXT_CELL_POSTERIOR)
         # Milestone 11 PR-3 — promotion recommendations
         conn.execute(_CREATE_PROMOTION_RECOMMENDATION)
+        # Milestone 11 PR-4 — holdout validation
+        conn.execute(_CREATE_HOLDOUT_EVALUATION)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).

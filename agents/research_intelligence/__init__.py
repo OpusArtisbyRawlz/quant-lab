@@ -17,10 +17,12 @@ from __future__ import annotations
 from .evidence_recorder import EvidenceRecorder
 from .evidence_projector import EvidenceProjector
 from .promotion_engine import PromotionEngine
+from .holdout_engine import HoldoutEngine
 from . import statistics
 from . import promotion
+from . import holdout
 
 __all__ = [
-    "EvidenceRecorder", "EvidenceProjector", "PromotionEngine",
-    "statistics", "promotion",
+    "EvidenceRecorder", "EvidenceProjector", "PromotionEngine", "HoldoutEngine",
+    "statistics", "promotion", "holdout",
 ]

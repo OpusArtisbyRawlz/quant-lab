@@ -22,7 +22,9 @@ from pathlib import Path
 from typing import Any
 
 from agents.storage.db import DB_PATH
-from agents.storage import evidence_store, hypothesis_state_store, promotion_store
+from agents.storage import (
+    evidence_store, hypothesis_state_store, promotion_store, holdout_store,
+)
 from .evidence_projector import DEVELOPMENT_SOURCES
 from .promotion import (
     DEFAULT_POLICY, PromotionPolicy, PromotionInputs, recommend,
@@ -89,6 +91,12 @@ class PromotionEngine:
 
         replica_count, has_critical = self._log_provenance(hypothesis_id)
 
+        # Consume the HoldoutEngine's §5 evaluation (PR-4) if present. Promotion
+        # *reads* holdout evidence and never computes it: absent evaluation ⇒
+        # holdout_pass stays None (unavailable), exactly as before PR-4.
+        holdout = holdout_store.get_holdout(hypothesis_id, db_path=self.db_path)
+        holdout_pass = None if holdout is None else bool(holdout["holdout_pass"])
+
         inputs = PromotionInputs(
             hypothesis_id=hypothesis_id,
             posterior_mean=state["posterior_mean"],
@@ -108,9 +116,11 @@ class PromotionEngine:
             v_ci_low=state["v_ci_low"],
             v_ci_high=state["v_ci_high"],
             has_unresolved_critical_flag=has_critical,
-            # §5 holdout and §7.2 BH-FDR are later PRs → inputs unavailable.
+            # §5 holdout is consumed from the HoldoutEngine (PR-4). §7.2 BH-FDR is
+            # a later PR → q_value stays unavailable, so Production Candidate
+            # remains gated until the FDR engine lands.
             q_value=None,
-            holdout_pass=None,
+            holdout_pass=holdout_pass,
         )
 
         reco = recommend(inputs, self.policy)
