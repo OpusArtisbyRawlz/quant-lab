@@ -1,7 +1,12 @@
 # Runtime + test dependencies for the agents/ and src/ packages.
 # The research notebooks under research/ use additional libraries
-# (scikit-learn, scipy, yfinance, matplotlib) that are NOT required to import
-# or test the agent pipeline, so they are intentionally not listed here.
+# (scikit-learn, yfinance, matplotlib) that are NOT required to import or test
+# the agent pipeline, so they are intentionally not listed here.
+#
+# scipy is a hard runtime dependency of the M11 research-intelligence engine
+# (agents/research_intelligence/statistics.py uses scipy.stats.norm for the
+# closed-form Bayesian posterior), so it IS required to import/test the pipeline.
 numpy
 pandas
 pytest
+scipy
