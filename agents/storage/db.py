@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -664,6 +664,39 @@ CREATE TABLE IF NOT EXISTS fdr_evaluation (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-6 — retirement track (rebuildable projection)
+#
+# ``retirement_evaluation`` is a droppable cache, one row per hypothesis, folded
+# purely from PR-2's ``hypothesis_state`` posterior. Retirement is a stateless
+# function of the current posterior, so it is replay-deterministic and reopens
+# automatically when new evidence lifts the posterior (§3.2). PR-6 fires only
+# Retired-Refuted; Decayed/Saturated/Redundant are recognized but deferred.
+# Computed by the RetirementEngine; the two lifecycle tracks (promotion +
+# retirement) are composed downstream — this engine is separate from Promotion.
+# Versioned ``retirement_v1``; rebuildable.
+# ===========================================================================
+_CREATE_RETIREMENT_EVALUATION = """
+CREATE TABLE IF NOT EXISTS retirement_evaluation (
+    hypothesis_id       TEXT PRIMARY KEY,
+    retired             INTEGER NOT NULL DEFAULT 0,
+    state               TEXT NOT NULL DEFAULT 'Live',   -- Live | Retired-Refuted | ...
+    reason              TEXT,   -- reason code (nullable when Live)
+    -- Deciding posterior snapshot (consumed, not recomputed)
+    q_exceed_prob       REAL,   -- π_h
+    ci_high             REAL,
+    posterior_sd        REAL,
+    n_eff               REAL,
+    refuted             INTEGER NOT NULL DEFAULT 0,   -- Retired-Refuted predicate fired
+    detail              TEXT,   -- JSON (fired predicate + deferred states)
+    -- Policy snapshot (auditability)
+    epsilon_ref         REAL,
+    s_star              REAL,
+    method              TEXT NOT NULL DEFAULT 'retirement_v1',
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -724,6 +757,9 @@ _INDEXES = [
     # Milestone 11 PR-5 — false-discovery-rate control
     "CREATE INDEX IF NOT EXISTS idx_fdr_bayes_admitted    ON fdr_evaluation(bayes_admitted)",
     "CREATE INDEX IF NOT EXISTS idx_fdr_bh_admitted       ON fdr_evaluation(bh_admitted)",
+    # Milestone 11 PR-6 — retirement track
+    "CREATE INDEX IF NOT EXISTS idx_retirement_state      ON retirement_evaluation(state)",
+    "CREATE INDEX IF NOT EXISTS idx_retirement_retired    ON retirement_evaluation(retired)",
 ]
 
 
@@ -850,6 +886,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_HOLDOUT_EVALUATION)
         # Milestone 11 PR-5 — false-discovery-rate control
         conn.execute(_CREATE_FDR_EVALUATION)
+        # Milestone 11 PR-6 — retirement track
+        conn.execute(_CREATE_RETIREMENT_EVALUATION)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
