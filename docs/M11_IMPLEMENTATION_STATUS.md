@@ -7,7 +7,7 @@ versions), and completion state. The **architecture** is frozen by
 `M11_STATISTICAL_METHODOLOGY.md`; this file tracks what has been *implemented*
 against that contract.
 
-_Last updated: 2026-09-04 — after PR-5 opened for review._
+_Last updated: 2026-09-06 — after PR-6 opened for review._
 
 ## Status at a glance
 
@@ -17,8 +17,8 @@ _Last updated: 2026-09-04 — after PR-5 opened for review._
 | PR-2 | Bayesian Posterior Updating | ✅ Merged | `stat_v1` | `hypothesis_state`, `context_cell_posterior` | yes (#35) |
 | PR-3 | Promotion Engine | ✅ Merged | `promotion_v1` | `promotion_recommendation` | yes (#36) |
 | PR-4 | Holdout Validation | ✅ Merged | `holdout_v1` | `holdout_evaluation` | yes (#37) |
-| PR-5 | Multiple-Testing (FDR) | 🔷 Open for review | `fdr_v1` | `fdr_evaluation` | PR open |
-| PR-6 | Retirement Engine | ⬜ Not started | (planned) | `hypothesis_evidence_event` (planned) | — |
+| PR-5 | Multiple-Testing (FDR) | ✅ Merged | `fdr_v1` | `fdr_evaluation` | yes (#38) |
+| PR-6 | Retirement Engine | 🔷 Open for review | `retirement_v1` | `retirement_evaluation` | PR open |
 | PR-7 | Evidence Budget / Decision Consumption | ⬜ Not started | `budget_v1` (planned) | (planned) | — |
 
 > Note: the PR numbering here follows this implementation sequence
@@ -105,17 +105,26 @@ _Last updated: 2026-09-04 — after PR-5 opened for review._
 - **Milestone:** Production Candidate becomes reachable for the first time (all
   gate inputs now exist). Full assess flow: EvidenceProjector → HoldoutEngine →
   FdrEngine → PromotionEngine.
+- **State:** merged (#38). Additive, deterministic, replay-safe, no statistical
+  leakage (development-source only).
+
+## PR-6 — Retirement Engine 🔷
+
+- **Responsibility:** methodology §3.2. First-class retirement track as a stateless
+  fold of the current posterior. PR-6 fires **Retired-Refuted** only
+  (`π ≤ ε_ref 0.05` **and** `CI_high < S★ 0.5`); Retired-Decayed (needs
+  platform-wide decay), Retired-Saturated (needs EVOI/§4), and Retired-Redundant
+  (needs a novelty subsystem) are **modelled but deferred**, each reported with its
+  reason. Reopen-on-new-evidence is automatic (stateless recompute).
+- **Interfaces:** `retirement.py` (`retirement_v1` policy, `evaluate_retirement`);
+  `retirement_engine.py` (`RetirementEngine`); table `retirement_evaluation`;
+  `retirement_store.py`.
+- **Consumes:** PR-2 `hypothesis_state` (π_h, CI_high) — verbatim, nothing
+  recomputed. **Module, not an agent.** Imports no other engine and no execution
+  module; the two lifecycle tracks compose downstream.
+- **Deferred to PR-7:** budget-freeze on retirement (§4).
 - **State:** open for review (this PR). Additive, deterministic, replay-safe,
-  no statistical leakage (development-source only).
-
-## PR-6 — Retirement Engine ⬜ (planned)
-
-- **Responsibility:** methodology §3.2 — first-class retirement track
-  (Refuted / Saturated / Redundant / Decayed) with budget freeze, history
-  preservation, and reopen-on-new-evidence.
-- **Planned interfaces:** `retirement_engine.py`; append-only
-  `hypothesis_evidence_event` transition log; retirement projection.
-- **State:** not started.
+  append-only evidence, separate from Promotion.
 
 ## PR-7 — Evidence Budget / Decision Consumption ⬜ (planned)
 
