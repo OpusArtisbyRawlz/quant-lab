@@ -20,14 +20,16 @@ from .promotion_engine import PromotionEngine
 from .holdout_engine import HoldoutEngine
 from .fdr_engine import FdrEngine
 from .retirement_engine import RetirementEngine
+from .budget_engine import BudgetEngine
 from . import statistics
 from . import promotion
 from . import holdout
 from . import fdr
 from . import retirement
+from . import budget
 
 __all__ = [
     "EvidenceRecorder", "EvidenceProjector", "PromotionEngine", "HoldoutEngine",
-    "FdrEngine", "RetirementEngine",
-    "statistics", "promotion", "holdout", "fdr", "retirement",
+    "FdrEngine", "RetirementEngine", "BudgetEngine",
+    "statistics", "promotion", "holdout", "fdr", "retirement", "budget",
 ]

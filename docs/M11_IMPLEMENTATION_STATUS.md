@@ -7,7 +7,7 @@ versions), and completion state. The **architecture** is frozen by
 `M11_STATISTICAL_METHODOLOGY.md`; this file tracks what has been *implemented*
 against that contract.
 
-_Last updated: 2026-09-06 — after PR-6 opened for review._
+_Last updated: 2026-09-06 — after PR-7 opened for review._
 
 ## Status at a glance
 
@@ -18,8 +18,8 @@ _Last updated: 2026-09-06 — after PR-6 opened for review._
 | PR-3 | Promotion Engine | ✅ Merged | `promotion_v1` | `promotion_recommendation` | yes (#36) |
 | PR-4 | Holdout Validation | ✅ Merged | `holdout_v1` | `holdout_evaluation` | yes (#37) |
 | PR-5 | Multiple-Testing (FDR) | ✅ Merged | `fdr_v1` | `fdr_evaluation` | yes (#38) |
-| PR-6 | Retirement Engine | 🔷 Open for review | `retirement_v1` | `retirement_evaluation` | PR open |
-| PR-7 | Evidence Budget / Decision Consumption | ⬜ Not started | `budget_v1` (planned) | (planned) | — |
+| PR-6 | Retirement Engine | ✅ Merged | `retirement_v1` | `retirement_evaluation` | yes (#39) |
+| PR-7 | Evidence Budget | 🔷 Open for review | `budget_v1` | `budget_allocation` | PR open |
 
 > Note: the PR numbering here follows this implementation sequence
 > (PR-1…PR-7 as requested by the reviewer). It does not map one-to-one onto the
@@ -108,7 +108,7 @@ _Last updated: 2026-09-06 — after PR-6 opened for review._
 - **State:** merged (#38). Additive, deterministic, replay-safe, no statistical
   leakage (development-source only).
 
-## PR-6 — Retirement Engine 🔷
+## PR-6 — Retirement Engine ✅ (#39)
 
 - **Responsibility:** methodology §3.2. First-class retirement track as a stateless
   fold of the current posterior. PR-6 fires **Retired-Refuted** only
@@ -126,14 +126,31 @@ _Last updated: 2026-09-06 — after PR-6 opened for review._
 - **State:** open for review (this PR). Additive, deterministic, replay-safe,
   append-only evidence, separate from Promotion.
 
-## PR-7 — Evidence Budget / Decision Consumption ⬜ (planned)
+## PR-7 — Evidence Budget 🔷
 
-- **Responsibility:** methodology §4 — EVOI-proportional evidence budget with hard
-  ceiling a_max (`budget_v1`); and wiring the decision agents
-  (Strategist/Prioritizer/Scheduler/Quota) to read the axis vector + stage +
-  budget through existing knobs. Also the `assess` loop phase + explanation log
-  where scheduled.
-- **State:** not started.
+- **Responsibility:** methodology §4 — EVOI-proportional evidence budget with the
+  hard per-hypothesis ceiling `a_max` (0.25, anti-monopoly), exploration floor
+  `a_min`, retired ⇒ 0. A **pure module, not an agent**.
+- **Interfaces:** `budget.py` (`budget_v1` policy: `evoi`, `allocate`,
+  `budget_admission`); `budget_engine.py` (`BudgetEngine`, population-level); table
+  `budget_allocation`; `budget_store.py` (+ `budget_map`).
+- **Consumes:** PR-2 `hypothesis_state` (μ, σ; π^prom derived) + PR-6
+  `retirement_evaluation` (retired ⇒ 0) + development evidence (sē² via `_measure`).
+  Nothing recomputed.
+- **Consumed by:** the existing ExplorationPlanner / `research_quota` via their
+  **existing** `accept` seam (`budget_admission` adapter) — **no M10 agent edited**
+  (scope: the design's M11-3b module; M11-4 agent-wiring deferred).
+- **Notes:** `a_min` default 0.01 (§10 "config"); "renormalised" realized as
+  down-normalise-only with exploration headroom (documented interpretation).
+- **State:** open for review (this PR). Additive, deterministic, replay-safe,
+  append-only evidence, no agent changes.
+
+## Decision consumption (M11-4) ⬜ (planned, later)
+
+- Wire Strategist predicates + Prioritizer `ScoreBreakdown` (Q/R/G/V) +
+  Scheduler/Quota to read the axis vector + stage + budget, proving the old
+  heuristic path is recovered when evidence is absent. Deferred — it edits M10
+  agents, out of scope for PR-7's "no M10 changes".
 
 ---
 
