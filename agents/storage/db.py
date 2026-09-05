@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -697,6 +697,41 @@ CREATE TABLE IF NOT EXISTS retirement_evaluation (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-7 — evidence budget (rebuildable projection)
+#
+# ``budget_allocation`` is a droppable cache, one row per hypothesis, folded from
+# the posterior (μ, σ, mean se²) + the retirement determination (retired ⇒ 0). It
+# allocates EVOI-proportional experiment slots b_h with a hard per-hypothesis
+# ceiling a_max (anti-monopoly). The existing ExplorationPlanner / research_quota
+# consume b_h through their existing ``accept`` seam (via ``budget.budget_admission``)
+# — no agent is modified. Versioned ``budget_v1``; deterministic and rebuildable.
+# ===========================================================================
+_CREATE_BUDGET_ALLOCATION = """
+CREATE TABLE IF NOT EXISTS budget_allocation (
+    hypothesis_id       TEXT PRIMARY KEY,
+    evoi                REAL,   -- expected value of information (§4.1)
+    share_raw           REAL,   -- EVOI / ΣEVOI before clip
+    a_frac              REAL,   -- final fraction after ceiling/floor
+    b_experiments       INTEGER NOT NULL DEFAULT 0,   -- b_h = ⌊a_frac · window⌋
+    capped              INTEGER NOT NULL DEFAULT 0,    -- hit the a_max ceiling
+    retired             INTEGER NOT NULL DEFAULT 0,    -- retired ⇒ 0 budget
+    -- EVOI inputs (audit snapshot)
+    mu                  REAL,
+    sigma               REAL,
+    mean_se2            REAL,
+    promise             REAL,   -- π_h^prom = Pr(θ_h > S★)
+    nearest_gate        REAL,
+    -- Allocation context (snapshot)
+    window              INTEGER,
+    population_size     INTEGER NOT NULL DEFAULT 0,   -- live hypotheses
+    a_max               REAL,
+    a_min               REAL,
+    method              TEXT NOT NULL DEFAULT 'budget_v1',
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -760,6 +795,9 @@ _INDEXES = [
     # Milestone 11 PR-6 — retirement track
     "CREATE INDEX IF NOT EXISTS idx_retirement_state      ON retirement_evaluation(state)",
     "CREATE INDEX IF NOT EXISTS idx_retirement_retired    ON retirement_evaluation(retired)",
+    # Milestone 11 PR-7 — evidence budget
+    "CREATE INDEX IF NOT EXISTS idx_budget_retired        ON budget_allocation(retired)",
+    "CREATE INDEX IF NOT EXISTS idx_budget_b              ON budget_allocation(b_experiments)",
 ]
 
 
@@ -888,6 +926,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_FDR_EVALUATION)
         # Milestone 11 PR-6 — retirement track
         conn.execute(_CREATE_RETIREMENT_EVALUATION)
+        # Milestone 11 PR-7 — evidence budget
+        conn.execute(_CREATE_BUDGET_ALLOCATION)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
