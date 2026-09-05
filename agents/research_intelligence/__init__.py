@@ -27,9 +27,10 @@ from . import holdout
 from . import fdr
 from . import retirement
 from . import budget
+from . import decision
 
 __all__ = [
     "EvidenceRecorder", "EvidenceProjector", "PromotionEngine", "HoldoutEngine",
     "FdrEngine", "RetirementEngine", "BudgetEngine",
-    "statistics", "promotion", "holdout", "fdr", "retirement", "budget",
+    "statistics", "promotion", "holdout", "fdr", "retirement", "budget", "decision",
 ]
