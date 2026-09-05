@@ -49,6 +49,8 @@ from agents.protocol import (
 )
 from agents.storage.db import DB_PATH
 from agents.storage import campaign_store, hypothesis_store, context_store
+from agents.storage import hypothesis_state_store, retirement_store
+from agents.research_intelligence import decision as m11_decision
 from agents.campaign_manager import CampaignManager
 from agents.campaign_manager.manager import STATE_ACTIVE
 from agents.hypothesis_manager import (
@@ -81,6 +83,13 @@ class StrategistConfig:
     exploration_fraction: float = 0.34  # cap on share of low-evidence proposals (hook for PR-8)
     attribution_method: str = context_store.DEFAULT_ATTRIBUTION
     source_model: str = "research_strategist"
+    # M11 PR-8 decision consumption. Default OFF ⇒ behaviour is byte-identical to
+    # the pre-PR-8 M9-heuristic path. When True, a node whose M11 posterior exists
+    # (joined by node_id → hypothesis_state) is judged confirmed/refuted/expandable
+    # by the ``decision_v1`` policy over the posterior/axes/retirement; a node with
+    # no posterior yet falls back to the M9 heuristic (old path recovered when
+    # evidence is absent).
+    use_evidence: bool = False
 
 
 @dataclass
@@ -299,7 +308,8 @@ class ResearchStrategist:
                 continue
             sig = self._primary_signal(n)
             if sig is None or not self._confirmed(sig, n["market"],
-                                                  n["universe"], n["bar_type"]):
+                                                  n["universe"], n["bar_type"],
+                                                  node_id=n["node_id"]):
                 continue
             by_ctx.setdefault(
                 (n["market"], n["universe"], n["bar_type"]), []
@@ -429,6 +439,11 @@ class ResearchStrategist:
             return False
         if not node.get("experiment_id"):
             return False
+        # M11 PR-8: a retired hypothesis is terminal — it stops expanding. Only
+        # consulted when evidence consumption is on and a posterior exists.
+        view = self._evidence_view(node.get("node_id"))
+        if view is not None and view.retired:
+            return False
         # PR-8 frontier-expansion control: a node that has already spawned
         # ``max_children_per_frontier`` distinct children is retired from the
         # frontier so the strategist cannot expand the same node unboundedly
@@ -454,7 +469,8 @@ class ResearchStrategist:
         best = None
         for n in group:
             sig = self._primary_signal(n)
-            if not self._confirmed(sig, n["market"], n["universe"], n["bar_type"]):
+            if not self._confirmed(sig, n["market"], n["universe"], n["bar_type"],
+                                   node_id=n["node_id"]):
                 continue
             if best is None or n["depth"] > best["depth"]:
                 best = n
@@ -469,7 +485,8 @@ class ResearchStrategist:
             if n.get("origin_operator") == OP_NEGATE:
                 continue
             sig = self._primary_signal(n)
-            if self._refuted(sig, n["market"], n["universe"], n["bar_type"]):
+            if self._refuted(sig, n["market"], n["universe"], n["bar_type"],
+                             node_id=n["node_id"]):
                 return n
         return None
 
@@ -482,7 +499,29 @@ class ResearchStrategist:
         )
         return cells[0] if cells else None
 
-    def _confirmed(self, sig, market, universe, bar_type) -> bool:
+    # -- M11 PR-8 evidence consumption (node_id → hypothesis_state) ---------
+    def _evidence_view(self, node_id) -> m11_decision.EvidenceView | None:
+        """Load the M11 decision view for a node, or ``None`` if it has no
+        posterior yet (⇒ caller falls back to the M9 heuristic)."""
+        if not self.config.use_evidence or not node_id:
+            return None
+        st = hypothesis_state_store.get_hypothesis_state(node_id, db_path=self.db_path)
+        if st is None:
+            return None
+        ret = retirement_store.get_retirement(node_id, db_path=self.db_path)
+        return m11_decision.EvidenceView(
+            hypothesis_id=node_id,
+            q_exceed_prob=st["q_stat_prob"],
+            posterior_mean=st["posterior_mean"],
+            g_count=st["g_count"],
+            retired=bool(ret["retired"]) if ret is not None else False,
+            retired_state=ret["state"] if ret is not None else None,
+        )
+
+    def _confirmed(self, sig, market, universe, bar_type, node_id=None) -> bool:
+        view = self._evidence_view(node_id)
+        if view is not None:
+            return m11_decision.is_confirmed(view)
         c = self._cell(sig, market, universe, bar_type)
         if c is None:
             return False
@@ -491,7 +530,10 @@ class ResearchStrategist:
                 and score is not None
                 and score > self.config.contribution_threshold)
 
-    def _refuted(self, sig, market, universe, bar_type) -> bool:
+    def _refuted(self, sig, market, universe, bar_type, node_id=None) -> bool:
+        view = self._evidence_view(node_id)
+        if view is not None:
+            return m11_decision.is_refuted(view)
         c = self._cell(sig, market, universe, bar_type)
         if c is None:
             return False

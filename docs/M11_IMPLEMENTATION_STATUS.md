@@ -7,7 +7,7 @@ versions), and completion state. The **architecture** is frozen by
 `M11_STATISTICAL_METHODOLOGY.md`; this file tracks what has been *implemented*
 against that contract.
 
-_Last updated: 2026-09-06 — after PR-7 opened for review._
+_Last updated: 2026-09-06 — after PR-8 opened for review._
 
 ## Status at a glance
 
@@ -19,7 +19,8 @@ _Last updated: 2026-09-06 — after PR-7 opened for review._
 | PR-4 | Holdout Validation | ✅ Merged | `holdout_v1` | `holdout_evaluation` | yes (#37) |
 | PR-5 | Multiple-Testing (FDR) | ✅ Merged | `fdr_v1` | `fdr_evaluation` | yes (#38) |
 | PR-6 | Retirement Engine | ✅ Merged | `retirement_v1` | `retirement_evaluation` | yes (#39) |
-| PR-7 | Evidence Budget | 🔷 Open for review | `budget_v1` | `budget_allocation` | PR open |
+| PR-7 | Evidence Budget | ✅ Merged | `budget_v1` | `budget_allocation` | yes (#40) |
+| PR-8 | Decision Consumption (Strategist) | 🔷 Open for review | `decision_v1` | — (reads projections) | PR open |
 
 > Note: the PR numbering here follows this implementation sequence
 > (PR-1…PR-7 as requested by the reviewer). It does not map one-to-one onto the
@@ -142,15 +143,30 @@ _Last updated: 2026-09-06 — after PR-7 opened for review._
   (scope: the design's M11-3b module; M11-4 agent-wiring deferred).
 - **Notes:** `a_min` default 0.01 (§10 "config"); "renormalised" realized as
   down-normalise-only with exploration headroom (documented interpretation).
-- **State:** open for review (this PR). Additive, deterministic, replay-safe,
-  append-only evidence, no agent changes.
+- **State:** merged (#40). Additive, deterministic, replay-safe, append-only
+  evidence, no agent changes.
 
-## Decision consumption (M11-4) ⬜ (planned, later)
+## PR-8 — Decision Consumption (Strategist) 🔷
 
-- Wire Strategist predicates + Prioritizer `ScoreBreakdown` (Q/R/G/V) +
-  Scheduler/Quota to read the axis vector + stage + budget, proving the old
-  heuristic path is recovered when evidence is absent. Deferred — it edits M10
-  agents, out of scope for PR-7's "no M10 changes".
+- **Responsibility:** the design's M11-4. Existing research agents consume the M11
+  projections instead of the M9 heuristic. **Strategist** wired now (clean
+  `node_id → hypothesis_state` join); **Prioritizer + Scheduler deferred** (ideas/
+  candidates carry no hypothesis link — needs a linkage threaded through idea-gen →
+  `pending_ideas` → candidates).
+- **Interfaces:** `decision.py` (pure `decision_v1`: `is_confirmed`/`is_refuted`/
+  `does_generalise`); `StrategistConfig.use_evidence` (default `False`).
+- **Consumes:** `hypothesis_state` (π, μ, g_count) + `retirement_evaluation`.
+  **No new agent.** Additive + back-compatible: default-off is byte-identical to
+  pre-PR-8; a node with no posterior falls back to the M9 heuristic.
+- **State:** open for review (this PR). Only `research_strategist` edited (approved
+  override of "no M10 changes" for that one agent); no schema change.
+
+## Decision consumption — Prioritizer/Scheduler ⬜ (planned, later)
+
+- Requires first threading `node_id`/`hypothesis_id` through idea-generation →
+  `pending_ideas` (schema add) → candidates, then wiring Prioritizer `ScoreBreakdown`
+  (Q/R/G/V) + budget cap and Scheduler stage/budget awareness (reusing `decision_v1`
+  + PR-7's quota-`accept` seam).
 
 ---
 
