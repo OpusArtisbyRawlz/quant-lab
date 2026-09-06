@@ -325,16 +325,33 @@ def _reproducibility(cells: Sequence[CellPosterior], measured: Sequence[_Measure
     return ReproducibilityAxis(rho_sign, rho_disp, r_cnt, stability, m)
 
 
-def _generalisation(cells: Sequence[CellPosterior], measured: Sequence[_Measured],
-                    policy: StatPolicy) -> GeneralisationAxis:
-    passing = [c for c in cells if c.exceed_prob(policy) >= policy.tau_pi]
-    g_cnt = len(passing)
-    passing_cells = {c.cell for c in passing}
-    # Coverage over 5 dimensions: market, universe, regime, bar_type, period.
-    # Structural dims come from the cell tuple; period from distinct date windows
-    # of experiments that belong to a passing cell.
-    dims_all: list[set] = [set(), set(), set(), set(), set()]
-    dims_pass: list[set] = [set(), set(), set(), set(), set()]
+# The five generalisation dimensions (§2.3), in order.
+GENERALISATION_DIMENSIONS = ("market", "universe", "regime", "bar_type", "period")
+
+
+@dataclass(frozen=True)
+class DimensionCoverage:
+    dimension: str
+    passing: int          # #distinct passing values in the dimension
+    available: int        # #distinct available values in the dimension
+    coverage: float       # passing / available (0 when available == 0)
+
+
+def generalisation_breakdown(
+    cells: Sequence[CellPosterior], measured: Sequence[_Measured],
+    policy: StatPolicy,
+) -> list[DimensionCoverage]:
+    """Per-dimension generalisation survival (§2.3) — the single source of truth
+    for both the G-axis coverage and the ``generalisation_matrix`` projection.
+
+    A cell *passes* when its posterior clears the cell bar (``exceed_prob ≥ τ_π``).
+    For each of the five dimensions the distinct passing values are counted against
+    the distinct available values. Structural dims come from the cell tuple; the
+    period dim from the distinct date windows of experiments in passing cells.
+    """
+    passing_cells = {c.cell for c in cells if c.exceed_prob(policy) >= policy.tau_pi}
+    dims_all: list[set] = [set() for _ in range(5)]
+    dims_pass: list[set] = [set() for _ in range(5)]
     for md in measured:
         period = (md.date_start, md.date_end)
         values = (md.cell[0], md.cell[1], md.cell[2], md.cell[3], period)
@@ -343,11 +360,19 @@ def _generalisation(cells: Sequence[CellPosterior], measured: Sequence[_Measured
             dims_all[d].add(values[d])
             if is_pass:
                 dims_pass[d].add(values[d])
-    covs = []
-    for d in range(5):
+    out: list[DimensionCoverage] = []
+    for d, name in enumerate(GENERALISATION_DIMENSIONS):
         avail = len(dims_all[d])
-        covs.append(len(dims_pass[d]) / avail if avail else 0.0)
-    coverage = sum(covs) / 5.0
+        pas = len(dims_pass[d])
+        out.append(DimensionCoverage(name, pas, avail, pas / avail if avail else 0.0))
+    return out
+
+
+def _generalisation(cells: Sequence[CellPosterior], measured: Sequence[_Measured],
+                    policy: StatPolicy) -> GeneralisationAxis:
+    g_cnt = sum(1 for c in cells if c.exceed_prob(policy) >= policy.tau_pi)
+    breakdown = generalisation_breakdown(cells, measured, policy)
+    coverage = sum(d.coverage for d in breakdown) / len(breakdown)
     return GeneralisationAxis(g_cnt, coverage)
 
 

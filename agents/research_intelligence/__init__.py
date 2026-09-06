@@ -22,6 +22,7 @@ from .fdr_engine import FdrEngine
 from .retirement_engine import RetirementEngine
 from .budget_engine import BudgetEngine
 from .failure_engine import FailureClassifier
+from .generalisation_engine import GeneralisationProjector
 from . import statistics
 from . import promotion
 from . import holdout
@@ -34,6 +35,7 @@ from . import failure
 __all__ = [
     "EvidenceRecorder", "EvidenceProjector", "PromotionEngine", "HoldoutEngine",
     "FdrEngine", "RetirementEngine", "BudgetEngine", "FailureClassifier",
+    "GeneralisationProjector",
     "statistics", "promotion", "holdout", "fdr", "retirement", "budget",
     "decision", "failure",
 ]

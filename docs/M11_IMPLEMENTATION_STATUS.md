@@ -7,7 +7,7 @@ versions), and completion state. The **architecture** is frozen by
 `M11_STATISTICAL_METHODOLOGY.md`; this file tracks what has been *implemented*
 against that contract.
 
-_Last updated: 2026-09-06 — after PR-9 opened for review._
+_Last updated: 2026-09-06 — after PR-10 opened for review._
 
 ## Status at a glance
 
@@ -21,7 +21,8 @@ _Last updated: 2026-09-06 — after PR-9 opened for review._
 | PR-6 | Retirement Engine | ✅ Merged | `retirement_v1` | `retirement_evaluation` | yes (#39) |
 | PR-7 | Evidence Budget | ✅ Merged | `budget_v1` | `budget_allocation` | yes (#40) |
 | PR-8 | Decision Consumption (Strategist) | ✅ Merged | `decision_v1` | — (reads projections) | yes (#41) |
-| PR-9 | Failure Taxonomy | 🔷 Open for review | `failure_v1` | `failure_reason` | PR open |
+| PR-9 | Failure Taxonomy | ✅ Merged | `failure_v1` | `failure_reason` | yes (#42) |
+| PR-10 | Generalisation Matrix | 🔷 Open for review | `stat_v1` | `generalisation_matrix` | PR open |
 
 > Note: the PR numbering here follows this implementation sequence
 > (PR-1…PR-7 as requested by the reviewer). It does not map one-to-one onto the
@@ -169,7 +170,7 @@ _Last updated: 2026-09-06 — after PR-9 opened for review._
   (Q/R/G/V) + budget cap and Scheduler stage/budget awareness (reusing `decision_v1`
   + PR-7's quota-`accept` seam).
 
-## PR-9 — Failure Taxonomy 🔷
+## PR-9 — Failure Taxonomy ✅ (#42)
 
 - **Responsibility:** the failure-taxonomy half of the design's M11-5. Classify
   failed/rejected experiments into fixed reason codes (`insufficient_evidence`,
@@ -185,11 +186,25 @@ _Last updated: 2026-09-06 — after PR-9 opened for review._
 - **State:** open for review (this PR). Additive, deterministic, replay-safe,
   append-only evidence, fully M11-owned.
 
-## M11-6 Generalisation · M11-7 Explainability/Reporter ⬜ (planned)
+## PR-10 — Generalisation Matrix 🔷
 
-- M11-6: `generalisation_matrix` + breadth scoring. M11-7: `decision_record` +
-  `research_memory_query` + read-only Reporter boards. Robustness memory (deferred
-  from PR-9) naturally lands with one of these.
+- **Responsibility:** the design's M11-6. Persist the §2.3 per-(hypothesis ×
+  dimension) survival breakdown behind the G-axis — the explainable detail behind
+  `hypothesis_state.g_count`/`g_coverage`. **Module, not an agent.**
+- **Interfaces:** `statistics.generalisation_breakdown` (shared single source);
+  `generalisation_engine.py` (`GeneralisationProjector`); table
+  `generalisation_matrix`; `generalisation_store.py`.
+- **Consumes:** development `evidence_event` (reuses the stat_v1 fold + τ_π).
+  No math duplication; the matrix aggregates byte-for-byte to the existing G-axis
+  scalars, so **no promotion/prioritiser input changes**.
+- **State:** open for review (this PR). Additive, deterministic, replay-safe,
+  append-only evidence, `hypothesis_state` untouched.
+
+## M11-7 Explainability/Reporter ⬜ (planned)
+
+- `decision_record` for every decision, `research_memory_query`, read-only Reporter
+  boards. Robustness memory (deferred from PR-9) naturally lands here, as does the
+  Prioritizer/Scheduler decision consumption deferred from PR-8.
 
 ---
 

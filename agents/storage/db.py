@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -752,6 +752,33 @@ CREATE TABLE IF NOT EXISTS failure_reason (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-10 — generalisation matrix (rebuildable projection)
+#
+# ``generalisation_matrix`` is a droppable cache: per (hypothesis × dimension) the
+# §2.3 survival breakdown — distinct passing values / distinct available values —
+# for the five generalisation dimensions (market/universe/regime/bar_type/period).
+# It is the explainable per-dimension detail behind the G-axis scalars already on
+# ``hypothesis_state`` (g_count/g_coverage), re-derived by the same single-source
+# ``generalisation_breakdown`` — it changes no promotion input. Versioned
+# ``stat_v1``; deterministically rebuildable.
+# ===========================================================================
+_CREATE_GENERALISATION_MATRIX = """
+CREATE TABLE IF NOT EXISTS generalisation_matrix (
+    hypothesis_id       TEXT NOT NULL,
+    dimension           TEXT NOT NULL,   -- market|universe|regime|bar_type|period
+    passing             INTEGER NOT NULL DEFAULT 0,   -- distinct passing values
+    available           INTEGER NOT NULL DEFAULT 0,   -- distinct available values
+    coverage            REAL,            -- passing / available
+    -- Hypothesis-level echo (same on every dim row), for the Reporter
+    g_count             INTEGER NOT NULL DEFAULT 0,    -- passing cells (G^cnt)
+    g_coverage          REAL,            -- mean coverage (G^cov)
+    method              TEXT NOT NULL DEFAULT 'stat_v1',
+    last_rebuilt_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (hypothesis_id, dimension)
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -820,6 +847,8 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_budget_b              ON budget_allocation(b_experiments)",
     # Milestone 11 PR-9 — failure taxonomy
     "CREATE INDEX IF NOT EXISTS idx_failure_reason_code   ON failure_reason(reason_code)",
+    # Milestone 11 PR-10 — generalisation matrix
+    "CREATE INDEX IF NOT EXISTS idx_genmatrix_hypothesis  ON generalisation_matrix(hypothesis_id)",
 ]
 
 
@@ -952,6 +981,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_BUDGET_ALLOCATION)
         # Milestone 11 PR-9 — failure taxonomy
         conn.execute(_CREATE_FAILURE_REASON)
+        # Milestone 11 PR-10 — generalisation matrix
+        conn.execute(_CREATE_GENERALISATION_MATRIX)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
