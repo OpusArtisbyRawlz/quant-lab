@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -732,6 +732,26 @@ CREATE TABLE IF NOT EXISTS budget_allocation (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-9 — failure taxonomy (rebuildable projection)
+#
+# ``failure_reason`` is a droppable cache, one row per **failed/rejected**
+# experiment, folded purely from the immutable ``evidence_event`` log by the
+# FailureClassifier: a single deterministic reason code from a fixed taxonomy
+# (structured sibling to the prose ``lessons_learned``, which is untouched). Keyed
+# by ``experiment_id`` for idempotent, replay-stable rebuilds. Versioned
+# ``failure_v1``. Robustness memory (§M11-5's other half) is deferred.
+# ===========================================================================
+_CREATE_FAILURE_REASON = """
+CREATE TABLE IF NOT EXISTS failure_reason (
+    experiment_id       TEXT PRIMARY KEY,
+    reason_code         TEXT NOT NULL,   -- fixed taxonomy (failure_v1)
+    evidence            TEXT,            -- JSON: full signal set (audit)
+    method              TEXT NOT NULL DEFAULT 'failure_v1',
+    created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -798,6 +818,8 @@ _INDEXES = [
     # Milestone 11 PR-7 — evidence budget
     "CREATE INDEX IF NOT EXISTS idx_budget_retired        ON budget_allocation(retired)",
     "CREATE INDEX IF NOT EXISTS idx_budget_b              ON budget_allocation(b_experiments)",
+    # Milestone 11 PR-9 — failure taxonomy
+    "CREATE INDEX IF NOT EXISTS idx_failure_reason_code   ON failure_reason(reason_code)",
 ]
 
 
@@ -928,6 +950,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_RETIREMENT_EVALUATION)
         # Milestone 11 PR-7 — evidence budget
         conn.execute(_CREATE_BUDGET_ALLOCATION)
+        # Milestone 11 PR-9 — failure taxonomy
+        conn.execute(_CREATE_FAILURE_REASON)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
