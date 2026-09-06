@@ -21,6 +21,7 @@ from .holdout_engine import HoldoutEngine
 from .fdr_engine import FdrEngine
 from .retirement_engine import RetirementEngine
 from .budget_engine import BudgetEngine
+from .failure_engine import FailureClassifier
 from . import statistics
 from . import promotion
 from . import holdout
@@ -28,9 +29,11 @@ from . import fdr
 from . import retirement
 from . import budget
 from . import decision
+from . import failure
 
 __all__ = [
     "EvidenceRecorder", "EvidenceProjector", "PromotionEngine", "HoldoutEngine",
-    "FdrEngine", "RetirementEngine", "BudgetEngine",
-    "statistics", "promotion", "holdout", "fdr", "retirement", "budget", "decision",
+    "FdrEngine", "RetirementEngine", "BudgetEngine", "FailureClassifier",
+    "statistics", "promotion", "holdout", "fdr", "retirement", "budget",
+    "decision", "failure",
 ]
