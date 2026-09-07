@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 21
+SCHEMA_VERSION = 22
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -779,6 +779,32 @@ CREATE TABLE IF NOT EXISTS generalisation_matrix (
 )
 """
 
+# ===========================================================================
+# Milestone 11 PR-11 — decision record (explainability log, rebuildable)
+#
+# ``decision_record`` is a droppable cache, one row per (decision_type, subject):
+# an explanation of every promote / retire / reject decision, folded purely from
+# the existing M11 projections (promotion_recommendation, retirement_evaluation,
+# failure_reason) + evidence provenance (supporting/contradictory experiment ids).
+# It recomputes no statistic. Keyed by (decision_type, subject_id) for idempotent,
+# replay-stable rebuilds. (decision_type 'prioritise' awaits the Prioritizer M11
+# integration deferred in PR-8.) Versioned by the source engine's policy.
+# ===========================================================================
+_CREATE_DECISION_RECORD = """
+CREATE TABLE IF NOT EXISTS decision_record (
+    decision_type            TEXT NOT NULL,   -- promote | retire | reject
+    subject_id               TEXT NOT NULL,   -- hypothesis_id or experiment_id
+    chosen                   TEXT,            -- JSON: the chosen outcome
+    evidence_used            TEXT,            -- JSON: axes/posterior/gates that drove it
+    confidence               REAL,            -- π_h where meaningful (nullable)
+    supporting_experiment_ids   TEXT,         -- JSON array
+    contradictory_experiment_ids TEXT,        -- JSON array
+    policy_version           TEXT,
+    created_at               TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (decision_type, subject_id)
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -849,6 +875,9 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_failure_reason_code   ON failure_reason(reason_code)",
     # Milestone 11 PR-10 — generalisation matrix
     "CREATE INDEX IF NOT EXISTS idx_genmatrix_hypothesis  ON generalisation_matrix(hypothesis_id)",
+    # Milestone 11 PR-11 — decision record
+    "CREATE INDEX IF NOT EXISTS idx_decision_type         ON decision_record(decision_type)",
+    "CREATE INDEX IF NOT EXISTS idx_decision_subject      ON decision_record(subject_id)",
 ]
 
 
@@ -983,6 +1012,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_FAILURE_REASON)
         # Milestone 11 PR-10 — generalisation matrix
         conn.execute(_CREATE_GENERALISATION_MATRIX)
+        # Milestone 11 PR-11 — decision record
+        conn.execute(_CREATE_DECISION_RECORD)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
