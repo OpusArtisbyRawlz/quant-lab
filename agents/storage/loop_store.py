@@ -22,17 +22,22 @@ from typing import Any
 
 from .db import get_connection, DB_PATH
 
-# Phase names — the fixed six-phase tick.
+# Phase names — the fixed seven-phase tick.
+# Phase 6 (P6-1) inserts ``assess`` between ``learn`` and ``checkpoint``: it records
+# evidence for the tick's experiments and folds the frozen M11 engine DAG into the
+# projections. It is bracketed by checkpoints like every other phase, so recovery,
+# resume, and replay are unchanged.
 PHASE_RECOVER = "recover"
 PHASE_GENERATE = "generate"
 PHASE_SCHEDULE = "schedule"
 PHASE_DISPATCH = "dispatch"
 PHASE_LEARN = "learn"
+PHASE_ASSESS = "assess"
 PHASE_CHECKPOINT = "checkpoint"
 
 PHASES = (
     PHASE_RECOVER, PHASE_GENERATE, PHASE_SCHEDULE,
-    PHASE_DISPATCH, PHASE_LEARN, PHASE_CHECKPOINT,
+    PHASE_DISPATCH, PHASE_LEARN, PHASE_ASSESS, PHASE_CHECKPOINT,
 )
 
 STATUS_STARTED = "started"

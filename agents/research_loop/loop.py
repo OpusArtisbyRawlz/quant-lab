@@ -40,6 +40,11 @@ from agents.campaign_manager import CampaignManager
 from agents.campaign_manager.manager import STATE_ACTIVE
 from agents.research_strategist import ResearchStrategist
 from agents.research_scheduler import ResearchScheduler, SchedulerConfig
+from agents.research_intelligence import (
+    EvidenceRecorder, EvidenceProjector, HoldoutEngine, FdrEngine,
+    RetirementEngine, PromotionEngine, BudgetEngine, GeneralisationProjector,
+    FailureClassifier, ExplanationWriter,
+)
 
 DataDictProvider = Callable[[Any], Any]
 
@@ -52,6 +57,9 @@ class LoopConfig:
     dispatch_limit: int = 5
     # Whether the generate phase runs the strategist (off ⇒ pure execute loop).
     generate: bool = True
+    # Whether the assess phase records evidence + folds the M11 engine DAG.
+    # Off ⇒ the pre-Phase-6 execute loop (no M11 assessment).
+    assess: bool = True
     scheduler_config: SchedulerConfig = field(default_factory=SchedulerConfig)
 
 
@@ -142,6 +150,8 @@ class ResearchLoop:
             tick_id, campaign_id, loop_store.PHASE_DISPATCH, self._do_dispatch))
         report.phases.append(self._phase(
             tick_id, campaign_id, loop_store.PHASE_LEARN, self._do_learn))
+        report.phases.append(self._phase(
+            tick_id, campaign_id, loop_store.PHASE_ASSESS, self._do_assess))
         report.phases.append(self._phase(
             tick_id, campaign_id, loop_store.PHASE_CHECKPOINT, self._do_checkpoint))
         return report
@@ -321,6 +331,66 @@ class ResearchLoop:
             "authoritative_state": report.get("authoritative_state"),
             "budget_exhausted": self.campaigns.budget_exhausted(campaign_id),
         }
+
+    # ------------------------------------------------------------------ #
+    # Phase 6 (P6-1) — assess: record evidence + fold the M11 engine DAG
+    # ------------------------------------------------------------------ #
+    def _assess_dag(self) -> list[tuple[str, Callable[[], Any]]]:
+        """The frozen M11 engine DAG, in dependency order — expressed as data so
+        the pipeline reads in one place. Each engine is invoked, never modified;
+        the folds are population-level and idempotent (FDR is inherently so)."""
+        db = self.db_path
+        return [
+            ("evidence", lambda: EvidenceProjector(db_path=db).rebuild_all()),
+            ("holdout", lambda: HoldoutEngine(db_path=db).rebuild_all()),
+            ("fdr", lambda: FdrEngine(db_path=db).rebuild_all()),
+            ("retirement", lambda: RetirementEngine(db_path=db).rebuild_all()),
+            ("promotion", lambda: PromotionEngine(db_path=db).rebuild_all()),
+            ("budget", lambda: BudgetEngine(db_path=db).rebuild_all()),
+            ("generalisation", lambda: GeneralisationProjector(db_path=db).rebuild_all()),
+            ("failure", lambda: FailureClassifier(db_path=db).classify_all()),
+            ("explanation", lambda: ExplanationWriter(db_path=db).rebuild_all()),
+        ]
+
+    def _do_assess(self, tick_id: str, campaign_id: str) -> dict[str, Any]:
+        """Record evidence for this campaign's completed experiments, then fold the
+        frozen M11 engine DAG into the projections.
+
+        Deterministic and idempotent: evidence capture is
+        ``INSERT … ON CONFLICT DO NOTHING`` and every engine is a pure rebuildable
+        fold, so a resumed/re-run assess reproduces identical projections. No
+        statistical recomputation or methodology change happens here — the engines
+        own the maths; the loop only invokes them in order.
+        """
+        if not self.config.assess:
+            return {"ran": False, "skipped_reason": "assess_disabled"}
+
+        # 1. Capture evidence for experiments run from this campaign's nodes
+        #    (idempotent; skips nodes whose experiment is not yet in the ledger).
+        recorder = EvidenceRecorder(db_path=self.db_path)
+        recorded = 0
+        for node in hypothesis_store.list_nodes(campaign_id, db_path=self.db_path):
+            exp_id = node.get("experiment_id")
+            if not exp_id:
+                continue
+            try:
+                if recorder.record(exp_id) is not None:
+                    recorded += 1
+            except KeyError:
+                continue  # experiment not in the ledger yet → capture on a later tick
+
+        # 2. Fold the M11 engine DAG (population-level; the projections are shared
+        #    across campaigns, so the rebuild is global and order-fixed).
+        dag: dict[str, int] = {}
+        for name, run in self._assess_dag():
+            result = run()
+            if isinstance(result, dict):            # ExplanationWriter → per-type counts
+                dag[name] = sum(int(v) for v in result.values())
+            elif hasattr(result, "__len__"):        # engines returning id lists
+                dag[name] = len(result)
+            else:
+                dag[name] = int(result or 0)
+        return {"ran": True, "evidence_recorded": recorded, "dag": dag}
 
     # ------------------------------------------------------------------ #
     # Phase 6 — checkpoint (terminal marker; makes the tick reconstructible)
