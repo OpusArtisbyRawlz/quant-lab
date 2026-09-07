@@ -7,7 +7,7 @@ versions), and completion state. The **architecture** is frozen by
 `M11_STATISTICAL_METHODOLOGY.md`; this file tracks what has been *implemented*
 against that contract.
 
-_Last updated: 2026-09-06 — after PR-10 opened for review._
+_Last updated: 2026-09-07 — after PR-11 opened for review._
 
 ## Status at a glance
 
@@ -22,7 +22,8 @@ _Last updated: 2026-09-06 — after PR-10 opened for review._
 | PR-7 | Evidence Budget | ✅ Merged | `budget_v1` | `budget_allocation` | yes (#40) |
 | PR-8 | Decision Consumption (Strategist) | ✅ Merged | `decision_v1` | — (reads projections) | yes (#41) |
 | PR-9 | Failure Taxonomy | ✅ Merged | `failure_v1` | `failure_reason` | yes (#42) |
-| PR-10 | Generalisation Matrix | 🔷 Open for review | `stat_v1` | `generalisation_matrix` | PR open |
+| PR-10 | Generalisation Matrix | ✅ Merged | `stat_v1` | `generalisation_matrix` | yes (#43) |
+| PR-11 | Explainability & Reporter | 🔷 Open for review | (per-source) | `decision_record` | PR open |
 
 > Note: the PR numbering here follows this implementation sequence
 > (PR-1…PR-7 as requested by the reviewer). It does not map one-to-one onto the
@@ -200,11 +201,29 @@ _Last updated: 2026-09-06 — after PR-10 opened for review._
 - **State:** open for review (this PR). Additive, deterministic, replay-safe,
   append-only evidence, `hypothesis_state` untouched.
 
-## M11-7 Explainability/Reporter ⬜ (planned)
+## PR-11 — Explainability & Reporter (M11-7) 🔷
 
-- `decision_record` for every decision, `research_memory_query`, read-only Reporter
-  boards. Robustness memory (deferred from PR-9) naturally lands here, as does the
-  Prioritizer/Scheduler decision consumption deferred from PR-8.
+- **Responsibility:** the design's M11-7. `decision_record` explainability log
+  (promote/retire/reject) via a pure `ExplanationWriter` fold; `research_memory_query`
+  pure read-models (boards + standing questions). **No new agents.**
+- **Interfaces:** `explanation.py` (pure builders); `explanation_engine.py`
+  (`ExplanationWriter`); table `decision_record`; `decision_record_store.py`;
+  `research_memory_query.py` (pure readers).
+- **Consumes:** the existing M11 projections (`promotion_recommendation`,
+  `retirement_evaluation`, `failure_reason`, `generalisation_matrix`) + evidence
+  provenance — nothing recomputed. Reporter read-models delivered as M11-owned pure
+  functions (the `reporting/` agent is untouched).
+- **Deferred:** `prioritise` decision records (need the PR-8 Prioritizer
+  integration).
+- **State:** open for review (this PR). Additive, deterministic, replay-safe,
+  append-only evidence, fully M11-owned.
+
+## Deferred follow-ups (post-M11 candidates)
+
+- Prioritizer/Scheduler decision consumption (PR-8) — needs a hypothesis→idea/
+  candidate linkage threaded through idea-gen → `pending_ideas` → candidates.
+- Robustness memory into `research_memory` (PR-9) — M9-owned/M10-consumed table.
+- `prioritise` decision records (PR-11) — depend on the Prioritizer integration.
 
 ---
 

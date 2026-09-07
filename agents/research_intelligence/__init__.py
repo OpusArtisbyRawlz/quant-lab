@@ -23,6 +23,7 @@ from .retirement_engine import RetirementEngine
 from .budget_engine import BudgetEngine
 from .failure_engine import FailureClassifier
 from .generalisation_engine import GeneralisationProjector
+from .explanation_engine import ExplanationWriter
 from . import statistics
 from . import promotion
 from . import holdout
@@ -31,11 +32,13 @@ from . import retirement
 from . import budget
 from . import decision
 from . import failure
+from . import explanation
+from . import research_memory_query
 
 __all__ = [
     "EvidenceRecorder", "EvidenceProjector", "PromotionEngine", "HoldoutEngine",
     "FdrEngine", "RetirementEngine", "BudgetEngine", "FailureClassifier",
-    "GeneralisationProjector",
+    "GeneralisationProjector", "ExplanationWriter",
     "statistics", "promotion", "holdout", "fdr", "retirement", "budget",
-    "decision", "failure",
+    "decision", "failure", "explanation", "research_memory_query",
 ]
