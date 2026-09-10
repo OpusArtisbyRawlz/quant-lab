@@ -71,6 +71,11 @@ def _dumps(value: Any) -> str | None:
     return json.dumps(value)
 
 
+def _opt_float(value: Any) -> float | None:
+    """Coerce to float, preserving NULL (so an unset numeric column stays NULL)."""
+    return None if value is None else float(value)
+
+
 def _loads(value: str | None) -> Any:
     if value is None or value == "":
         return None
@@ -80,12 +85,58 @@ def _loads(value: str | None) -> Any:
         return value
 
 
+# Phase 6 (P6-8) — extended-field defaults. An absent/NULL spec means "current
+# behaviour", so the effective value is computed here in one canonical place; the
+# stored column stays NULL for legacy/standalone campaigns.
+DEFAULT_TRIGGER_SPEC: dict[str, Any] = {"kind": "manual"}
+DEFAULT_REPEAT_SPEC: dict[str, Any] = {"mode": "once"}
+DEFAULT_DEPENDS_ON: list[str] = []
+DEFAULT_PRIORITY: float = 0.0
+
+# JSON-typed campaign columns decoded on read.
+_JSON_CAMPAIGN_FIELDS = (
+    "goal_spec", "scope", "stopping_spec",
+    "trigger_spec", "depends_on", "eig_spec", "repeat_spec",
+)
+
+
 def _row_to_campaign(row) -> dict[str, Any]:
     d = dict(row)
-    for key in ("goal_spec", "scope", "stopping_spec"):
+    for key in _JSON_CAMPAIGN_FIELDS:
         if key in d:
             d[key] = _loads(d[key])
     return d
+
+
+# --- P6-8 effective-value accessors (defaults = pre-P6-8 behaviour) ---------
+
+def campaign_priority(campaign: dict[str, Any]) -> float:
+    """A campaign's effective static priority: the ``priority`` column when set,
+    else ``goal_spec.priority`` (where it lived pre-P6-8), else 0.0. Pure — the
+    scheduler's existing ordering is unchanged by P6-8; this only names the
+    canonical fallback for later PRs/tests."""
+    p = campaign.get("priority")
+    if p is not None:
+        return float(p)
+    goal = campaign.get("goal_spec") or {}
+    if isinstance(goal, dict) and goal.get("priority") is not None:
+        return float(goal["priority"])
+    return DEFAULT_PRIORITY
+
+
+def campaign_trigger_spec(campaign: dict[str, Any]) -> dict[str, Any]:
+    spec = campaign.get("trigger_spec")
+    return spec if isinstance(spec, dict) and spec else dict(DEFAULT_TRIGGER_SPEC)
+
+
+def campaign_repeat_spec(campaign: dict[str, Any]) -> dict[str, Any]:
+    spec = campaign.get("repeat_spec")
+    return spec if isinstance(spec, dict) and spec else dict(DEFAULT_REPEAT_SPEC)
+
+
+def campaign_depends_on(campaign: dict[str, Any]) -> list[str]:
+    deps = campaign.get("depends_on")
+    return list(deps) if isinstance(deps, list) else list(DEFAULT_DEPENDS_ON)
 
 
 # ---------------------------------------------------------------------------
@@ -113,8 +164,10 @@ def insert_campaign(
                 campaign_id, theme, goal_spec, scope, state,
                 budget_experiments, budget_spent, exploration_fraction,
                 stall_patience, stopping_spec, created_at, updated_at,
-                campaign_type
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                campaign_type,
+                priority, trigger_spec, depends_on,
+                expected_information_gain, eig_spec, repeat_spec, portfolio_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 campaign_id,
@@ -130,6 +183,15 @@ def insert_campaign(
                 now,
                 now,
                 campaign.get("campaign_type", "strategy_evolution"),
+                # Phase 6 (P6-8): extended fields. Absent ⇒ NULL/spec-default so a
+                # campaign created the old way is byte-identical in behaviour.
+                _opt_float(campaign.get("priority")),
+                _dumps(campaign.get("trigger_spec")),
+                _dumps(campaign.get("depends_on")),
+                _opt_float(campaign.get("expected_information_gain")),
+                _dumps(campaign.get("eig_spec")),
+                _dumps(campaign.get("repeat_spec")),
+                campaign.get("portfolio_id"),
             ),
         )
         conn.commit()

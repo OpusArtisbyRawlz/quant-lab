@@ -116,12 +116,24 @@ class CampaignManager:
         stall_patience: int = 3,
         stopping_spec: Any = None,
         campaign_type: str = "strategy_evolution",
+        priority: float | None = None,
+        trigger_spec: Any = None,
+        depends_on: Any = None,
+        expected_information_gain: float | None = None,
+        eig_spec: Any = None,
+        repeat_spec: Any = None,
+        portfolio_id: str | None = None,
     ) -> dict[str, Any]:
         """Create a new campaign in DRAFT and record its genesis event.
 
         ``campaign_type`` (Phase 6 P6-2) selects the HypothesisSource — WHAT to
-        research; the default preserves pre-Phase-6 strategist behaviour. Raises
-        CampaignError if a campaign with this id already exists.
+        research; the default preserves pre-Phase-6 strategist behaviour.
+
+        The Phase 6 P6-8 portfolio-planning fields (``priority``, ``trigger_spec``,
+        ``depends_on``, ``expected_information_gain``, ``eig_spec``, ``repeat_spec``,
+        ``portfolio_id``) are all optional; omitting them ⇒ current behaviour. They
+        are stored here and consumed by later PRs (planner, triggers, budget, EIG).
+        Raises CampaignError if a campaign with this id already exists.
         """
         if campaign_store.reconstruct_state_from_events(
             campaign_id, db_path=self.db_path
@@ -137,6 +149,15 @@ class CampaignManager:
             "stall_patience": int(stall_patience),
             "stopping_spec": stopping_spec,
             "campaign_type": campaign_type,
+            # Phase 6 (P6-8) extended planning fields. Kept in the genesis event so
+            # the projection is fully reconstructible from the log.
+            "priority": priority,
+            "trigger_spec": trigger_spec,
+            "depends_on": depends_on,
+            "expected_information_gain": expected_information_gain,
+            "eig_spec": eig_spec,
+            "repeat_spec": repeat_spec,
+            "portfolio_id": portfolio_id,
         }
         # The genesis event is the source of truth for the campaign's config and
         # initial state. It is written FIRST so the campaign exists in the log
@@ -177,6 +198,14 @@ class CampaignManager:
                 "stall_patience": config.get("stall_patience", 3),
                 "stopping_spec": config.get("stopping_spec"),
                 "campaign_type": config.get("campaign_type", "strategy_evolution"),
+                # Phase 6 (P6-8) extended fields (absent ⇒ NULL/spec-default).
+                "priority": config.get("priority"),
+                "trigger_spec": config.get("trigger_spec"),
+                "depends_on": config.get("depends_on"),
+                "expected_information_gain": config.get("expected_information_gain"),
+                "eig_spec": config.get("eig_spec"),
+                "repeat_spec": config.get("repeat_spec"),
+                "portfolio_id": config.get("portfolio_id"),
             },
             db_path=self.db_path,
         )

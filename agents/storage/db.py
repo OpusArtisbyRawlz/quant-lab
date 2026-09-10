@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 24
+SCHEMA_VERSION = 25
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -326,7 +326,19 @@ CREATE TABLE IF NOT EXISTS research_campaign (
     -- Phase 6 (P6-2): the campaign kind that selects a HypothesisSource — WHAT to
     -- research; existing agents decide HOW. Additive; default 'strategy_evolution'
     -- preserves pre-Phase-6 behaviour (strategist frontier expansion).
-    campaign_type       TEXT NOT NULL DEFAULT 'strategy_evolution'
+    campaign_type       TEXT NOT NULL DEFAULT 'strategy_evolution',
+    -- Phase 6 (P6-8): extended portfolio-planning fields. All additive and
+    -- back-compatible — an absent/NULL spec means "current behaviour", so a
+    -- campaign carrying none of these behaves exactly as before P6-8. These are
+    -- planning INPUTS consumed by later PRs (P6-10 planner, P6-11 triggers/deps/
+    -- repeats, P6-12/13 budget/EIG); P6-8 only stores them.
+    priority                   REAL,                          -- static priority; NULL ⇒ fall back to goal_spec.priority
+    trigger_spec               TEXT DEFAULT '{"kind": "manual"}',  -- JSON: when the campaign becomes ACTIVE (§3)
+    depends_on                 TEXT DEFAULT '[]',              -- JSON list: campaign ids gating runnability (DAG, §4)
+    expected_information_gain  REAL,                           -- cached campaign-level EIG (§5); NULL ⇒ not yet derived
+    eig_spec                   TEXT,                           -- JSON: how EIG is aggregated (§5); NULL ⇒ default mean EVOI
+    repeat_spec                TEXT DEFAULT '{"mode": "once"}',    -- JSON: repeat policy after completion (§6)
+    portfolio_id               TEXT                            -- portfolio membership (§7); NULL ⇒ standalone campaign
 )
 """
 
@@ -854,6 +866,8 @@ _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_research_memory_scope  ON research_memory(scope_key)",
     # Milestone 10 — research campaign layer
     "CREATE INDEX IF NOT EXISTS idx_campaign_state         ON research_campaign(state)",
+    # Phase 6 (P6-8): portfolio membership lookups (planner reads by portfolio).
+    "CREATE INDEX IF NOT EXISTS idx_campaign_portfolio     ON research_campaign(portfolio_id)",
     "CREATE INDEX IF NOT EXISTS idx_campaign_events_cid    ON campaign_state_events(campaign_id)",
     "CREATE INDEX IF NOT EXISTS idx_pending_ideas_campaign ON pending_ideas(campaign_id)",
     # Milestone 10 PR-2 — hypothesis evolution tree
@@ -962,6 +976,15 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
     # reproduces pre-Phase-6 behaviour on legacy campaigns.
     "research_campaign": [
         ("campaign_type", "TEXT NOT NULL DEFAULT 'strategy_evolution'"),
+        # Phase 6 (P6-8): extended portfolio-planning fields (additive; NULL/default
+        # ⇒ pre-P6-8 behaviour). Reconciled onto legacy campaign rows.
+        ("priority", "REAL"),
+        ("trigger_spec", "TEXT DEFAULT '{\"kind\": \"manual\"}'"),
+        ("depends_on", "TEXT DEFAULT '[]'"),
+        ("expected_information_gain", "REAL"),
+        ("eig_spec", "TEXT"),
+        ("repeat_spec", "TEXT DEFAULT '{\"mode\": \"once\"}'"),
+        ("portfolio_id", "TEXT"),
     ],
 }
 
