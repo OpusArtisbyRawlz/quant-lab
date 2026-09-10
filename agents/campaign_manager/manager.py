@@ -270,6 +270,27 @@ class CampaignManager:
         return self.transition(campaign_id, STATE_DISCARDED,
                                reason_code=reason_code, evidence=evidence)
 
+    def advance(self, campaign_id: str) -> str:
+        """Evaluate a campaign's deterministic stop conditions after a tick and
+        transition it if met — the CampaignManager owns this decision so the
+        Phase-6 FactoryRunner stays a thin driver. Idempotent (a no-op on a
+        terminal campaign or one that has not met a condition).
+
+        P6-3 evaluates only **budget exhaustion** (`budget_spent ≥
+        budget_experiments`) → COMPLETED, reusing the existing ``complete``
+        transition. Stall detection (`stall_patience`) and rich ``stopping_spec``
+        goal predicates are later PRs (P6-8). Returns the resulting authoritative
+        state.
+        """
+        state = self.current_state(campaign_id)
+        # Only a live, running campaign can be auto-completed on a stop condition
+        # (COMPLETED is reachable from ACTIVE/STALLED, not DRAFT).
+        if state not in (STATE_ACTIVE, STATE_STALLED):
+            return state
+        if self.budget_exhausted(campaign_id):
+            self.complete(campaign_id, reason_code="budget_reached")
+        return self.current_state(campaign_id)
+
     # -- progress ----------------------------------------------------------
 
     def refresh_progress(self, campaign_id: str) -> int:
