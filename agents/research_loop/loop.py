@@ -34,7 +34,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from agents.storage.db import DB_PATH
-from agents.storage import loop_store, scheduler_store, hypothesis_store
+from agents.storage import loop_store, scheduler_store, hypothesis_store, campaign_store
+from agents.research_loop import sources as loop_sources
 from agents.idea_generator import approval_queue, idea_executor
 from agents.campaign_manager import CampaignManager
 from agents.campaign_manager.manager import STATE_ACTIVE
@@ -113,6 +114,7 @@ class ResearchLoop:
         data_root: Path | None = None,
         completed_dir: Path | None = None,
         data_dict_provider: DataDictProvider | None = None,
+        sources: dict[str, loop_sources.HypothesisSource] | None = None,
     ) -> None:
         self.db_path = db_path
         self.config = config or LoopConfig()
@@ -121,6 +123,13 @@ class ResearchLoop:
             db_path, config=self.config.scheduler_config
         )
         self.campaigns = campaign_manager or CampaignManager(db_path=db_path)
+        # Phase 6 (P6-2): campaign_type → HypothesisSource. The default registry
+        # wires 'strategy_evolution' to the existing strategist (pre-Phase-6
+        # behaviour); injected sources merge over it for new campaign types.
+        self.sources: dict[str, loop_sources.HypothesisSource] = {
+            **loop_sources.default_registry(self.strategist),
+            **(sources or {}),
+        }
         # Execution wiring (passed straight through to the unchanged M7 executor).
         self.data_root = data_root
         self.completed_dir = completed_dir
@@ -225,10 +234,18 @@ class ResearchLoop:
             return {"generated": 0, "skipped_reason": "generate_disabled"}
         if self.campaigns.current_state(campaign_id) != STATE_ACTIVE:
             return {"generated": 0, "skipped_reason": "campaign_not_active"}
-        results = self.strategist.run_tick(campaign_id)
+        # Phase 6 (P6-2): the campaign declares WHAT via campaign_type; the bound
+        # HypothesisSource proposes ideas. Unknown types generate nothing (safe).
+        camp = campaign_store.get_campaign(campaign_id, db_path=self.db_path) or {}
+        ctype = camp.get("campaign_type") or loop_sources.DEFAULT_CAMPAIGN_TYPE
+        source = self.sources.get(ctype)
+        if source is None:
+            return {"generated": 0, "skipped_reason": f"no_source_for_type:{ctype}"}
+        results = source.propose(campaign_id)
         return {
             "generated": len(results),
             "idea_ids": sorted(r.idea_id for r in results if r.idea_id),
+            "campaign_type": ctype,
         }
 
     # ------------------------------------------------------------------ #
