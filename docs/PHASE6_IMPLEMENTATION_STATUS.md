@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-10 — after P6-3 opened for review._
+_Last updated: 2026-09-10 — after P6-4 opened for review._
 
 ## Status at a glance
 
@@ -13,8 +13,8 @@ _Last updated: 2026-09-10 — after P6-3 opened for review._
 | --- | --- | --- | --- | --- |
 | P6-1 | Assess phase (M11 DAG in the loop) | ✅ Merged | `loop.assess`, `PHASE_ASSESS` | yes (#48) |
 | P6-2 | Campaign types + HypothesisSource registry | ✅ Merged | `research_campaign.campaign_type`, `research_loop/sources.py` | yes (#49) |
-| P6-3 | FactoryRunner | 🔷 Open for review | `research_loop/factory_runner.py`, `CampaignManager.advance` | PR open |
-| P6-4 | Project 07 hand-off (preliminary→authoritative) | ⬜ Not started | (planned) | — |
+| P6-3 | FactoryRunner | ✅ Merged | `research_loop/factory_runner.py`, `CampaignManager.advance` | yes (#50) |
+| P6-4 | Project 07 hand-off (preliminary→authoritative) | 🔷 Open for review | `project07_evaluation`, `storage/handoff_store.py` | PR open |
 | P6-5 | Near-term sources (bar-type/overlay/replay) | ⬜ Not started | (planned) | — |
 | P6-6 | Scale pass (shared fold cache / incremental assess) | ⬜ Not started | (planned) | — |
 | P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | ⬜ Not started | (planned) | — |
@@ -60,6 +60,21 @@ the portfolio layer (P6-8…P6-13) layer on and can be reordered.
 - **Deferred here:** stall detection + rich `stopping_spec` predicates (P6-8); the
   report step (P6-8); dependency-gated runnability arrives when P6-8 extends the
   scheduler and the runner picks it up automatically.
+- **State:** merged (#50).
+
+## P6-4 — Project 07 hand-off (preliminary → authoritative) 🔷
+
+- **Responsibility:** make the evaluation-authority boundary explicit — M11 factory
+  output is *preliminary*; Project 07 is the *authoritative* evaluator. A DERIVED
+  hand-off queue (COMPLETED campaigns not yet evaluated) and a Project-07-only write
+  path for its verdict.
+- **Interfaces:** `project07_evaluation` table (SCHEMA 23→24, additive);
+  `storage/handoff_store.py` — `pending_handoffs`, `record_evaluation`,
+  `get_evaluation`/`list_evaluations`, `evaluation_status`.
+- **Reuse:** no FactoryRunner/loop/scheduler/CampaignManager change; the queue is
+  derived from existing campaign state. The factory never writes the table.
+- **Isolation:** `handoff_store` imports only the campaign store + DB; no Project 07
+  or Chrysos import (asserted by tests).
 - **State:** open for review (this PR).
 
 ---
