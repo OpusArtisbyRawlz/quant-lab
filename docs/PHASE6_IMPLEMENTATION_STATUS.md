@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-10 — after P6-4 opened for review._
+_Last updated: 2026-09-10 — after P6-5 opened for review._
 
 ## Status at a glance
 
@@ -14,8 +14,8 @@ _Last updated: 2026-09-10 — after P6-4 opened for review._
 | P6-1 | Assess phase (M11 DAG in the loop) | ✅ Merged | `loop.assess`, `PHASE_ASSESS` | yes (#48) |
 | P6-2 | Campaign types + HypothesisSource registry | ✅ Merged | `research_campaign.campaign_type`, `research_loop/sources.py` | yes (#49) |
 | P6-3 | FactoryRunner | ✅ Merged | `research_loop/factory_runner.py`, `CampaignManager.advance` | yes (#50) |
-| P6-4 | Project 07 hand-off (preliminary→authoritative) | 🔷 Open for review | `project07_evaluation`, `storage/handoff_store.py` | PR open |
-| P6-5 | Near-term sources (bar-type/overlay/replay) | ⬜ Not started | (planned) | — |
+| P6-4 | Project 07 hand-off (preliminary→authoritative) | ✅ Merged | `project07_evaluation`, `storage/handoff_store.py` | yes (#51) |
+| P6-5 | Near-term sources (bar-type/overlay/replay) | 🔷 Open for review | self-registering `research_loop/sources/` package + 3 sources | PR open |
 | P6-6 | Scale pass (shared fold cache / incremental assess) | ⬜ Not started | (planned) | — |
 | P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | ⬜ Not started | (planned) | — |
 | P6-9 | Research Portfolio object | ⬜ Not started | (planned) | — |
@@ -75,6 +75,24 @@ the portfolio layer (P6-8…P6-13) layer on and can be reordered.
   derived from existing campaign state. The factory never writes the table.
 - **Isolation:** `handoff_store` imports only the campaign store + DB; no Project 07
   or Chrysos import (asserted by tests).
+- **State:** merged (#51).
+
+## P6-5 — Self-registering sources + near-term campaign types 🔷
+
+- **Responsibility:** make the `HypothesisSource` registry **self-registering** and
+  add the three near-term sources (`bar_type_comparison`, `overlay_combination`,
+  `counterfactual_replay`) — each a thin, deterministic `propose`.
+- **Interfaces:** `research_loop/sources/` package — `@register` decorator,
+  `build_registry(SourceContext)`, generic `HypothesisSource`/`Proposal`, shared
+  `enqueue_proposal`/`existing_specs` helpers; three source modules that self-register.
+- **Reuse:** the loop resolves `registry[campaign_type].propose()` and names no
+  source (one-line wiring change to thread `db_path`); sources reuse the existing
+  enqueue + approval-gate path; scheduler/runner untouched.
+- **Determinism/replay:** sources enumerate in sorted order and skip already-proposed
+  `(bar_type, hypothesis)` pairs (converge, no re-proposals); replay only appends new
+  ideas, never mutates originals.
+- **Deferred:** external adapters (`literature_review`, `github_mining`) → P6-7;
+  auto-sourcing replay specs from the ledger → future (Non-goal §18).
 - **State:** open for review (this PR).
 
 ---
