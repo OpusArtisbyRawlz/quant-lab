@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 23
+SCHEMA_VERSION = 24
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -809,6 +809,26 @@ CREATE TABLE IF NOT EXISTS decision_record (
 )
 """
 
+# ===========================================================================
+# Phase 6 (P6-4) — Project 07 hand-off (preliminary → authoritative boundary)
+#
+# The neutral surface between the Quant Research Factory (M11 = preliminary
+# evidence) and Project 07 — Statistical Integrity (the authoritative final
+# evaluation). The factory NEVER writes this table and never imports Project 07;
+# Project 07, on its own cadence, reads the derived pending queue (completed
+# campaigns without a row here) and writes its authoritative verdict. ``verdict``
+# is opaque to the factory. One row per campaign.
+# ===========================================================================
+_CREATE_PROJECT07_EVALUATION = """
+CREATE TABLE IF NOT EXISTS project07_evaluation (
+    campaign_id   TEXT PRIMARY KEY,
+    verdict       TEXT,            -- JSON: Project 07's authoritative result (opaque here)
+    status        TEXT NOT NULL DEFAULT 'authoritative',
+    method        TEXT,            -- Project 07 version/tag
+    evaluated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
 _INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_experiments_status    ON experiments(status)",
     "CREATE INDEX IF NOT EXISTS idx_experiments_project   ON experiments(project)",
@@ -1023,6 +1043,8 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         conn.execute(_CREATE_GENERALISATION_MATRIX)
         # Milestone 11 PR-11 — decision record
         conn.execute(_CREATE_DECISION_RECORD)
+        # Phase 6 P6-4 — Project 07 hand-off (preliminary → authoritative)
+        conn.execute(_CREATE_PROJECT07_EVALUATION)
 
         # Reconcile additive columns for databases created before this schema
         # version (fresh DBs already have them via the CREATE statements).
