@@ -123,11 +123,13 @@ class ResearchLoop:
             db_path, config=self.config.scheduler_config
         )
         self.campaigns = campaign_manager or CampaignManager(db_path=db_path)
-        # Phase 6 (P6-2): campaign_type → HypothesisSource. The default registry
-        # wires 'strategy_evolution' to the existing strategist (pre-Phase-6
-        # behaviour); injected sources merge over it for new campaign types.
+        # Phase 6 (P6-2/P6-5): campaign_type → HypothesisSource. The registry is
+        # built from the self-registered sources (P6-5) — the loop names none of
+        # them and is agnostic to where hypotheses originate; 'strategy_evolution'
+        # remains the strategist pass-through. Injected sources merge over it (tests
+        # / future overrides).
         self.sources: dict[str, loop_sources.HypothesisSource] = {
-            **loop_sources.default_registry(self.strategist),
+            **loop_sources.default_registry(self.strategist, db_path=self.db_path),
             **(sources or {}),
         }
         # Execution wiring (passed straight through to the unchanged M7 executor).

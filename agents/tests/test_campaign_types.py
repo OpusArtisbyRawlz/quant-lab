@@ -93,7 +93,9 @@ def test_additive_migration_onto_legacy_db(tmp_path):
 def test_default_registry_wires_strategy_evolution(tmp_path):
     strat = _StubStrategist()
     reg = S.default_registry(strat)
-    assert set(reg) == {S.CAMPAIGN_TYPE_STRATEGY_EVOLUTION}
+    # P6-5: the registry now also carries the self-registered near-term sources,
+    # but strategy_evolution remains the strategist pass-through.
+    assert S.CAMPAIGN_TYPE_STRATEGY_EVOLUTION in reg
     assert isinstance(reg[S.CAMPAIGN_TYPE_STRATEGY_EVOLUTION], S.StrategistSource)
     reg[S.CAMPAIGN_TYPE_STRATEGY_EVOLUTION].propose("C")
     assert strat.calls == ["C"]        # StrategistSource delegates to run_tick
