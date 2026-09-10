@@ -115,10 +115,13 @@ class CampaignManager:
         exploration_fraction: float = 0.34,
         stall_patience: int = 3,
         stopping_spec: Any = None,
+        campaign_type: str = "strategy_evolution",
     ) -> dict[str, Any]:
         """Create a new campaign in DRAFT and record its genesis event.
 
-        Raises CampaignError if a campaign with this id already exists.
+        ``campaign_type`` (Phase 6 P6-2) selects the HypothesisSource — WHAT to
+        research; the default preserves pre-Phase-6 strategist behaviour. Raises
+        CampaignError if a campaign with this id already exists.
         """
         if campaign_store.reconstruct_state_from_events(
             campaign_id, db_path=self.db_path
@@ -133,6 +136,7 @@ class CampaignManager:
             "exploration_fraction": float(exploration_fraction),
             "stall_patience": int(stall_patience),
             "stopping_spec": stopping_spec,
+            "campaign_type": campaign_type,
         }
         # The genesis event is the source of truth for the campaign's config and
         # initial state. It is written FIRST so the campaign exists in the log
@@ -172,6 +176,7 @@ class CampaignManager:
                 "exploration_fraction": config.get("exploration_fraction", 0.34),
                 "stall_patience": config.get("stall_patience", 3),
                 "stopping_spec": config.get("stopping_spec"),
+                "campaign_type": config.get("campaign_type", "strategy_evolution"),
             },
             db_path=self.db_path,
         )

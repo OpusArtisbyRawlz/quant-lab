@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 22
+SCHEMA_VERSION = 23
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -322,7 +322,11 @@ CREATE TABLE IF NOT EXISTS research_campaign (
     stopping_spec       TEXT,            -- JSON: stopping criteria
     created_at          TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
-    completed_at        TEXT
+    completed_at        TEXT,
+    -- Phase 6 (P6-2): the campaign kind that selects a HypothesisSource — WHAT to
+    -- research; existing agents decide HOW. Additive; default 'strategy_evolution'
+    -- preserves pre-Phase-6 behaviour (strategist frontier expansion).
+    campaign_type       TEXT NOT NULL DEFAULT 'strategy_evolution'
 )
 """
 
@@ -933,6 +937,11 @@ _ADDITIVE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("promoted_at", "TEXT"),
         ("retired_at", "TEXT"),
         ("last_evaluated_at", "TEXT"),
+    ],
+    # Phase 6 (P6-2): campaign kind → HypothesisSource. Additive; the default
+    # reproduces pre-Phase-6 behaviour on legacy campaigns.
+    "research_campaign": [
+        ("campaign_type", "TEXT NOT NULL DEFAULT 'strategy_evolution'"),
     ],
 }
 

@@ -112,8 +112,9 @@ def insert_campaign(
             INSERT INTO research_campaign (
                 campaign_id, theme, goal_spec, scope, state,
                 budget_experiments, budget_spent, exploration_fraction,
-                stall_patience, stopping_spec, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                stall_patience, stopping_spec, created_at, updated_at,
+                campaign_type
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 campaign_id,
@@ -128,6 +129,7 @@ def insert_campaign(
                 _dumps(campaign.get("stopping_spec")),
                 now,
                 now,
+                campaign.get("campaign_type", "strategy_evolution"),
             ),
         )
         conn.commit()
