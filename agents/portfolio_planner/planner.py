@@ -56,13 +56,18 @@ class PortfolioPlan:
     """One portfolio's deterministic plan. Pure data; derivable from stored state."""
     portfolio_id: str
     policy: str
-    admitted: list[str] = field(default_factory=list)   # campaign_ids, in order
+    admitted: list[str] = field(default_factory=list)   # campaign_ids, in dependency-aware order
     concurrency_limit: int = 0
+    # P6-12: runnable campaigns excluded because they sit in (or depend on) a
+    # dependency cycle — §4 requires such campaigns be rejected, so they are never
+    # admitted. Sorted, deterministic; empty in the normal (acyclic) case.
+    excluded_cycles: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {"portfolio_id": self.portfolio_id, "policy": self.policy,
                 "admitted": list(self.admitted),
-                "concurrency_limit": self.concurrency_limit}
+                "concurrency_limit": self.concurrency_limit,
+                "excluded_cycles": list(self.excluded_cycles)}
 
 
 class PortfolioPlanner:
@@ -119,11 +124,25 @@ class PortfolioPlanner:
             m for m in members
             if self.campaigns.is_eligible(m["campaign_id"])
         ]
-        ordered = self._order(runnable, policy)
-        ordered = self._dependency_aware(ordered)
+        policy_ordered = self._order(runnable, policy)
+        # Dependency-aware refinement + cycle rejection (§4): cyclic campaigns (and
+        # any that transitively depend on a cycle) cannot be validly ordered, so they
+        # are excluded from the admitted plan rather than scheduled.
+        ordered, excluded = self._topo_order(policy_ordered)
 
         admitted = ordered if limit <= 0 else ordered[:limit]
-        return PortfolioPlan(portfolio_id, policy, admitted, limit)
+        return PortfolioPlan(portfolio_id, policy, admitted, limit,
+                             excluded_cycles=excluded)
+
+    def detect_cycles(self, portfolio_id: str) -> list[str]:
+        """Pure dependency-cycle check over a portfolio's member campaigns (the §4
+        topological check). Returns the sorted campaign_ids that cannot be
+        topologically ordered — i.e. those in a dependency cycle, plus any that
+        transitively depend on one. Empty for a valid DAG. Reads only; mutates
+        nothing. Edges are restricted to intra-portfolio members (a dependency on a
+        non-member is an external prerequisite, not part of this portfolio's graph)."""
+        members = self.campaigns.campaigns_in_portfolio(portfolio_id)
+        return self._unschedulable(members)
 
     # -- ordering (pure) ---------------------------------------------------
 
@@ -149,38 +168,62 @@ class PortfolioPlanner:
         except (TypeError, ValueError):
             return 0.0
 
-    def _dependency_aware(self, ordered_ids: list[str]) -> list[str]:
-        """Stable, dependency-aware refinement of a policy-ordered id list: a runnable
-        prerequisite precedes a runnable dependent, policy order preserved otherwise.
-
-        Only edges *among the runnable set* matter (deps outside it are already
-        satisfied by the runnable filter). Deterministic Kahn's algorithm seeded by
-        the policy order; a cycle (which §4 forbids at definition time) can't stall —
-        remaining nodes fall back to policy order."""
-        in_set = set(ordered_ids)
-        # prereqs[x] = runnable campaigns x depends on (an ordering constraint).
+    def _intra_prereqs(self, ids: list[str]) -> dict[str, set[str]]:
+        """For each id, the set of its dependencies that are also in ``ids`` — the
+        ordering constraints internal to this set. Dependencies outside the set are
+        external prerequisites, not edges of this graph. Reuses the single
+        dependency-normalisation source (no duplicated dependency logic)."""
+        in_set = set(ids)
         prereqs: dict[str, set[str]] = {}
-        for cid in ordered_ids:
+        for cid in ids:
             camp = campaign_store.get_campaign(cid, db_path=self.db_path) or {}
             prereqs[cid] = {
                 dep_id for dep_id, _ in campaign_store.normalized_depends_on(camp)
                 if dep_id in in_set
             }
+        return prereqs
 
+    def _topo_order(self, ordered_ids: list[str]) -> tuple[list[str], list[str]]:
+        """Stable, dependency-aware refinement of a policy-ordered id list, with cycle
+        rejection. Returns ``(emitted, excluded)``:
+
+        - ``emitted`` — a prerequisite precedes its dependent; policy order is
+          preserved otherwise (deterministic Kahn's algorithm seeded by the policy
+          order, restarting the scan on each emit to keep it stable);
+        - ``excluded`` — the campaigns that can never be emitted because they sit in
+          (or transitively depend on) a dependency cycle. §4 forbids cycles, so these
+          are rejected from the plan rather than force-ordered. Sorted, deterministic.
+        """
+        prereqs = self._intra_prereqs(ordered_ids)
         emitted: list[str] = []
         done: set[str] = set()
         remaining = list(ordered_ids)          # already in policy order
         while remaining:
             progressed = False
             for cid in list(remaining):
-                if prereqs[cid] <= done:       # all runnable prereqs already emitted
+                if prereqs[cid] <= done:       # all in-set prereqs already emitted
                     emitted.append(cid)
                     done.add(cid)
                     remaining.remove(cid)
                     progressed = True
                     break                      # restart scan → keep policy order stable
             if not progressed:
-                # Cycle among the remaining (design-forbidden). Emit in policy order.
-                emitted.extend(remaining)
+                break                          # remaining are cyclic / cycle-dependent
+        return emitted, sorted(remaining)
+
+    def _unschedulable(self, ids: list[str]) -> list[str]:
+        """The campaigns among ``ids`` that cannot be topologically ordered — cycle
+        members and anything transitively depending on them. Sorted, deterministic."""
+        prereqs = self._intra_prereqs(ids)
+        done: set[str] = set()
+        remaining = list(ids)
+        while remaining:
+            progressed = False
+            for cid in list(remaining):
+                if prereqs[cid] <= done:
+                    done.add(cid)
+                    remaining.remove(cid)
+                    progressed = True
+            if not progressed:
                 break
-        return emitted
+        return sorted(remaining)
