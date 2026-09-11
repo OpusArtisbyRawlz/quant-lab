@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-11 — after P6-11 opened for review._
+_Last updated: 2026-09-11 — after P6-12 opened for review._
 
 ## Status at a glance
 
@@ -20,13 +20,19 @@ _Last updated: 2026-09-11 — after P6-11 opened for review._
 | P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | ✅ Merged | 7 additive `research_campaign` columns + accessors | yes (#53) |
 | P6-9 | Research Portfolio object | ✅ Merged | `research_portfolio` + `portfolio_state_events` + `portfolio_store` + CampaignManager portfolio state machine | yes (#54) |
 | P6-10 | PortfolioPlanner (pure policy) | ✅ Merged | `portfolio_planner/` pure module (priority + eig_weighted; round_robin deferred) | yes (#55) |
-| P6-11 | Triggers / dependencies / repeats in CampaignManager | 🔷 Open for review | CampaignManager eligibility API + planner delegates | PR open |
-| P6-12 | Portfolio budget allocation | ⬜ Not started | (planned) | — |
-| P6-13 | EIG aggregation (from budget_allocation) | ⬜ Not started | (planned) | — |
+| P6-11 | Triggers / dependencies / repeats in CampaignManager | ✅ Merged | CampaignManager eligibility API + planner delegates | yes (#56) |
+| P6-12 | Dependency-aware planning + cycle rejection | 🔷 Open for review | planner cycle rejection (`detect_cycles`, `excluded_cycles`) | PR open |
+| P6-13 | Portfolio budget allocation _(was P6-12)_ | ⬜ Not started | (planned) | — |
+| P6-14 | EIG aggregation (from budget_allocation) _(was P6-13)_ | ⬜ Not started | (planned) | — |
 
 Dependency order: **P6-1 → P6-2 → P6-3** form the spine (a continuously running
 factory over the existing agents). P6-4 clarifies evaluation authority. P6-5/6 and
-the portfolio layer (P6-8…P6-13) layer on and can be reordered.
+the portfolio layer (P6-8…P6-14) layer on and can be reordered.
+
+**Reorder (approved):** P6-12 is now *Dependency-aware planning + cycle rejection*;
+the design doc's original P6-12 (*Portfolio budget allocation*) → **P6-13** and P6-13
+(*EIG aggregation*) → **P6-14**. Sanctioned by the design's "P6-11/12/13 … can be
+reordered" clause; the design doc's §16 breakdown keeps the original labels.
 
 ---
 
@@ -160,6 +166,21 @@ the portfolio layer (P6-8…P6-13) layer on and can be reordered.
   clock / predicate catalog). Firing transitions deferred to a clock-bearing PR.
 - **Untouched:** ResearchScheduler + FactoryRunner; no schema change; append-only +
   Project 07 boundary.
+- **State:** merged (#56).
+
+## P6-12 — Dependency-aware planning + cycle rejection 🔷 (portfolio spine, brick 5)
+
+- **Responsibility:** complete dependency-aware ordering and add §4 dependency-cycle
+  rejection — cyclic campaigns (and any depending on a cycle) are excluded from the
+  plan, never force-ordered. Planner stays pure; CampaignManager still owns
+  eligibility/dependency satisfaction.
+- **Interfaces:** `PortfolioPlanner.detect_cycles(portfolio_id)`; `PortfolioPlan`
+  gains `excluded_cycles`; `_topo_order` returns `(emitted, excluded)`.
+- **Reuse:** dependency normalisation stays the single `normalized_depends_on` source;
+  eligibility comes from `CampaignManager.is_eligible`.
+- **Untouched:** CampaignManager (no new logic), ResearchScheduler, FactoryRunner; no
+  schema change; append-only + Project 07 boundary.
+- **Reorder:** takes the P6-12 slot; budget → P6-13, EIG → P6-14 (approved).
 - **State:** open for review (this PR).
 
 ---
