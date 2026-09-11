@@ -49,6 +49,8 @@ from typing import Any
 from agents.storage.db import DB_PATH
 from agents.storage import campaign_store
 from agents.storage import portfolio_store
+from agents.storage import evidence_store
+from agents.storage import budget_store
 from agents.storage.campaign_store import (
     STATE_DRAFT,
     STATE_ACTIVE,
@@ -86,6 +88,14 @@ TRIGGER_EVENT = "event"
 REPEAT_ONCE = "once"
 REPEAT_INTERVAL = "interval"
 REPEAT_UNTIL = "until"
+
+# Phase 6 (P6-14) — EIG aggregation modes (eig_spec.aggregate, §5). mean/sum/max are
+# defined; 'promotion_headroom' is named in the design but not specified, so it is
+# deferred (an unknown aggregate falls back to the default mean).
+EIG_MEAN = "mean"
+EIG_SUM = "sum"
+EIG_MAX = "max"
+DEFAULT_EIG_AGGREGATE = EIG_MEAN
 
 # Phase 6 (P6-9) — portfolio lifecycle. Exactly the three states in the approved
 # design (§7); no others are invented. ARCHIVED is terminal (a portfolio is
@@ -491,6 +501,70 @@ class CampaignManager:
         if not self.trigger_satisfied(campaign_id):
             return False
         return True
+
+    # -- EIG aggregation (Phase 6 P6-14 — derive + cache) ------------------
+    #
+    # Campaign-level EIG is an AGGREGATION of the already-computed M11 per-hypothesis
+    # budget_allocation.evoi (§5) — not a new statistic and not a change to the M11
+    # math. compute_eig is a pure read; refresh_eig caches it on the campaign row via
+    # campaign_store (CampaignManager is the sole research_campaign writer), mirroring
+    # refresh_progress. The cache is re-derivable each planning pass, so it is only a
+    # convenience for readers (e.g. the PortfolioPlanner's eig_weighted / budget).
+
+    def _campaign_hypothesis_ids(self, campaign_id: str) -> list[str]:
+        """Distinct hypothesis_ids attributed to a campaign, via evidence_event
+        (which carries both campaign_id and hypothesis_id). Sorted (deterministic)."""
+        ids = {
+            ev["hypothesis_id"]
+            for ev in evidence_store.list_evidence(
+                campaign_id=campaign_id, db_path=self.db_path)
+            if ev.get("hypothesis_id")
+        }
+        return sorted(ids)
+
+    def compute_eig(self, campaign_id: str) -> float:
+        """Pure campaign-level EIG: aggregate ``budget_allocation.evoi`` over the
+        campaign's **live** (non-retired) hypotheses (§5). Retired/absent-budget
+        hypotheses are not in the set; an empty set ⇒ 0.0 (a played-out campaign
+        decays to 0). ``eig_spec.aggregate`` ∈ {mean (default), sum, max}; an unknown
+        or deferred value (e.g. promotion_headroom) falls back to mean. Deterministic."""
+        camp = campaign_store.get_campaign(campaign_id, db_path=self.db_path)
+        if camp is None:
+            raise CampaignError(f"unknown campaign: {campaign_id}")
+        spec = camp.get("eig_spec")
+        aggregate = spec.get("aggregate", DEFAULT_EIG_AGGREGATE) \
+            if isinstance(spec, dict) else DEFAULT_EIG_AGGREGATE
+
+        evois: list[float] = []
+        for hid in self._campaign_hypothesis_ids(campaign_id):
+            row = budget_store.get_budget(hid, db_path=self.db_path)
+            if row is None or row.get("retired"):
+                continue                       # only live, allocated hypotheses
+            evois.append(float(row.get("evoi") or 0.0))
+        if not evois:
+            return 0.0
+        if aggregate == EIG_SUM:
+            return float(sum(evois))
+        if aggregate == EIG_MAX:
+            return float(max(evois))
+        return float(sum(evois) / len(evois))   # mean (default / unknown)
+
+    def refresh_eig(self, campaign_id: str) -> float:
+        """Recompute a campaign's EIG and cache it on the row. Returns the value.
+        The write goes through campaign_store (CM is the sole research_campaign
+        writer); no historical evidence or M11 projection is mutated."""
+        eig = self.compute_eig(campaign_id)
+        campaign_store.set_expected_information_gain(
+            campaign_id, eig, db_path=self.db_path)
+        return eig
+
+    def refresh_all_eig(self) -> dict[str, float]:
+        """Refresh cached EIG for every campaign (one planning-pass sweep). Returns
+        {campaign_id: eig}, ordered by campaign_id (deterministic)."""
+        out: dict[str, float] = {}
+        for camp in campaign_store.list_campaigns(db_path=self.db_path):
+            out[camp["campaign_id"]] = self.refresh_eig(camp["campaign_id"])
+        return dict(sorted(out.items()))
 
     # -- reconciliation / rebuild -----------------------------------------
 

@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-11 — after P6-13 opened for review._
+_Last updated: 2026-09-11 — after P6-14 opened for review._
 
 ## Status at a glance
 
@@ -22,8 +22,8 @@ _Last updated: 2026-09-11 — after P6-13 opened for review._
 | P6-10 | PortfolioPlanner (pure policy) | ✅ Merged | `portfolio_planner/` pure module (priority + eig_weighted; round_robin deferred) | yes (#55) |
 | P6-11 | Triggers / dependencies / repeats in CampaignManager | ✅ Merged | CampaignManager eligibility API + planner delegates | yes (#56) |
 | P6-12 | Dependency-aware planning + cycle rejection | ✅ Merged | planner cycle rejection (`detect_cycles`, `excluded_cycles`) | yes (#57) |
-| P6-13 | Portfolio budget allocation _(was P6-12)_ | 🔷 Open for review | planner `allocate_budget` reusing frozen M11 `budget.allocate` | PR open |
-| P6-14 | EIG aggregation (from budget_allocation) _(was P6-13)_ | ⬜ Not started | (planned) | — |
+| P6-13 | Portfolio budget allocation _(was P6-12)_ | ✅ Merged | planner `allocate_budget` reusing frozen M11 `budget.allocate` | yes (#58) |
+| P6-14 | EIG aggregation (from budget_allocation) _(was P6-13)_ | 🔷 Open for review | CampaignManager `compute_eig`/`refresh_eig` + cache writer | PR open |
 
 Dependency order: **P6-1 → P6-2 → P6-3** form the spine (a continuously running
 factory over the existing agents). P6-4 clarifies evaluation authority. P6-5/6 and
@@ -197,6 +197,23 @@ reordered" clause; the design doc's §16 breakdown keeps the original labels.
 - **Untouched:** CampaignManager, ResearchScheduler, FactoryRunner; M11 methodology
   (its allocator is called, not modified); no schema change; append-only + Project 07
   boundary. Enforcement of shares is a separate future seam (pure allocation only).
+- **State:** merged (#58).
+
+## P6-14 — EIG aggregation 🔷 (portfolio spine, brick 7 — final)
+
+- **Responsibility:** derive campaign-level EIG by aggregating M11
+  `budget_allocation.evoi` over a campaign's live hypotheses (§5) and cache it on the
+  campaign; closes the loop feeding P6-13's eig_proportional budget / eig-weighted
+  ordering.
+- **Interfaces:** `CampaignManager.compute_eig` (pure) / `refresh_eig` /
+  `refresh_all_eig`; `campaign_store.set_expected_information_gain` cache writer.
+- **Reuse:** reads existing `evidence_store` + `budget_store`; the id space is the
+  shared `hypothesis_node.node_id`. No new statistic; `eig_spec.aggregate` ∈
+  mean(default)/sum/max; promotion_headroom deferred → mean fallback.
+- **Ownership:** CampaignManager stays the sole `research_campaign` writer (mirrors
+  refresh_progress); PortfolioPlanner only reads the cached column.
+- **Untouched:** M11 methodology (read-only), ResearchScheduler, FactoryRunner; no
+  schema change; append-only + Project 07 boundary.
 - **State:** open for review (this PR).
 
 ---

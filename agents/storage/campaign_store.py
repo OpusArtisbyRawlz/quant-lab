@@ -262,6 +262,23 @@ def set_budget_spent(
         conn.commit()
 
 
+def set_expected_information_gain(
+    campaign_id: str,
+    eig: float,
+    *,
+    db_path: Path = DB_PATH,
+) -> None:
+    """Refresh the cached campaign-level EIG (P6-14). The value is re-derivable each
+    planning pass from budget_allocation.evoi, so this column is only a cache."""
+    with get_connection(db_path) as conn:
+        conn.execute(
+            "UPDATE research_campaign SET expected_information_gain=?, updated_at=? "
+            "WHERE campaign_id=?",
+            (float(eig), _utcnow(), campaign_id),
+        )
+        conn.commit()
+
+
 def append_state_event(
     campaign_id: str,
     *,
