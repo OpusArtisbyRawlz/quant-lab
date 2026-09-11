@@ -12,7 +12,7 @@ from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "quant_agents.db"
 
-SCHEMA_VERSION = 25
+SCHEMA_VERSION = 26
 
 _CREATE_SCHEMA_VERSION = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -352,6 +352,49 @@ _CREATE_CAMPAIGN_STATE_EVENTS = """
 CREATE TABLE IF NOT EXISTS campaign_state_events (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     campaign_id     TEXT NOT NULL,
+    from_state      TEXT,
+    to_state        TEXT NOT NULL,
+    reason_code     TEXT,
+    evidence        TEXT,       -- JSON: supporting context for the transition
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+# ===========================================================================
+# Phase 6 PR P6-9 — Research Portfolio (planning container, NOT an agent)
+# ===========================================================================
+#
+# A research_portfolio is a lightweight planning/organising container over member
+# campaigns (membership is research_campaign.portfolio_id). It executes nothing and
+# holds no research logic, and can be dropped and rebuilt from its event log. Its
+# lifecycle (ACTIVE/PAUSED/ARCHIVED) is event-sourced with exactly the discipline
+# used for campaigns: the sibling portfolio_state_events table below is the SOURCE
+# OF TRUTH for state; research_portfolio.state is a rebuildable cache of the latest
+# event's to_state, and the genesis event carries the full config so the row is
+# fully reconstructible from the log alone. The CampaignManager is the sole writer.
+_CREATE_RESEARCH_PORTFOLIO = """
+CREATE TABLE IF NOT EXISTS research_portfolio (
+    portfolio_id       TEXT PRIMARY KEY,
+    name               TEXT NOT NULL,
+    objective          TEXT,            -- JSON: what the portfolio is for (organisational)
+    scheduling_policy  TEXT NOT NULL DEFAULT 'priority',   -- priority | round_robin | eig_weighted (consumed in P6-10)
+    concurrency_limit  INTEGER NOT NULL DEFAULT 0,         -- max ACTIVE campaigns at once (0 = unbounded)
+    budget_spec        TEXT,            -- JSON: how the global budget is split (consumed in P6-12)
+    state              TEXT NOT NULL DEFAULT 'ACTIVE',     -- ACTIVE | PAUSED | ARCHIVED
+    stopping_spec      TEXT,            -- JSON: portfolio-level stop criteria
+    created_at         TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at         TEXT NOT NULL DEFAULT (datetime('now'))
+)
+"""
+
+# Append-only audit AND source of truth for portfolio state — the sibling of
+# campaign_state_events. NO foreign key to research_portfolio, so the event log
+# outlives (and can rebuild) the projection row. The portfolio's authoritative state
+# is always the to_state of its most-recent event.
+_CREATE_PORTFOLIO_STATE_EVENTS = """
+CREATE TABLE IF NOT EXISTS portfolio_state_events (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    portfolio_id    TEXT NOT NULL,
     from_state      TEXT,
     to_state        TEXT NOT NULL,
     reason_code     TEXT,
@@ -869,6 +912,8 @@ _INDEXES = [
     # Phase 6 (P6-8): portfolio membership lookups (planner reads by portfolio).
     "CREATE INDEX IF NOT EXISTS idx_campaign_portfolio     ON research_campaign(portfolio_id)",
     "CREATE INDEX IF NOT EXISTS idx_campaign_events_cid    ON campaign_state_events(campaign_id)",
+    # Phase 6 (P6-9): portfolio event lookups (state reconstruction reads by id).
+    "CREATE INDEX IF NOT EXISTS idx_portfolio_events_pid   ON portfolio_state_events(portfolio_id)",
     "CREATE INDEX IF NOT EXISTS idx_pending_ideas_campaign ON pending_ideas(campaign_id)",
     # Milestone 10 PR-2 — hypothesis evolution tree
     "CREATE INDEX IF NOT EXISTS idx_hnode_campaign        ON hypothesis_node(campaign_id)",
@@ -1041,6 +1086,9 @@ def create_all_tables(db_path: Path = DB_PATH) -> None:
         # Milestone 10 — autonomous research campaign layer
         conn.execute(_CREATE_RESEARCH_CAMPAIGN)
         conn.execute(_CREATE_CAMPAIGN_STATE_EVENTS)
+        # Phase 6 (P6-9) — Research Portfolio planning container + its event log.
+        conn.execute(_CREATE_RESEARCH_PORTFOLIO)
+        conn.execute(_CREATE_PORTFOLIO_STATE_EVENTS)
         conn.execute(_CREATE_HYPOTHESIS_NODE)
         conn.execute(_CREATE_HYPOTHESIS_EDGE)
         conn.execute(_CREATE_SCHEDULER_EVENT)

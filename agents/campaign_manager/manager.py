@@ -48,6 +48,7 @@ from typing import Any
 
 from agents.storage.db import DB_PATH
 from agents.storage import campaign_store
+from agents.storage import portfolio_store
 from agents.storage.campaign_store import (
     STATE_DRAFT,
     STATE_ACTIVE,
@@ -56,6 +57,11 @@ from agents.storage.campaign_store import (
     STATE_ARCHIVED,
     STATE_DISCARDED,
     TERMINAL_STATES,
+)
+from agents.storage.portfolio_store import (
+    PORTFOLIO_ACTIVE,
+    PORTFOLIO_PAUSED,
+    PORTFOLIO_ARCHIVED,
 )
 
 # Allowed transitions: {from_state: {to_state, ...}}.
@@ -71,9 +77,22 @@ _TRANSITIONS: dict[str, set[str]] = {
 # States that stamp completed_at when entered.
 _STAMP_COMPLETED_AT = {STATE_COMPLETED, STATE_ARCHIVED, STATE_DISCARDED}
 
+# Phase 6 (P6-9) — portfolio lifecycle. Exactly the three states in the approved
+# design (§7); no others are invented. ARCHIVED is terminal (a portfolio is
+# dropped/rebuilt from campaign membership, not revived).
+_PORTFOLIO_TRANSITIONS: dict[str, set[str]] = {
+    PORTFOLIO_ACTIVE: {PORTFOLIO_PAUSED, PORTFOLIO_ARCHIVED},
+    PORTFOLIO_PAUSED: {PORTFOLIO_ACTIVE, PORTFOLIO_ARCHIVED},
+    PORTFOLIO_ARCHIVED: set(),
+}
+
 
 class CampaignError(RuntimeError):
     """Raised on an illegal campaign operation (unknown campaign, bad transition)."""
+
+
+class PortfolioError(RuntimeError):
+    """Raised on an illegal portfolio operation (unknown portfolio, bad transition)."""
 
 
 @dataclass
@@ -94,6 +113,14 @@ def is_legal_transition(from_state: str, to_state: str) -> bool:
     if from_state == to_state:
         return True
     return to_state in _TRANSITIONS.get(from_state, set())
+
+
+def is_legal_portfolio_transition(from_state: str, to_state: str) -> bool:
+    """True if a portfolio from_state -> to_state transition is allowed. A
+    same-state transition is legal (handled as an idempotent no-op)."""
+    if from_state == to_state:
+        return True
+    return to_state in _PORTFOLIO_TRANSITIONS.get(from_state, set())
 
 
 class CampaignManager:
@@ -427,3 +454,208 @@ class CampaignManager:
                 db_path=self.db_path
             )
         ]
+
+    # ====================================================================== #
+    # Phase 6 (P6-9) — Research Portfolio lifecycle / state machine.
+    #
+    # The approved design assigns the portfolio state machine to this existing
+    # coordinator (no new agent). The CampaignManager is the sole writer of the
+    # research_portfolio + portfolio_state_events tables, with exactly the
+    # event-sourcing discipline used for campaigns: every accepted transition
+    # appends an immutable event (the source of truth) FIRST, then refreshes the
+    # rebuildable projection row. A portfolio executes nothing and holds no
+    # research logic — it is a planning container over member campaigns.
+    # ====================================================================== #
+
+    # -- portfolio creation ------------------------------------------------
+
+    def create_portfolio(
+        self,
+        portfolio_id: str,
+        name: str,
+        *,
+        objective: Any = None,
+        scheduling_policy: str = portfolio_store.DEFAULT_SCHEDULING_POLICY,
+        concurrency_limit: int = 0,
+        budget_spec: Any = None,
+        stopping_spec: Any = None,
+    ) -> dict[str, Any]:
+        """Create a new portfolio in ACTIVE and record its genesis event.
+
+        ``scheduling_policy``/``budget_spec`` are stored now and consumed by later
+        PRs (P6-10 planner, P6-12 budget) — P6-9 does not act on them. Raises
+        PortfolioError if a portfolio with this id already exists.
+        """
+        if portfolio_store.reconstruct_portfolio_state_from_events(
+            portfolio_id, db_path=self.db_path
+        ) is not None:
+            raise PortfolioError(f"portfolio already exists: {portfolio_id}")
+
+        config = {
+            "name": name,
+            "objective": objective,
+            "scheduling_policy": scheduling_policy,
+            "concurrency_limit": int(concurrency_limit),
+            "budget_spec": budget_spec,
+            "stopping_spec": stopping_spec,
+        }
+        # The genesis event is the source of truth for the config + initial state;
+        # written FIRST so the portfolio exists in the log even if the projection
+        # insert is interrupted (rebuild reconstructs the row from this event).
+        portfolio_store.append_portfolio_event(
+            portfolio_id,
+            from_state=None,
+            to_state=PORTFOLIO_ACTIVE,
+            reason_code="created",
+            evidence={"config": config},
+            db_path=self.db_path,
+        )
+        self._write_portfolio_projection(portfolio_id, config, PORTFOLIO_ACTIVE)
+        return portfolio_store.get_portfolio(portfolio_id, db_path=self.db_path)
+
+    def _write_portfolio_projection(
+        self, portfolio_id: str, config: dict[str, Any], state: str
+    ) -> None:
+        """(Re)materialise the research_portfolio projection row from config +
+        state. Idempotent: replaces any existing row, so it is safe to replay."""
+        portfolio_store.delete_portfolio_row(portfolio_id, db_path=self.db_path)
+        portfolio_store.insert_portfolio(
+            {
+                "portfolio_id": portfolio_id,
+                "name": config.get("name", ""),
+                "objective": config.get("objective"),
+                "scheduling_policy": config.get(
+                    "scheduling_policy", portfolio_store.DEFAULT_SCHEDULING_POLICY
+                ),
+                "concurrency_limit": config.get("concurrency_limit", 0),
+                "budget_spec": config.get("budget_spec"),
+                "state": state,
+                "stopping_spec": config.get("stopping_spec"),
+            },
+            db_path=self.db_path,
+        )
+
+    # -- portfolio transitions --------------------------------------------
+
+    def transition_portfolio(
+        self,
+        portfolio_id: str,
+        to_state: str,
+        *,
+        reason_code: str | None = None,
+        evidence: Any = None,
+    ) -> TransitionResult:
+        """Move a portfolio to ``to_state``, validating legality and auditing it.
+
+        Same-state transitions are idempotent no-ops (changed=False, no event).
+        Raises PortfolioError for an unknown portfolio or an illegal transition.
+        The authoritative current state is the event log, never the cached column.
+        """
+        from_state = portfolio_store.reconstruct_portfolio_state_from_events(
+            portfolio_id, db_path=self.db_path
+        )
+        if from_state is None:
+            raise PortfolioError(f"unknown portfolio: {portfolio_id}")
+
+        if from_state == to_state:
+            return TransitionResult(portfolio_id, from_state, to_state, False, None)
+
+        if not is_legal_portfolio_transition(from_state, to_state):
+            raise PortfolioError(
+                f"illegal transition for {portfolio_id}: {from_state} -> {to_state}"
+            )
+
+        # Append the event FIRST (the log leads); then refresh the projection.
+        event_id = portfolio_store.append_portfolio_event(
+            portfolio_id,
+            from_state=from_state,
+            to_state=to_state,
+            reason_code=reason_code,
+            evidence=evidence,
+            db_path=self.db_path,
+        )
+        portfolio_store.update_portfolio_state(
+            portfolio_id, to_state, db_path=self.db_path
+        )
+        return TransitionResult(portfolio_id, from_state, to_state, True, event_id)
+
+    def pause_portfolio(self, portfolio_id: str, *, reason_code: str = "paused",
+                        evidence: Any = None) -> TransitionResult:
+        return self.transition_portfolio(portfolio_id, PORTFOLIO_PAUSED,
+                                         reason_code=reason_code, evidence=evidence)
+
+    def resume_portfolio(self, portfolio_id: str, *, reason_code: str = "resumed",
+                         evidence: Any = None) -> TransitionResult:
+        return self.transition_portfolio(portfolio_id, PORTFOLIO_ACTIVE,
+                                         reason_code=reason_code, evidence=evidence)
+
+    def archive_portfolio(self, portfolio_id: str, *, reason_code: str = "archived",
+                          evidence: Any = None) -> TransitionResult:
+        return self.transition_portfolio(portfolio_id, PORTFOLIO_ARCHIVED,
+                                         reason_code=reason_code, evidence=evidence)
+
+    # -- portfolio reads / reconstruction ---------------------------------
+
+    def portfolio_state(self, portfolio_id: str) -> str:
+        """Authoritative portfolio state, derived from the event log."""
+        state = portfolio_store.reconstruct_portfolio_state_from_events(
+            portfolio_id, db_path=self.db_path
+        )
+        if state is None:
+            raise PortfolioError(f"unknown portfolio: {portfolio_id}")
+        return state
+
+    def rebuild_portfolio_from_events(self, portfolio_id: str) -> dict[str, Any]:
+        """Rebuild the research_portfolio projection row entirely from the event
+        log (config from the genesis event, state from the latest event). Works
+        even if the row was deleted. Raises PortfolioError if there are no events."""
+        genesis = portfolio_store.portfolio_genesis_event(
+            portfolio_id, db_path=self.db_path
+        )
+        state = portfolio_store.reconstruct_portfolio_state_from_events(
+            portfolio_id, db_path=self.db_path
+        )
+        if genesis is None or state is None:
+            raise PortfolioError(f"no events to rebuild portfolio: {portfolio_id}")
+        config = (genesis.get("evidence") or {}).get("config", {})
+        self._write_portfolio_projection(portfolio_id, config, state)
+        return portfolio_store.get_portfolio(portfolio_id, db_path=self.db_path)
+
+    def reconcile_portfolio(self, portfolio_id: str) -> dict[str, Any]:
+        """Repair the projection row so it agrees with the event log — the fix for
+        a transition interrupted between event-append and cache-update (or a
+        missing row). The event log is ground truth; the row is rewritten to match."""
+        authoritative = portfolio_store.reconstruct_portfolio_state_from_events(
+            portfolio_id, db_path=self.db_path
+        )
+        if authoritative is None:
+            raise PortfolioError(f"unknown portfolio: {portfolio_id}")
+        row = portfolio_store.get_portfolio(portfolio_id, db_path=self.db_path)
+        cached = row["state"] if row else None
+        repaired = (row is None) or (cached != authoritative)
+        if repaired:
+            self.rebuild_portfolio_from_events(portfolio_id)
+        return {
+            "portfolio_id": portfolio_id,
+            "authoritative_state": authoritative,
+            "cached_state": cached,
+            "row_existed": row is not None,
+            "repaired": repaired,
+        }
+
+    def reconcile_all_portfolios(self) -> list[dict[str, Any]]:
+        """Startup reconciliation: reconcile every portfolio present in the event
+        log, rebuilding any missing rows and repairing any stale caches."""
+        return [
+            self.reconcile_portfolio(pid)
+            for pid in portfolio_store.distinct_portfolio_ids_in_events(
+                db_path=self.db_path
+            )
+        ]
+
+    def campaigns_in_portfolio(self, portfolio_id: str) -> list[str]:
+        """Member campaign ids, via the existing research_campaign.portfolio_id
+        linkage (no new membership structure)."""
+        return portfolio_store.campaigns_in_portfolio(
+            portfolio_id, db_path=self.db_path
+        )
