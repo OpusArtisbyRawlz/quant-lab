@@ -139,6 +139,29 @@ def campaign_depends_on(campaign: dict[str, Any]) -> list[str]:
     return list(deps) if isinstance(deps, list) else list(DEFAULT_DEPENDS_ON)
 
 
+# Default required state for a bare-id dependency (design §4).
+DEFAULT_REQUIRED_STATE = STATE_COMPLETED
+
+
+def normalized_depends_on(campaign: dict[str, Any]) -> list[tuple[str, str]]:
+    """Normalise ``depends_on`` into ``(campaign_id, required_state)`` pairs — the
+    single source of dependency normalisation shared by the CampaignManager (which
+    evaluates satisfaction) and the PortfolioPlanner (which reads the edges for
+    ordering). Accepts the P6-8 bare-id list form and the §4
+    ``{campaign_id, required_state}`` dict form (default required state COMPLETED)."""
+    raw = campaign.get("depends_on")
+    if not isinstance(raw, list):
+        return []
+    out: list[tuple[str, str]] = []
+    for dep in raw:
+        if isinstance(dep, str):
+            out.append((dep, DEFAULT_REQUIRED_STATE))
+        elif isinstance(dep, dict) and dep.get("campaign_id"):
+            out.append((dep["campaign_id"],
+                        dep.get("required_state", DEFAULT_REQUIRED_STATE)))
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Campaign writes
 # ---------------------------------------------------------------------------
