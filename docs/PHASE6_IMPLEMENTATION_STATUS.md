@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-10 — after P6-5 opened for review._
+_Last updated: 2026-09-10 — after P6-8 opened for review._
 
 ## Status at a glance
 
@@ -15,9 +15,9 @@ _Last updated: 2026-09-10 — after P6-5 opened for review._
 | P6-2 | Campaign types + HypothesisSource registry | ✅ Merged | `research_campaign.campaign_type`, `research_loop/sources.py` | yes (#49) |
 | P6-3 | FactoryRunner | ✅ Merged | `research_loop/factory_runner.py`, `CampaignManager.advance` | yes (#50) |
 | P6-4 | Project 07 hand-off (preliminary→authoritative) | ✅ Merged | `project07_evaluation`, `storage/handoff_store.py` | yes (#51) |
-| P6-5 | Near-term sources (bar-type/overlay/replay) | 🔷 Open for review | self-registering `research_loop/sources/` package + 3 sources | PR open |
+| P6-5 | Near-term sources (bar-type/overlay/replay) | ✅ Merged | self-registering `research_loop/sources/` package + 3 sources | yes (#52) |
 | P6-6 | Scale pass (shared fold cache / incremental assess) | ⬜ Not started | (planned) | — |
-| P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | ⬜ Not started | (planned) | — |
+| P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | 🔷 Open for review | 7 additive `research_campaign` columns + accessors | PR open |
 | P6-9 | Research Portfolio object | ⬜ Not started | (planned) | — |
 | P6-10 | PortfolioPlanner (pure policy) | ⬜ Not started | (planned) | — |
 | P6-11 | Triggers / dependencies / repeats in CampaignManager | ⬜ Not started | (planned) | — |
@@ -93,6 +93,21 @@ the portfolio layer (P6-8…P6-13) layer on and can be reordered.
   ideas, never mutates originals.
 - **Deferred:** external adapters (`literature_review`, `github_mining`) → P6-7;
   auto-sourcing replay specs from the ledger → future (Non-goal §18).
+- **State:** merged (#52).
+
+## P6-8 — Extended campaign fields 🔷 (portfolio spine, brick 1)
+
+- **Responsibility:** additive `research_campaign` columns carrying the portfolio
+  planning inputs — `priority`, `trigger_spec`, `depends_on`,
+  `expected_information_gain`, `eig_spec`, `repeat_spec`, `portfolio_id`. Store only;
+  consumption is P6-10/11/12/13.
+- **Interfaces:** db.py schema (SCHEMA 24→25) + `portfolio_id` index; `campaign_store`
+  insert/parse + effective-value accessors (`campaign_priority`, `campaign_trigger_spec`,
+  `campaign_repeat_spec`, `campaign_depends_on`); `CampaignManager.create_campaign`
+  optional params threaded through the genesis event.
+- **Back-compat:** absent ⇒ NULL/spec-default ⇒ current behaviour; scheduler ordering
+  unchanged (new `priority` column not consumed yet); legacy DBs migrate additively;
+  fields reconstructible from the event log.
 - **State:** open for review (this PR).
 
 ---
