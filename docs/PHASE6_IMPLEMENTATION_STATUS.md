@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-11 — after P6-9 opened for review._
+_Last updated: 2026-09-11 — after P6-10 opened for review._
 
 ## Status at a glance
 
@@ -18,8 +18,8 @@ _Last updated: 2026-09-11 — after P6-9 opened for review._
 | P6-5 | Near-term sources (bar-type/overlay/replay) | ✅ Merged | self-registering `research_loop/sources/` package + 3 sources | yes (#52) |
 | P6-6 | Scale pass (shared fold cache / incremental assess) | ⬜ Not started | (planned) | — |
 | P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | ✅ Merged | 7 additive `research_campaign` columns + accessors | yes (#53) |
-| P6-9 | Research Portfolio object | 🔷 Open for review | `research_portfolio` + `portfolio_state_events` + `portfolio_store` + CampaignManager portfolio state machine | PR open |
-| P6-10 | PortfolioPlanner (pure policy) | ⬜ Not started | (planned) | — |
+| P6-9 | Research Portfolio object | ✅ Merged | `research_portfolio` + `portfolio_state_events` + `portfolio_store` + CampaignManager portfolio state machine | yes (#54) |
+| P6-10 | PortfolioPlanner (pure policy) | 🔷 Open for review | `portfolio_planner/` pure module (priority + eig_weighted; round_robin deferred) | PR open |
 | P6-11 | Triggers / dependencies / repeats in CampaignManager | ⬜ Not started | (planned) | — |
 | P6-12 | Portfolio budget allocation | ⬜ Not started | (planned) | — |
 | P6-13 | EIG aggregation (from budget_allocation) | ⬜ Not started | (planned) | — |
@@ -124,6 +124,25 @@ the portfolio layer (P6-8…P6-13) layer on and can be reordered.
   `research_campaign.portfolio_id`.
 - **Not consumed yet:** `scheduling_policy`/`budget_spec` stored but not acted on
   (P6-10 planner / P6-12 budget); FactoryRunner + ResearchScheduler unchanged.
+- **State:** merged (#54).
+
+## P6-10 — PortfolioPlanner 🔷 (portfolio spine, brick 3)
+
+- **Responsibility:** a **pure** planner (module/function, no agent) producing a
+  deterministic execution plan — the admitted, ordered runnable campaign_ids per
+  ACTIVE portfolio. Reads only; executes/mutates/allocates nothing.
+- **Interfaces:** `agents/portfolio_planner/` — `PortfolioPlanner.plan(portfolio_id)`
+  / `plan_all()` → `PortfolioPlan`.
+- **Policy:** runnable = ACTIVE + not budget-exhausted + dependencies satisfied
+  (reusing CampaignManager state/budget derivation); order by `priority` or
+  `eig_weighted` (`-priority, -EIG, campaign_id`), then a stable dependency-aware
+  refinement; admit up to `concurrency_limit`.
+- **Scope decisions (confirmed with reviewer):** `round_robin` deferred → priority
+  fallback (needs a logical-tick cursor not yet stored); `eig_weighted` uses raw
+  priority then EIG (no invented tiers); triggers/repeats handled **state-based only**
+  (predicate/re-entry logic stays in CampaignManager/P6-11).
+- **Untouched:** ResearchScheduler + FactoryRunner behaviour; no schema change;
+  Project 07 boundary; append-only/event-sourced state.
 - **State:** open for review (this PR).
 
 ---
