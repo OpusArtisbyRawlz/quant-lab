@@ -42,7 +42,6 @@ from typing import Any
 
 from agents.storage.db import DB_PATH
 from agents.storage import campaign_store, portfolio_store
-from agents.storage.campaign_store import STATE_ACTIVE, STATE_COMPLETED
 from agents.storage.portfolio_store import (
     PORTFOLIO_ACTIVE,
     POLICY_PRIORITY,
@@ -50,9 +49,6 @@ from agents.storage.portfolio_store import (
     POLICY_EIG_WEIGHTED,
 )
 from agents.campaign_manager import CampaignManager
-
-# Default required state for a bare-id dependency (design §4).
-_DEFAULT_REQUIRED_STATE = STATE_COMPLETED
 
 
 @dataclass(frozen=True)
@@ -115,55 +111,19 @@ class PortfolioPlanner:
         ]
         members = [m for m in members if m is not None]
 
-        runnable = [m for m in members if self._is_runnable(m)]
+        # Campaign eligibility (state + budget + trigger + dependencies) is obtained
+        # from the CampaignManager — the single owner of trigger/repeat/dependency
+        # evaluation (P6-11). The planner never re-derives it, so there is no
+        # duplicate trigger logic; the planner only ORDERS the eligible set.
+        runnable = [
+            m for m in members
+            if self.campaigns.is_eligible(m["campaign_id"])
+        ]
         ordered = self._order(runnable, policy)
         ordered = self._dependency_aware(ordered)
 
         admitted = ordered if limit <= 0 else ordered[:limit]
         return PortfolioPlan(portfolio_id, policy, admitted, limit)
-
-    # -- runnable predicate (pure, state-based) ----------------------------
-
-    def _is_runnable(self, campaign: dict[str, Any]) -> bool:
-        cid = campaign["campaign_id"]
-        # "Trigger fired" ⇔ ACTIVE; a fired trigger is a DRAFT→ACTIVE transition
-        # owned by the CampaignManager. PAUSED/COMPLETED/ARCHIVED/DRAFT ⇒ not runnable.
-        if self.campaigns.current_state(cid) != STATE_ACTIVE:
-            return False
-        if self.campaigns.budget_exhausted(cid):
-            return False
-        if not self._dependencies_satisfied(campaign):
-            return False
-        return True
-
-    def _dependencies_satisfied(self, campaign: dict[str, Any]) -> bool:
-        """Every dependency is in its required state (default COMPLETED, §4). A
-        dependency on an unknown campaign is treated as unsatisfied (safe exclude).
-        Exact-state match: the design's default/common case is COMPLETED; no state
-        total-order is defined, so no 'past-state' inference is invented."""
-        for dep_id, required in self._deps(campaign):
-            state = campaign_store.reconstruct_state_from_events(
-                dep_id, db_path=self.db_path
-            )
-            if state is None or state != required:
-                return False
-        return True
-
-    @staticmethod
-    def _deps(campaign: dict[str, Any]) -> list[tuple[str, str]]:
-        """Normalise depends_on into (campaign_id, required_state) pairs. Accepts the
-        P6-8 bare-id list form and the §4 ``{campaign_id, required_state}`` dict form."""
-        raw = campaign.get("depends_on")
-        if not isinstance(raw, list):
-            return []
-        out: list[tuple[str, str]] = []
-        for dep in raw:
-            if isinstance(dep, str):
-                out.append((dep, _DEFAULT_REQUIRED_STATE))
-            elif isinstance(dep, dict) and dep.get("campaign_id"):
-                out.append((dep["campaign_id"],
-                            dep.get("required_state", _DEFAULT_REQUIRED_STATE)))
-        return out
 
     # -- ordering (pure) ---------------------------------------------------
 
@@ -203,7 +163,8 @@ class PortfolioPlanner:
         for cid in ordered_ids:
             camp = campaign_store.get_campaign(cid, db_path=self.db_path) or {}
             prereqs[cid] = {
-                dep_id for dep_id, _ in self._deps(camp) if dep_id in in_set
+                dep_id for dep_id, _ in campaign_store.normalized_depends_on(camp)
+                if dep_id in in_set
             }
 
         emitted: list[str] = []

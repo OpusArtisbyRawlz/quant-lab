@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-11 — after P6-10 opened for review._
+_Last updated: 2026-09-11 — after P6-11 opened for review._
 
 ## Status at a glance
 
@@ -19,8 +19,8 @@ _Last updated: 2026-09-11 — after P6-10 opened for review._
 | P6-6 | Scale pass (shared fold cache / incremental assess) | ⬜ Not started | (planned) | — |
 | P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | ✅ Merged | 7 additive `research_campaign` columns + accessors | yes (#53) |
 | P6-9 | Research Portfolio object | ✅ Merged | `research_portfolio` + `portfolio_state_events` + `portfolio_store` + CampaignManager portfolio state machine | yes (#54) |
-| P6-10 | PortfolioPlanner (pure policy) | 🔷 Open for review | `portfolio_planner/` pure module (priority + eig_weighted; round_robin deferred) | PR open |
-| P6-11 | Triggers / dependencies / repeats in CampaignManager | ⬜ Not started | (planned) | — |
+| P6-10 | PortfolioPlanner (pure policy) | ✅ Merged | `portfolio_planner/` pure module (priority + eig_weighted; round_robin deferred) | yes (#55) |
+| P6-11 | Triggers / dependencies / repeats in CampaignManager | 🔷 Open for review | CampaignManager eligibility API + planner delegates | PR open |
 | P6-12 | Portfolio budget allocation | ⬜ Not started | (planned) | — |
 | P6-13 | EIG aggregation (from budget_allocation) | ⬜ Not started | (planned) | — |
 
@@ -143,6 +143,23 @@ the portfolio layer (P6-8…P6-13) layer on and can be reordered.
   (predicate/re-entry logic stays in CampaignManager/P6-11).
 - **Untouched:** ResearchScheduler + FactoryRunner behaviour; no schema change;
   Project 07 boundary; append-only/event-sourced state.
+- **State:** merged (#55).
+
+## P6-11 — Trigger-aware planning 🔷 (portfolio spine, brick 4)
+
+- **Responsibility:** move trigger/dependency/repeat **evaluation** into the
+  CampaignManager (sole owner) as pure predicates; the PortfolioPlanner obtains
+  eligibility from it (no duplicated trigger logic). Planner stays pure.
+- **Interfaces:** `CampaignManager.is_eligible` / `trigger_satisfied` /
+  `dependencies_satisfied` / `repeat_eligible` (+ trigger/repeat constants);
+  `campaign_store.normalized_depends_on` (single dependency-normalisation source);
+  planner runnable filter delegates to `is_eligible`.
+- **Scope decisions (confirmed with reviewer):** `manual` + `dependency` triggers and
+  `once` + `interval` (count-capped) repeats evaluated now; `schedule`/`event`
+  triggers, interval-cooldown, and `until` predicates deferred (need the logical-tick
+  clock / predicate catalog). Firing transitions deferred to a clock-bearing PR.
+- **Untouched:** ResearchScheduler + FactoryRunner; no schema change; append-only +
+  Project 07 boundary.
 - **State:** open for review (this PR).
 
 ---

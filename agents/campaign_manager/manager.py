@@ -77,6 +77,16 @@ _TRANSITIONS: dict[str, set[str]] = {
 # States that stamp completed_at when entered.
 _STAMP_COMPLETED_AT = {STATE_COMPLETED, STATE_ARCHIVED, STATE_DISCARDED}
 
+# Phase 6 (P6-11) — trigger kinds (§3) and repeat modes (§6).
+TRIGGER_MANUAL = "manual"
+TRIGGER_DEPENDENCY = "dependency"
+TRIGGER_SCHEDULE = "schedule"
+TRIGGER_EVENT = "event"
+
+REPEAT_ONCE = "once"
+REPEAT_INTERVAL = "interval"
+REPEAT_UNTIL = "until"
+
 # Phase 6 (P6-9) — portfolio lifecycle. Exactly the three states in the approved
 # design (§7); no others are invented. ARCHIVED is terminal (a portfolio is
 # dropped/rebuilt from campaign membership, not revived).
@@ -396,6 +406,91 @@ class CampaignManager:
         if state is None:
             raise CampaignError(f"unknown campaign: {campaign_id}")
         return state
+
+    # -- eligibility (Phase 6 P6-11 — the SOLE owner of trigger/repeat eval) --
+    #
+    # These are PURE reads over stored state. The PortfolioPlanner obtains campaign
+    # eligibility from here (never re-deriving it), so trigger/dependency/repeat
+    # evaluation lives in exactly one place. Nothing here mutates state or fires a
+    # transition — firing (DRAFT→ACTIVE on a trigger, COMPLETED→DRAFT on a repeat)
+    # is a separate, clock-bearing concern deferred to a later PR.
+
+    def dependencies_satisfied(self, campaign_id: str) -> bool:
+        """True iff every dependency is in its required state (default COMPLETED,
+        §4). A dependency on an unknown campaign is unsatisfied (safe exclude).
+        Exact-state match — the design defines no state total-order, so no
+        'past-state' inference is invented."""
+        camp = campaign_store.get_campaign(campaign_id, db_path=self.db_path)
+        if camp is None:
+            raise CampaignError(f"unknown campaign: {campaign_id}")
+        for dep_id, required in campaign_store.normalized_depends_on(camp):
+            state = campaign_store.reconstruct_state_from_events(
+                dep_id, db_path=self.db_path
+            )
+            if state is None or state != required:
+                return False
+        return True
+
+    def trigger_satisfied(self, campaign_id: str) -> bool:
+        """Whether the campaign's trigger (§3) is satisfied.
+
+        P6-11 evaluates the two clock-free, fully-specified kinds:
+          - ``dependency`` → satisfied iff ``depends_on`` is satisfied;
+          - ``manual`` (default) → satisfied (an operator/approval activates it, so
+            it counts once ACTIVE; the ACTIVE gate lives in ``is_eligible``).
+        ``schedule``/``event`` are deferred (they need the FactoryRunner's logical
+        tick clock / a projection-predicate catalog); a campaign of those kinds is
+        treated as trigger-satisfied iff already ACTIVE — its activation counts, and
+        no auto-firing happens here — so nothing regresses."""
+        camp = campaign_store.get_campaign(campaign_id, db_path=self.db_path)
+        if camp is None:
+            raise CampaignError(f"unknown campaign: {campaign_id}")
+        kind = campaign_store.campaign_trigger_spec(camp).get("kind", TRIGGER_MANUAL)
+        if kind == TRIGGER_DEPENDENCY:
+            return self.dependencies_satisfied(campaign_id)
+        return True
+
+    def repeat_eligible(self, campaign_id: str) -> bool:
+        """Whether a COMPLETED campaign is allowed another repeat (§6). Pure and
+        clock-free:
+          - ``once`` (default) → never repeat-eligible;
+          - ``interval`` → eligible while under the ``max_repeats`` cap (null =
+            unbounded); the cooldown *timing* is deferred (needs the logical clock);
+          - ``until`` → deferred (needs the stop predicate) → not eligible here.
+        A non-COMPLETED campaign is never repeat-eligible (repeat applies at
+        completion). The planner never fires re-entry — this predicate is for a
+        later clock-bearing caller and for auditing which campaigns may repeat."""
+        state = self.current_state(campaign_id)
+        if state != STATE_COMPLETED:
+            return False
+        camp = campaign_store.get_campaign(campaign_id, db_path=self.db_path)
+        spec = campaign_store.campaign_repeat_spec(camp)
+        mode = spec.get("mode", REPEAT_ONCE)
+        if mode == REPEAT_INTERVAL:
+            max_repeats = spec.get("max_repeats")
+            if max_repeats is None:
+                return True
+            completions = sum(
+                1 for e in campaign_store.list_state_events(
+                    campaign_id, db_path=self.db_path)
+                if e["to_state"] == STATE_COMPLETED
+            )
+            return completions <= int(max_repeats)
+        return False
+
+    def is_eligible(self, campaign_id: str) -> bool:
+        """The runnable predicate the PortfolioPlanner consumes — the single owner of
+        campaign eligibility. Runnable iff ACTIVE, not budget-exhausted, dependencies
+        satisfied, and trigger satisfied. Pure; no mutation."""
+        if self.current_state(campaign_id) != STATE_ACTIVE:
+            return False
+        if self.budget_exhausted(campaign_id):
+            return False
+        if not self.dependencies_satisfied(campaign_id):
+            return False
+        if not self.trigger_satisfied(campaign_id):
+            return False
+        return True
 
     # -- reconciliation / rebuild -----------------------------------------
 
