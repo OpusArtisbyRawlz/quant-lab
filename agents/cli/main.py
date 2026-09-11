@@ -26,9 +26,14 @@ Command surface (see docs/QUANT_CLI.md):
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Any, Sequence
+
+
+class _CliError(Exception):
+    """A user-facing CLI error (bad JSON arg, unknown id, illegal transition)."""
 
 from agents.storage.db import DB_PATH
 from agents.storage import campaign_store, portfolio_store
@@ -50,6 +55,28 @@ def _manager(args: argparse.Namespace):
 def _planner(args: argparse.Namespace):
     from agents.portfolio_planner import PortfolioPlanner
     return PortfolioPlanner(db_path=_db_path(args))
+
+
+def _json_arg(value: str | None, name: str) -> Any:
+    """Parse a JSON-valued CLI flag, or None. Raises _CliError with a clear message
+    on malformed JSON so structured campaign/portfolio config can be passed inline."""
+    if value is None:
+        return None
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise _CliError(f"--{name}: invalid JSON ({exc})")
+
+
+def _depends_arg(value: str | None) -> Any:
+    """Parse --depends as either a JSON list (bare ids or {campaign_id,required_state}
+    dicts) or a convenience comma-separated list of bare campaign ids."""
+    if value is None:
+        return None
+    stripped = value.strip()
+    if stripped.startswith("["):
+        return _json_arg(value, "depends")
+    return [tok.strip() for tok in value.split(",") if tok.strip()]
 
 
 def _fmt_table(rows: list[list[str]], headers: list[str]) -> str:
@@ -121,17 +148,72 @@ def cmd_campaign_create(args: argparse.Namespace) -> int:
     try:
         cm.create_campaign(
             campaign_id, theme=args.theme,
-            priority=args.priority,
+            goal_spec=_json_arg(args.goal, "goal"),
+            scope=_json_arg(args.scope, "scope"),
             budget_experiments=args.budget,
+            exploration_fraction=args.exploration,
+            stall_patience=args.stall_patience,
+            stopping_spec=_json_arg(args.stopping, "stopping"),
             campaign_type=args.type,
+            priority=args.priority,
+            trigger_spec=_json_arg(args.trigger, "trigger"),
+            depends_on=_depends_arg(args.depends),
+            eig_spec=_json_arg(args.eig, "eig"),
+            repeat_spec=_json_arg(args.repeat, "repeat"),
             portfolio_id=args.portfolio,
         )
+    except _CliError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     except Exception as exc:  # CampaignError etc.
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if args.activate:
         cm.activate(campaign_id)
     print(f"created campaign {campaign_id} ({cm.current_state(campaign_id)})")
+    return 0
+
+
+def _campaign_transition(args: argparse.Namespace, verb: str) -> int:
+    """Drive a named campaign lifecycle transition through the existing
+    CampaignManager (audited, validated). verb ∈ complete/discard/stall."""
+    cm = _manager(args)
+    cid = args.campaign_id
+    if campaign_store.get_campaign(cid, db_path=_db_path(args)) is None:
+        print(f"error: no such campaign: {cid}", file=sys.stderr)
+        return 2
+    try:
+        {"complete": cm.complete, "discard": cm.discard,
+         "stall": cm.mark_stalled}[verb](cid)
+    except Exception as exc:  # CampaignError on an illegal transition
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"{cid} → {cm.current_state(cid)}")
+    return 0
+
+
+def cmd_campaign_complete(args: argparse.Namespace) -> int:
+    return _campaign_transition(args, "complete")
+
+
+def cmd_campaign_discard(args: argparse.Namespace) -> int:
+    return _campaign_transition(args, "discard")
+
+
+def cmd_campaign_stall(args: argparse.Namespace) -> int:
+    return _campaign_transition(args, "stall")
+
+
+def cmd_campaign_eig(args: argparse.Namespace) -> int:
+    """Operator refresh of a campaign's cached EIG (P6-14). Recomputes from
+    budget_allocation.evoi via CampaignManager and caches it on the campaign row."""
+    cm = _manager(args)
+    cid = args.campaign_id
+    if campaign_store.get_campaign(cid, db_path=_db_path(args)) is None:
+        print(f"error: no such campaign: {cid}", file=sys.stderr)
+        return 2
+    value = cm.refresh_eig(cid)
+    print(f"{cid} EIG = {value}")
     return 0
 
 
@@ -213,6 +295,72 @@ def cmd_portfolio_list(args: argparse.Namespace) -> int:
         rows.append([pid, p.get("name", ""), p["state"],
                      p.get("scheduling_policy", ""), str(len(members))])
     print(_fmt_table(rows, ["ID", "NAME", "STATE", "POLICY", "CAMPAIGNS"]))
+    return 0
+
+
+def cmd_portfolio_create(args: argparse.Namespace) -> int:
+    cm = _manager(args)
+    db = _db_path(args)
+    portfolio_id = args.id or f"portfolio-{len(portfolio_store.list_portfolios(db_path=db)) + 1}"
+    try:
+        cm.create_portfolio(
+            portfolio_id, name=args.name,
+            objective=_json_arg(args.objective, "objective"),
+            scheduling_policy=args.policy,
+            concurrency_limit=args.concurrency,
+            budget_spec=_json_arg(args.budget, "budget"),
+            stopping_spec=_json_arg(args.stopping, "stopping"),
+        )
+    except _CliError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    except Exception as exc:  # PortfolioError etc.
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"created portfolio {portfolio_id} ({cm.portfolio_state(portfolio_id)})")
+    return 0
+
+
+def _portfolio_transition(args: argparse.Namespace, verb: str) -> int:
+    """pause/resume/archive a portfolio via the existing CampaignManager portfolio
+    state machine (audited, event-sourced)."""
+    cm = _manager(args)
+    pid = args.portfolio_id
+    if portfolio_store.get_portfolio(pid, db_path=_db_path(args)) is None:
+        print(f"error: no such portfolio: {pid}", file=sys.stderr)
+        return 2
+    try:
+        {"pause": cm.pause_portfolio, "resume": cm.resume_portfolio,
+         "archive": cm.archive_portfolio}[verb](pid)
+    except Exception as exc:  # PortfolioError on an illegal transition
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"{pid} → {cm.portfolio_state(pid)}")
+    return 0
+
+
+def cmd_portfolio_pause(args: argparse.Namespace) -> int:
+    return _portfolio_transition(args, "pause")
+
+
+def cmd_portfolio_resume(args: argparse.Namespace) -> int:
+    return _portfolio_transition(args, "resume")
+
+
+def cmd_portfolio_archive(args: argparse.Namespace) -> int:
+    return _portfolio_transition(args, "archive")
+
+
+def cmd_portfolio_budget(args: argparse.Namespace) -> int:
+    db = _db_path(args)
+    if portfolio_store.get_portfolio(args.portfolio_id, db_path=db) is None:
+        print(f"error: no such portfolio: {args.portfolio_id}", file=sys.stderr)
+        return 2
+    alloc = _planner(args).allocate_budget(args.portfolio_id)
+    print(f"Budget for {alloc.portfolio_id} (mode={alloc.mode}, total={alloc.total}, "
+          f"headroom={alloc.headroom})")
+    rows = [[cid, str(slots)] for cid, slots in sorted(alloc.allocations.items())]
+    print(_fmt_table(rows, ["CAMPAIGN", "SLOTS"]))
     return 0
 
 
@@ -341,8 +489,10 @@ quant shell — operational commands over the existing factory (type 'help' or '
   status
   list campaigns | list portfolios
   show campaign <id> | show portfolio <id> | show active portfolio(s)
-  plan portfolio <id>
+  plan portfolio <id> | budget portfolio <id>
   run campaign <id> | run portfolio <id> | run factory
+  pause|resume|complete|discard|stall campaign <id>
+  pause|resume|archive portfolio <id>
   report campaign <id> | show latest report
 """
 
@@ -399,6 +549,22 @@ def _shell_dispatch(line: str, args: argparse.Namespace) -> int | None:
     if verb == "report" and len(rest) >= 2 and rest[0].startswith("campaign"):
         ns.campaign_id = rest[1]
         return cmd_report_campaign(ns)
+    if verb == "budget" and len(rest) >= 2 and rest[0].startswith("portfolio"):
+        ns.portfolio_id = rest[1]
+        return cmd_portfolio_budget(ns)
+    # Campaign lifecycle operator verbs: "<verb> campaign <id>".
+    _CAMP_VERBS = {"pause": cmd_campaign_pause, "resume": cmd_campaign_resume,
+                   "complete": cmd_campaign_complete, "discard": cmd_campaign_discard,
+                   "stall": cmd_campaign_stall}
+    if verb in _CAMP_VERBS and len(rest) >= 2 and rest[0].startswith("campaign"):
+        ns.campaign_id = rest[1]
+        return _CAMP_VERBS[verb](ns)
+    # Portfolio lifecycle operator verbs: "<verb> portfolio <id>".
+    _PF_VERBS = {"pause": cmd_portfolio_pause, "resume": cmd_portfolio_resume,
+                 "archive": cmd_portfolio_archive}
+    if verb in _PF_VERBS and len(rest) >= 2 and rest[0].startswith("portfolio"):
+        ns.portfolio_id = rest[1]
+        return _PF_VERBS[verb](ns)
 
     print(f"unknown command: {line!r} (type 'help')", file=sys.stderr)
     return 1
@@ -446,6 +612,17 @@ def build_parser() -> argparse.ArgumentParser:
     cc.add_argument("--budget", type=int, default=0, help="budget_experiments (0=unbounded)")
     cc.add_argument("--type", default="strategy_evolution", help="campaign_type")
     cc.add_argument("--portfolio", default=None, help="portfolio_id")
+    cc.add_argument("--goal", default=None, help="goal_spec as JSON")
+    cc.add_argument("--scope", default=None, help="scope as JSON")
+    cc.add_argument("--stopping", default=None, help="stopping_spec as JSON")
+    cc.add_argument("--trigger", default=None, help="trigger_spec as JSON")
+    cc.add_argument("--depends", default=None,
+                    help="depends_on: JSON list, or comma-separated campaign ids")
+    cc.add_argument("--repeat", default=None, help="repeat_spec as JSON")
+    cc.add_argument("--eig", default=None, help="eig_spec as JSON")
+    cc.add_argument("--exploration", type=float, default=0.34,
+                    help="exploration_fraction")
+    cc.add_argument("--stall-patience", dest="stall_patience", type=int, default=3)
     cc.add_argument("--activate", action="store_true", help="activate after creating")
     cc.set_defaults(func=cmd_campaign_create)
     cs = csub.add_parser("show", help="show one campaign")
@@ -461,20 +638,55 @@ def build_parser() -> argparse.ArgumentParser:
     cre = csub.add_parser("resume", help="resume (activate) a campaign")
     cre.add_argument("campaign_id")
     cre.set_defaults(func=cmd_campaign_resume)
+    cco = csub.add_parser("complete", help="mark a campaign COMPLETED")
+    cco.add_argument("campaign_id")
+    cco.set_defaults(func=cmd_campaign_complete)
+    cd = csub.add_parser("discard", help="discard (abandon) a campaign")
+    cd.add_argument("campaign_id")
+    cd.set_defaults(func=cmd_campaign_discard)
+    cst = csub.add_parser("stall", help="mark a campaign STALLED")
+    cst.add_argument("campaign_id")
+    cst.set_defaults(func=cmd_campaign_stall)
+    ce = csub.add_parser("eig", help="refresh + show a campaign's cached EIG")
+    ce.add_argument("campaign_id")
+    ce.set_defaults(func=cmd_campaign_eig)
 
     # portfolio
     pf = sub.add_parser("portfolio", help="portfolio operations")
     psub = pf.add_subparsers(dest="sub", required=True)
     psub.add_parser("list", help="list portfolios").set_defaults(func=cmd_portfolio_list)
+    pcr = psub.add_parser("create", help="create a portfolio (ACTIVE)")
+    pcr.add_argument("--id", help="portfolio id (auto-generated if omitted)")
+    pcr.add_argument("--name", default="untitled portfolio")
+    pcr.add_argument("--objective", default=None, help="objective as JSON")
+    pcr.add_argument("--policy", default="priority",
+                     help="scheduling_policy (priority|round_robin|eig_weighted)")
+    pcr.add_argument("--concurrency", type=int, default=0,
+                     help="concurrency_limit (0=unbounded)")
+    pcr.add_argument("--budget", default=None, help="budget_spec as JSON")
+    pcr.add_argument("--stopping", default=None, help="stopping_spec as JSON")
+    pcr.set_defaults(func=cmd_portfolio_create)
     ps = psub.add_parser("show", help="show one portfolio")
     ps.add_argument("portfolio_id")
     ps.set_defaults(func=cmd_portfolio_show)
     pp = psub.add_parser("plan", help="deterministic plan via PortfolioPlanner")
     pp.add_argument("portfolio_id")
     pp.set_defaults(func=cmd_portfolio_plan)
+    pb = psub.add_parser("budget", help="deterministic budget allocation (PortfolioPlanner)")
+    pb.add_argument("portfolio_id")
+    pb.set_defaults(func=cmd_portfolio_budget)
     pr = psub.add_parser("run", help="run one tick per admitted campaign")
     pr.add_argument("portfolio_id")
     pr.set_defaults(func=cmd_portfolio_run)
+    ppa = psub.add_parser("pause", help="pause a portfolio")
+    ppa.add_argument("portfolio_id")
+    ppa.set_defaults(func=cmd_portfolio_pause)
+    pre = psub.add_parser("resume", help="resume a portfolio")
+    pre.add_argument("portfolio_id")
+    pre.set_defaults(func=cmd_portfolio_resume)
+    par = psub.add_parser("archive", help="archive a portfolio")
+    par.add_argument("portfolio_id")
+    par.set_defaults(func=cmd_portfolio_archive)
 
     # report
     rep = sub.add_parser("report", help="markdown read-model reports")
@@ -506,6 +718,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.func(args)
+    except _CliError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
     except BrokenPipeError:  # pragma: no cover - piping to head, etc.
         return 0
 

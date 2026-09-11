@@ -288,3 +288,174 @@ def test_every_command_has_a_handler():
     """Smoke: the parser builds and each leaf subcommand sets a func default."""
     parser = build_parser()
     assert parser.prog == "quant"
+
+
+# --- operator commands: rich campaign creation -----------------------------
+
+def test_campaign_create_rich_fields(tmp_path, capsys):
+    db = _db(tmp_path)
+    from agents.storage import campaign_store
+    assert _run(db, "campaign", "create", "--id", "rich", "--theme", "carry",
+                "--priority", "4", "--budget", "10", "--type", "bar_type_comparison",
+                "--scope", '{"markets": ["US"]}',
+                "--goal", '{"priority": 9}',
+                "--trigger", '{"kind": "dependency"}',
+                "--depends", "a,b",
+                "--repeat", '{"mode": "interval", "max_repeats": 3}',
+                "--eig", '{"aggregate": "sum"}',
+                "--stopping", '{"goal": true}') == 0
+    assert "created campaign rich (DRAFT)" in capsys.readouterr().out
+    c = campaign_store.get_campaign("rich", db_path=db)
+    assert c["scope"] == {"markets": ["US"]}
+    assert c["campaign_type"] == "bar_type_comparison"
+    assert int(c["budget_experiments"]) == 10
+    assert c["trigger_spec"] == {"kind": "dependency"}
+    assert campaign_store.campaign_depends_on(c) == ["a", "b"]
+    assert c["repeat_spec"] == {"mode": "interval", "max_repeats": 3}
+    assert c["eig_spec"] == {"aggregate": "sum"}
+
+
+def test_campaign_create_depends_json_list(tmp_path):
+    db = _db(tmp_path)
+    from agents.storage import campaign_store
+    assert _run(db, "campaign", "create", "--id", "d",
+                "--depends", '[{"campaign_id": "x", "required_state": "ACTIVE"}]') == 0
+    c = campaign_store.get_campaign("d", db_path=db)
+    assert c["depends_on"] == [{"campaign_id": "x", "required_state": "ACTIVE"}]
+
+
+def test_campaign_create_invalid_json_fails_clearly(tmp_path, capsys):
+    db = _db(tmp_path)
+    assert _run(db, "campaign", "create", "--id", "bad", "--scope", "{not json") == 2
+    err = capsys.readouterr().err
+    assert "--scope: invalid JSON" in err
+
+
+def test_campaign_create_duplicate_id_fails(tmp_path, capsys):
+    db = _db(tmp_path)
+    _seed(db)
+    assert _run(db, "campaign", "create", "--id", "c1") == 2
+    assert "already exists" in capsys.readouterr().err
+
+
+# --- operator commands: campaign lifecycle ---------------------------------
+
+def test_campaign_complete_and_stall_and_discard(tmp_path):
+    db = _db(tmp_path)
+    cm = _seed(db)
+    assert _run(db, "campaign", "stall", "c1") == 0
+    assert cm.current_state("c1") == "STALLED"
+    assert _run(db, "campaign", "resume", "c1") == 0
+    assert _run(db, "campaign", "complete", "c1") == 0
+    assert cm.current_state("c1") == "COMPLETED"
+    assert _run(db, "campaign", "discard", "c2") == 0
+    assert cm.current_state("c2") == "DISCARDED"
+
+
+def test_campaign_illegal_transition_fails_clearly(tmp_path, capsys):
+    db = _db(tmp_path)
+    cm = _seed(db)
+    _run(db, "campaign", "complete", "c1")
+    assert _run(db, "campaign", "discard", "c1") == 2   # COMPLETED is terminal
+    assert "illegal transition" in capsys.readouterr().err
+    assert cm.current_state("c1") == "COMPLETED"
+
+
+def test_campaign_lifecycle_invalid_id(tmp_path, capsys):
+    db = _db(tmp_path)
+    assert _run(db, "campaign", "complete", "nope") == 2
+    assert "no such campaign" in capsys.readouterr().err
+
+
+def test_campaign_eig_refresh(tmp_path, capsys):
+    db = _db(tmp_path)
+    cm = _seed(db)
+    assert _run(db, "campaign", "eig", "c1") == 0
+    assert "c1 EIG =" in capsys.readouterr().out
+    # cache written by the operator command
+    from agents.storage import campaign_store
+    assert campaign_store.get_campaign("c1", db_path=db)["expected_information_gain"] == 0.0
+
+
+# --- operator commands: portfolio management -------------------------------
+
+def test_portfolio_create(tmp_path, capsys):
+    db = _db(tmp_path)
+    cm = CampaignManager(db_path=db)
+    assert _run(db, "portfolio", "create", "--id", "P9", "--name", "Macro",
+                "--policy", "eig_weighted", "--concurrency", "3",
+                "--budget", '{"total": 20, "mode": "priority_proportional"}',
+                "--objective", '{"goal": "diversify"}') == 0
+    assert "created portfolio P9 (ACTIVE)" in capsys.readouterr().out
+    from agents.storage import portfolio_store
+    p = portfolio_store.get_portfolio("P9", db_path=db)
+    assert p["scheduling_policy"] == "eig_weighted"
+    assert p["concurrency_limit"] == 3
+    assert p["budget_spec"] == {"total": 20, "mode": "priority_proportional"}
+    assert p["objective"] == {"goal": "diversify"}
+
+
+def test_portfolio_pause_resume_archive(tmp_path):
+    db = _db(tmp_path)
+    cm = _seed(db)
+    assert _run(db, "portfolio", "pause", "P1") == 0
+    assert cm.portfolio_state("P1") == "PAUSED"
+    assert _run(db, "portfolio", "resume", "P1") == 0
+    assert cm.portfolio_state("P1") == "ACTIVE"
+    assert _run(db, "portfolio", "archive", "P1") == 0
+    assert cm.portfolio_state("P1") == "ARCHIVED"
+
+
+def test_portfolio_archive_then_resume_illegal(tmp_path, capsys):
+    db = _db(tmp_path)
+    _seed(db)
+    _run(db, "portfolio", "archive", "P1")
+    assert _run(db, "portfolio", "resume", "P1") == 2   # ARCHIVED is terminal
+    assert "illegal transition" in capsys.readouterr().err
+
+
+def test_portfolio_budget_command(tmp_path, capsys):
+    db = _db(tmp_path)
+    cm = CampaignManager(db_path=db)
+    cm.create_portfolio("P1", "Alpha",
+                        budget_spec={"total": 20, "mode": "priority_proportional",
+                                     "a_max": 1.0})
+    cm.create_campaign("hi", theme="t", priority=3.0, portfolio_id="P1"); cm.activate("hi")
+    cm.create_campaign("lo", theme="t", priority=1.0, portfolio_id="P1"); cm.activate("lo")
+    assert _run(db, "portfolio", "budget", "P1") == 0
+    out = capsys.readouterr().out
+    assert "Budget for P1" in out
+    assert "hi" in out and "lo" in out
+
+
+def test_portfolio_create_invalid_json_fails(tmp_path, capsys):
+    db = _db(tmp_path)
+    assert _run(db, "portfolio", "create", "--id", "PX", "--budget", "{bad") == 2
+    assert "--budget: invalid JSON" in capsys.readouterr().err
+
+
+# --- operator verbs are reachable from the shell ---------------------------
+
+def test_shell_operator_verbs(tmp_path, capsys):
+    db = _db(tmp_path)
+    cm = _seed(db)
+    assert _shell(db, "complete campaign c1") == 0
+    assert cm.current_state("c1") == "COMPLETED"
+    assert _shell(db, "pause portfolio P1") == 0
+    assert cm.portfolio_state("P1") == "PAUSED"
+    assert _shell(db, "budget portfolio P1") == 0
+    assert "Budget for P1" in capsys.readouterr().out
+
+
+# --- operator (write) commands are the ONLY ones that change state ---------
+
+def test_operator_commands_go_through_campaign_manager(tmp_path):
+    """Lifecycle commands emit audited events via CampaignManager (not silent
+    projection writes): a transition adds exactly one state event."""
+    db = _db(tmp_path)
+    cm = _seed(db)
+    from agents.storage import campaign_store
+    before = len(campaign_store.list_state_events("c1", db_path=db))
+    _run(db, "campaign", "stall", "c1")
+    after = len(campaign_store.list_state_events("c1", db_path=db))
+    assert after == before + 1
