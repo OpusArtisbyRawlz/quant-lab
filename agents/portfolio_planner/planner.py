@@ -49,6 +49,19 @@ from agents.storage.portfolio_store import (
     POLICY_EIG_WEIGHTED,
 )
 from agents.campaign_manager import CampaignManager
+# P6-13: reuse the FROZEN M11 pure budget allocator (water-filling, a_max
+# anti-monopoly ceiling, integer-floor). We call it — never modify it — so the
+# campaign-level split reuses the exact per-hypothesis budget math one level up
+# (design §9: "mirroring the M11 budget's a_max"). No budget logic is duplicated
+# and no scoring is invented.
+from agents.research_intelligence import budget as m11_budget
+
+# Portfolio budget-allocation policies (budget_spec.mode). Names mirror §9's
+# "equal (round-robin), priority-proportional, or EIG-proportional".
+BUDGET_MODE_EQUAL = "equal"
+BUDGET_MODE_PRIORITY = "priority_proportional"
+BUDGET_MODE_EIG = "eig_proportional"
+DEFAULT_BUDGET_MODE = BUDGET_MODE_EQUAL
 
 
 @dataclass(frozen=True)
@@ -68,6 +81,27 @@ class PortfolioPlan:
                 "admitted": list(self.admitted),
                 "concurrency_limit": self.concurrency_limit,
                 "excluded_cycles": list(self.excluded_cycles)}
+
+
+@dataclass(frozen=True)
+class BudgetAllocation:
+    """A portfolio's deterministic budget split across its admitted campaigns.
+
+    Pure data derivable from stored state. ``allocations`` maps each admitted
+    campaign to its integer experiment-slot share for the window; campaigns not in
+    the map (ineligible / paused / archived / cyclic — never admitted) receive
+    nothing. ``headroom`` is the portfolio budget left unassigned (the a_max ceiling
+    and per-campaign clamping leave explicit slack — budget is never force-spent)."""
+    portfolio_id: str
+    mode: str
+    total: int
+    allocations: dict[str, int] = field(default_factory=dict)
+    headroom: int = 0
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"portfolio_id": self.portfolio_id, "mode": self.mode,
+                "total": self.total, "allocations": dict(self.allocations),
+                "headroom": self.headroom}
 
 
 class PortfolioPlanner:
@@ -95,6 +129,15 @@ class PortfolioPlanner:
         )
         plans = [self.plan(p["portfolio_id"]) for p in portfolios]
         return sorted(plans, key=lambda pl: pl.portfolio_id)
+
+    def allocate_budget_all(self) -> list[BudgetAllocation]:
+        """Deterministic budget allocations for every ACTIVE portfolio, ordered by
+        portfolio_id. Each portfolio is allocated independently."""
+        portfolios = portfolio_store.list_portfolios(
+            state=PORTFOLIO_ACTIVE, db_path=self.db_path
+        )
+        allocs = [self.allocate_budget(p["portfolio_id"]) for p in portfolios]
+        return sorted(allocs, key=lambda a: a.portfolio_id)
 
     def plan(self, portfolio_id: str) -> PortfolioPlan:
         """The deterministic plan for one portfolio. A non-ACTIVE (PAUSED/ARCHIVED)
@@ -143,6 +186,71 @@ class PortfolioPlanner:
         non-member is an external prerequisite, not part of this portfolio's graph)."""
         members = self.campaigns.campaigns_in_portfolio(portfolio_id)
         return self._unschedulable(members)
+
+    # -- budget allocation (P6-13, pure policy) ----------------------------
+
+    def allocate_budget(self, portfolio_id: str) -> BudgetAllocation:
+        """Deterministically split a portfolio's window budget across its admitted
+        campaigns (design §9). Pure: reads stored state, mutates nothing, and never
+        touches historical evidence.
+
+        Reuses the plan's admitted set (P6-12: eligible, acyclic, concurrency-limited),
+        so ineligible / paused / archived / cyclic campaigns receive nothing. The
+        split reuses the FROZEN M11 `budget.allocate` (EVOI-proportional water-filling
+        + a_max anti-monopoly ceiling + integer floor) with per-campaign *weights*:
+
+          - ``equal``               → uniform weights;
+          - ``priority_proportional`` → weights = campaign priority (P6-8);
+          - ``eig_proportional``    → weights = cached ``expected_information_gain``
+                                       (P6-8 column, populated by P6-14; 0 until then
+                                       ⇒ degrades to uniform — P6-13 never aggregates
+                                       raw EVOI, that stays P6-14's job).
+
+        Each share is then clamped to the campaign's own ``budget_experiments`` when
+        that is > 0 (0 = unbounded); slots freed by the a_max ceiling or clamping
+        become explicit ``headroom`` — budget is never force-spent. ``budget_spec``
+        keys: ``total`` (window slots, default 0), ``mode`` (default equal), and
+        optional ``a_max``/``a_min`` overriding the M11 ceiling/floor.
+        """
+        portfolio = portfolio_store.get_portfolio(portfolio_id, db_path=self.db_path)
+        spec = (portfolio or {}).get("budget_spec") or {}
+        mode = spec.get("mode", DEFAULT_BUDGET_MODE)
+        total = int(spec.get("total", 0) or 0)
+
+        admitted = self.plan(portfolio_id).admitted
+        if not admitted or total <= 0:
+            return BudgetAllocation(portfolio_id, mode, total, {}, headroom=max(total, 0))
+
+        campaigns = {
+            cid: (campaign_store.get_campaign(cid, db_path=self.db_path) or {})
+            for cid in admitted
+        }
+        weights = {cid: self._budget_weight(campaigns[cid], mode) for cid in admitted}
+
+        policy = m11_budget.BudgetPolicy(
+            a_max=float(spec.get("a_max", m11_budget.DEFAULT_POLICY.a_max)),
+            a_min=float(spec.get("a_min", m11_budget.DEFAULT_POLICY.a_min)),
+        )
+        raw = m11_budget.allocate(weights, set(admitted), total, policy)
+
+        allocations: dict[str, int] = {}
+        for cid in admitted:
+            slots = raw[cid].b_experiments
+            cap = int(campaigns[cid].get("budget_experiments", 0) or 0)
+            if cap > 0:
+                slots = min(slots, cap)          # respect the campaign's own cap
+            allocations[cid] = slots
+        headroom = total - sum(allocations.values())
+        return BudgetAllocation(portfolio_id, mode, total, allocations, headroom=headroom)
+
+    def _budget_weight(self, campaign: dict[str, Any], mode: str) -> float:
+        """Per-campaign allocation weight for a budget mode (≥ 0). Reuses the P6-8
+        priority accessor and the cached EIG column — no new scoring is invented."""
+        if mode == BUDGET_MODE_PRIORITY:
+            return max(campaign_store.campaign_priority(campaign), 0.0)
+        if mode == BUDGET_MODE_EIG:
+            return max(self._eig(campaign), 0.0)
+        return 1.0                                # equal (uniform weights)
 
     # -- ordering (pure) ---------------------------------------------------
 

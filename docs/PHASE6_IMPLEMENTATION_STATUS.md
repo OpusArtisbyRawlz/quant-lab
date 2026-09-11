@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-11 — after P6-12 opened for review._
+_Last updated: 2026-09-11 — after P6-13 opened for review._
 
 ## Status at a glance
 
@@ -21,8 +21,8 @@ _Last updated: 2026-09-11 — after P6-12 opened for review._
 | P6-9 | Research Portfolio object | ✅ Merged | `research_portfolio` + `portfolio_state_events` + `portfolio_store` + CampaignManager portfolio state machine | yes (#54) |
 | P6-10 | PortfolioPlanner (pure policy) | ✅ Merged | `portfolio_planner/` pure module (priority + eig_weighted; round_robin deferred) | yes (#55) |
 | P6-11 | Triggers / dependencies / repeats in CampaignManager | ✅ Merged | CampaignManager eligibility API + planner delegates | yes (#56) |
-| P6-12 | Dependency-aware planning + cycle rejection | 🔷 Open for review | planner cycle rejection (`detect_cycles`, `excluded_cycles`) | PR open |
-| P6-13 | Portfolio budget allocation _(was P6-12)_ | ⬜ Not started | (planned) | — |
+| P6-12 | Dependency-aware planning + cycle rejection | ✅ Merged | planner cycle rejection (`detect_cycles`, `excluded_cycles`) | yes (#57) |
+| P6-13 | Portfolio budget allocation _(was P6-12)_ | 🔷 Open for review | planner `allocate_budget` reusing frozen M11 `budget.allocate` | PR open |
 | P6-14 | EIG aggregation (from budget_allocation) _(was P6-13)_ | ⬜ Not started | (planned) | — |
 
 Dependency order: **P6-1 → P6-2 → P6-3** form the spine (a continuously running
@@ -181,6 +181,22 @@ reordered" clause; the design doc's §16 breakdown keeps the original labels.
 - **Untouched:** CampaignManager (no new logic), ResearchScheduler, FactoryRunner; no
   schema change; append-only + Project 07 boundary.
 - **Reorder:** takes the P6-12 slot; budget → P6-13, EIG → P6-14 (approved).
+- **State:** merged (#57).
+
+## P6-13 — Portfolio budget allocation 🔷 (portfolio spine, brick 6)
+
+- **Responsibility:** deterministic portfolio-level budget split across admitted
+  campaigns (§9), reusing the frozen M11 `budget.allocate` (water-filling + `a_max`
+  ceiling + integer floor) — no budget logic duplicated, no scoring invented.
+- **Interfaces:** `PortfolioPlanner.allocate_budget(portfolio_id)` /
+  `allocate_budget_all()` → `BudgetAllocation`; `budget_spec` = `{total, mode,
+  a_max?, a_min?}`, mode ∈ equal / priority_proportional / eig_proportional.
+- **Resolved (reviewer):** eig_proportional reads the cached EIG column, degrading to
+  uniform until P6-14; shares clamped to the campaign's own `budget_experiments`
+  (>0); unused budget kept as explicit headroom (never force-spent).
+- **Untouched:** CampaignManager, ResearchScheduler, FactoryRunner; M11 methodology
+  (its allocator is called, not modified); no schema change; append-only + Project 07
+  boundary. Enforcement of shares is a separate future seam (pure allocation only).
 - **State:** open for review (this PR).
 
 ---
