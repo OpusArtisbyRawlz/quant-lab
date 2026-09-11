@@ -5,7 +5,7 @@ Living tracker for the Phase 6 build-out. Design is frozen by
 (spine) and [`PHASE6_RESEARCH_PORTFOLIO.md`](./PHASE6_RESEARCH_PORTFOLIO.md)
 (planning layer). This file tracks what has been *implemented* against that plan.
 
-_Last updated: 2026-09-10 — after P6-8 opened for review._
+_Last updated: 2026-09-11 — after P6-9 opened for review._
 
 ## Status at a glance
 
@@ -17,8 +17,8 @@ _Last updated: 2026-09-10 — after P6-8 opened for review._
 | P6-4 | Project 07 hand-off (preliminary→authoritative) | ✅ Merged | `project07_evaluation`, `storage/handoff_store.py` | yes (#51) |
 | P6-5 | Near-term sources (bar-type/overlay/replay) | ✅ Merged | self-registering `research_loop/sources/` package + 3 sources | yes (#52) |
 | P6-6 | Scale pass (shared fold cache / incremental assess) | ⬜ Not started | (planned) | — |
-| P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | 🔷 Open for review | 7 additive `research_campaign` columns + accessors | PR open |
-| P6-9 | Research Portfolio object | ⬜ Not started | (planned) | — |
+| P6-8 | Extended campaign fields (trigger/dependency/priority/EIG/repeat/portfolio_id) | ✅ Merged | 7 additive `research_campaign` columns + accessors | yes (#53) |
+| P6-9 | Research Portfolio object | 🔷 Open for review | `research_portfolio` + `portfolio_state_events` + `portfolio_store` + CampaignManager portfolio state machine | PR open |
 | P6-10 | PortfolioPlanner (pure policy) | ⬜ Not started | (planned) | — |
 | P6-11 | Triggers / dependencies / repeats in CampaignManager | ⬜ Not started | (planned) | — |
 | P6-12 | Portfolio budget allocation | ⬜ Not started | (planned) | — |
@@ -108,6 +108,22 @@ the portfolio layer (P6-8…P6-13) layer on and can be reordered.
 - **Back-compat:** absent ⇒ NULL/spec-default ⇒ current behaviour; scheduler ordering
   unchanged (new `priority` column not consumed yet); legacy DBs migrate additively;
   fields reconstructible from the event log.
+- **State:** merged (#53).
+
+## P6-9 — Research Portfolio object 🔷 (portfolio spine, brick 2)
+
+- **Responsibility:** the `research_portfolio` persistence model + its event-sourced
+  lifecycle (ACTIVE/PAUSED/ARCHIVED). Persistence + state machine only.
+- **Interfaces:** additive `research_portfolio` + `portfolio_state_events` tables
+  (SCHEMA 25→26); `storage/portfolio_store.py` (DAL mirroring campaign_store);
+  CampaignManager portfolio methods (`create_portfolio`, `pause/resume/archive`,
+  `portfolio_state`, `rebuild_portfolio_from_events`, `reconcile_portfolio`,
+  `campaigns_in_portfolio`) + `is_legal_portfolio_transition`/`PortfolioError`.
+- **Reuse:** the CampaignManager owns the state machine (design §10 — no new agent);
+  event-sourcing discipline is identical to campaigns; membership is the existing
+  `research_campaign.portfolio_id`.
+- **Not consumed yet:** `scheduling_policy`/`budget_spec` stored but not acted on
+  (P6-10 planner / P6-12 budget); FactoryRunner + ResearchScheduler unchanged.
 - **State:** open for review (this PR).
 
 ---
