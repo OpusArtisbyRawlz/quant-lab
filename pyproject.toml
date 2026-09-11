@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quant-lab"
+version = "0.1.0"
+description = "Quant Research Factory — autonomous research orchestration (quant-lab)."
+requires-python = ">=3.10"
+# Runtime dependencies are intentionally not pinned here: the CLI is a thin
+# interface over the existing codebase, which already runs in the project venv
+# (see requirements.txt). An editable install therefore adds only the `quant`
+# console script without disturbing the established environment.
+
+[project.scripts]
+quant = "agents.cli.main:main"
+
+[tool.setuptools.packages.find]
+# Only the import closure the CLI needs; avoids setuptools flat-layout ambiguity
+# from the several top-level directories in this repository.
+include = ["agents*", "src*"]
