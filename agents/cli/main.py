@@ -481,6 +481,92 @@ def cmd_factory_status(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# init (DB bootstrap)
+# --------------------------------------------------------------------------- #
+
+def cmd_init(args: argparse.Namespace) -> int:
+    """Bootstrap the factory database: create every table (idempotent). Safe to run
+    on an existing DB — uses CREATE TABLE IF NOT EXISTS + additive migrations."""
+    from agents.storage.db import create_all_tables, get_schema_version
+    db = _db_path(args)
+    create_all_tables(db)
+    print(f"initialized factory DB at {db} (schema v{get_schema_version(db)})")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
+# recovery (Historical Strategy Recovery — manifest-driven)
+# --------------------------------------------------------------------------- #
+
+def cmd_recovery_list(args: argparse.Namespace) -> int:
+    """Enumerate the historical strategies in the curated manifest."""
+    from agents import recovery
+    try:
+        strategies = recovery.enumerate_strategies()
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    rows = [[s["strategy_id"], s["project"].replace("project_", "p").split("_")[0],
+             s["kind"], s.get("mapping_status", ""),
+             "yes" if s.get("alt_bar_eligible") else "-",
+             ",".join(s["signals"])] for s in strategies]
+    print(_fmt_table(rows, ["STRATEGY", "PROJECT", "KIND", "MAPPING",
+                            "ALT_BAR", "SIGNALS"]))
+    print(f"\n{len(strategies)} strategies")
+    return 0
+
+
+def cmd_recovery_verify(args: argparse.Namespace) -> int:
+    """Step-4 gate: verify the manifest enumerates every in-scope project before any
+    run. Prints coverage and the full strategy list; exits non-zero if incomplete."""
+    from agents import recovery
+    try:
+        report = recovery.verify_enumeration()
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"Historical-strategy enumeration — {report['total']} strategies")
+    print("Coverage by project:")
+    for proj, n in report["coverage"].items():
+        print(f"  {proj}: {n}")
+    print("By kind: " + ", ".join(f"{k}={v}" for k, v in report["by_kind"].items()))
+    print("Strategies: " + ", ".join(report["strategy_ids"]))
+    if report["missing_projects"]:
+        print(f"INCOMPLETE — no strategies for: {', '.join(report['missing_projects'])}",
+              file=sys.stderr)
+        return 1
+    print("OK — every in-scope project (03-06) is represented.")
+    return 0
+
+
+def cmd_recovery_create(args: argparse.Namespace) -> int:
+    """Create a recovery campaign from a template (DRAFT by default). Nothing runs
+    until it is activated and launched — the launch is a separate, gated step."""
+    from agents.recovery import templates
+    cm = _manager(args)
+    db = _db_path(args)
+    try:
+        tmpl = templates.build_template(args.kind)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    campaign_id = args.id or f"recovery-{args.kind}"
+    if campaign_store.get_campaign(campaign_id, db_path=db) is not None:
+        print(f"error: campaign already exists: {campaign_id}", file=sys.stderr)
+        return 2
+    cm.create_campaign(campaign_id, **tmpl)
+    if args.activate:
+        cm.activate(campaign_id)
+    would = templates.expected_strategy_ids(args.kind)
+    print(f"created recovery campaign {campaign_id} "
+          f"({cm.current_state(campaign_id)}, type=historical_recovery)")
+    print(f"  will recover {len(would)} strategies: {', '.join(would)}")
+    if not args.activate:
+        print("  (DRAFT — activate + run to launch; launch is a separate gated step)")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # interactive shell (lightweight; NOT an LLM)
 # --------------------------------------------------------------------------- #
 
@@ -600,6 +686,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="factory overview (campaign/portfolio counts)"
                    ).set_defaults(func=cmd_status)
+
+    sub.add_parser("init", help="bootstrap the factory DB (create tables; idempotent)"
+                   ).set_defaults(func=cmd_init)
+
+    # recovery (Historical Strategy Recovery)
+    rec = sub.add_parser("recovery", help="historical strategy recovery (manifest-driven)")
+    rsubc = rec.add_subparsers(dest="sub", required=True)
+    rsubc.add_parser("list", help="enumerate historical strategies in the manifest"
+                     ).set_defaults(func=cmd_recovery_list)
+    rsubc.add_parser("verify", help="verify enumeration coverage (pre-launch gate)"
+                     ).set_defaults(func=cmd_recovery_verify)
+    rcc = rsubc.add_parser("create", help="create a recovery campaign from a template")
+    rcc.add_argument("kind", choices=["baseline", "altbar", "blend"])
+    rcc.add_argument("--id", help="campaign id (default: recovery-<kind>)")
+    rcc.add_argument("--activate", action="store_true",
+                     help="activate after creating (still requires a run to launch)")
+    rcc.set_defaults(func=cmd_recovery_create)
 
     # campaign
     camp = sub.add_parser("campaign", help="campaign operations")

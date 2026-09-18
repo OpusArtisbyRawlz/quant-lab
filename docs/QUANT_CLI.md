@@ -31,7 +31,13 @@ quant --db /path/to/other.db status
 ## Commands
 
 ```
+quant init                         # bootstrap the factory DB (create tables; idempotent)
 quant status                       # campaign/portfolio counts
+
+quant recovery list                # enumerate historical strategies (manifest)
+quant recovery verify              # verify enumeration coverage (pre-launch gate)
+quant recovery create {baseline|altbar|blend} [--id ID] [--activate]
+
 
 quant campaign list                # id, state, type, priority, portfolio, progress
 quant campaign create [--id ID] [--theme T] [--priority P] [--budget N]
