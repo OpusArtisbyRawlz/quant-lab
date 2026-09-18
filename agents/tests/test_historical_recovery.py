@@ -51,9 +51,23 @@ def test_manifest_only_in_scope_projects():
         assert s["project"] in manifest.RECOVERY_PROJECTS   # no 01/02/07
 
 
-def test_manifest_no_project_01_or_02():
+def test_manifest_no_project_01_or_07():
+    # Project 01 never existed; Project 07 is the authoritative evaluator, not a source.
+    # Project 02 IS now in scope (recovered/vendored) — see test_project_02_recovered.
     projects = {s["project"] for s in manifest.enumerate_strategies()}
-    assert not any("project_01" in p or "project_02" in p for p in projects)
+    assert not any("project_01" in p or "project_07" in p for p in projects)
+
+
+def test_project_02_recovered():
+    """Project 02 is now a first-class recovered source (vendored snapshot)."""
+    p02 = [s for s in manifest.enumerate_strategies()
+           if s["project"] == "project_02_volatility_regime"]
+    assert len(p02) == 1
+    entry = p02[0]
+    assert entry["status"] == "recovered_source"
+    assert entry["replayable"] == "pending reproducibility verification"
+    assert set(["RV5_trail", "RV20_trail", "RV5_fwd_ann", "VolRatio"]) <= set(entry["signals"])
+    assert "project_02_volatility_regime" in manifest.RECOVERY_PROJECTS
 
 
 def test_malformed_manifest_raises(tmp_path):

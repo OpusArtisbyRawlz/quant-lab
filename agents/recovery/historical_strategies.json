@@ -4,10 +4,11 @@
   "note": [
     "Curated inventory of the historical strategies in Projects 03-06, grounded in",
     "experiments/completed/*/config.* + results_summary.md + strategy_comparison.csv.",
-    "Project 01 does not exist. Project 02 ('volatility regime') was done but its",
-    "artifacts are NOT in this repo (only referenced by P04/P05 as an external",
-    "dependency), so it is out of recovery scope. Project 07 is the authoritative",
-    "statistical evaluator, not a strategy source.",
+    "Project 01 does not exist. Project 02 ('volatility regime') was RECOVERED from the",
+    "external repo OpusArtisbyRawlz/spy-risk-volatility-model and vendored under",
+    "research/project_02_volatility_regime/ (status recovered_source; replay pending",
+    "reproducibility verification). Project 07 is the authoritative statistical",
+    "evaluator, not a strategy source.",
     "",
     "'mapping_status' records how cleanly each strategy maps onto the factory's",
     "single-hypothesis signal pipeline: 'clean' = features are registerable signals;",
@@ -18,6 +19,24 @@
     "explicitly launches a campaign."
   ],
   "strategies": [
+    {
+      "strategy_id": "p02_volatility_regime",
+      "project": "project_02_volatility_regime",
+      "experiment_id": "spy_volatility_regime_model",
+      "kind": "overlay",
+      "hypothesis": "Future high-volatility regime (VolRatio = RV5_trail/RV20_trail > threshold) is predictable; a calibrated walk-forward OOF logistic model emits p_high_vol_calibrated, consumed by P04/P05.",
+      "signals": ["RV5_trail", "RV20_trail", "RV5_fwd_ann", "VolRatio"],
+      "market": "US_EQUITY",
+      "universe": "SPY",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "mapping_status": "ml_model",
+      "status": "recovered_source",
+      "source": "vendored snapshot in quant-lab (research/project_02_volatility_regime/)",
+      "authoritative_source": "external GitHub repo OpusArtisbyRawlz/spy-risk-volatility-model",
+      "provenance": "external GitHub import (see research/project_02_volatility_regime/provenance.json)",
+      "replayable": "pending reproducibility verification"
+    },
     {
       "strategy_id": "p03_spy_5d_direction",
       "project": "project_03_directional_alpha",
