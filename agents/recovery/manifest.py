@@ -15,9 +15,13 @@ from typing import Any
 
 _MANIFEST_PATH = Path(__file__).parent / "historical_strategies.json"
 
-# Recovery scope: Projects 03-06 (01 does not exist; 02's artifacts are absent from
-# this repo; 07 is the authoritative evaluator, not a strategy source).
+# Recovery scope: Projects 02-06 (01 does not exist; 07 is the authoritative evaluator,
+# not a strategy source). Project 02's volatility-regime model was recovered from the
+# external repo OpusArtisbyRawlz/spy-risk-volatility-model and vendored under
+# research/project_02_volatility_regime/ (status: recovered_source; replay pending
+# reproducibility verification).
 RECOVERY_PROJECTS = (
+    "project_02_volatility_regime",
     "project_03_directional_alpha",
     "project_04_return_forecast_alpha",
     "project_05_risk_engine",

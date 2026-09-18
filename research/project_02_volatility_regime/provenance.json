@@ -1,0 +1,49 @@
+{
+  "project": "project_02_volatility_regime",
+  "title": "Project 2 — Volatility Regime Classification",
+
+  "canonical_source": "external_git_repo",
+  "local_copy_role": "vendored_historical_snapshot",
+
+  "authoritative_repo_url": "https://github.com/OpusArtisbyRawlz/spy-risk-volatility-model",
+  "authoritative_repo_name": "OpusArtisbyRawlz/spy-risk-volatility-model",
+  "authoritative_repo_commit": "2779bb3e92f7aafb11d806000b4906bbbaa99a4e",
+  "authoritative_repo_commit_date": "2026-03-07T00:11:47Z",
+  "authoritative_notebook_path": "notebooks/spy_volatility_regime_model.ipynb",
+  "source_branch": "main",
+  "source_tag": null,
+
+  "import_timestamp": "2026-09-18T23:16:22Z",
+  "modified_after_import": false,
+
+  "imported_notebook": {
+    "path": "notebooks/spy_volatility_regime_model.ipynb",
+    "git_blob_sha1": "43d55f846732953859999aca39773981a5775ef9",
+    "sha256": "41762db3f06a39964943fe9b0039428acffa794d7dc1ce6236a84753508a6198",
+    "bytes": 432158,
+    "byte_for_byte_identical_to_source": true,
+    "verification": "git_blob_sha1 equals the source repo blob sha at authoritative_repo_commit"
+  },
+
+  "imported_artifact": {
+    "path": "artifacts/vol_regime_calibrated_oof.csv",
+    "sha256": "110812dd8a4fe5214914d35b79761b6ce6fc9f32bec30515acbcdf213b002a86",
+    "rows_excluding_header": 2898,
+    "columns": ["Date", "p_high_vol_calibrated"],
+    "artifact_source": "quant-lab data/processed/vol_regime_calibrated_oof.csv (historical output consumed by Projects 04/05)",
+    "note": "The authoritative GitHub repo contains only README.md + the notebook and does NOT ship this CSV. This calibrated out-of-fold output was the historical artifact already present in quant-lab (imported from Project 02 output) and is copied here unaltered for local replay. It was not regenerated during import."
+  },
+
+  "original_output_artifacts": ["vol_regime_calibrated_oof.csv"],
+  "output_mapping": {
+    "notebook_produces": "calibrated out-of-fold probability of a high-volatility regime (walk-forward OOF)",
+    "artifact_column": "p_high_vol_calibrated",
+    "downstream_name": "p_high_vol_calibrated",
+    "downstream_consumers": [
+      "project_04_return_forecast_alpha (df_vol = read_csv(vol_regime_calibrated_oof.csv); exposure = 1 - p_high_vol_calibrated)",
+      "project_05_risk_engine (df_regime = read_csv(vol_regime_calibrated_oof.csv); p_high_vol = p_high_vol_calibrated)"
+    ]
+  },
+
+  "replay_status": "recovered_source; replayable pending reproducibility verification (see modernized/)"
+}
