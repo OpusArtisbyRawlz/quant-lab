@@ -35,16 +35,29 @@ quant status                       # campaign/portfolio counts
 
 quant campaign list                # id, state, type, priority, portfolio, progress
 quant campaign create [--id ID] [--theme T] [--priority P] [--budget N]
-                      [--type TYPE] [--portfolio PID] [--activate]
-quant campaign show   <campaign_id>
-quant campaign run    <campaign_id> [--ticks N]   # ResearchLoop tick(s), then advance
-quant campaign pause  <campaign_id>               # archive/shelve (reversible)
-quant campaign resume <campaign_id>               # activate
+                      [--type TYPE] [--portfolio PID]
+                      [--goal JSON] [--scope JSON] [--stopping JSON]
+                      [--trigger JSON] [--depends JSON|id,id] [--repeat JSON]
+                      [--eig JSON] [--exploration F] [--stall-patience N] [--activate]
+quant campaign show     <campaign_id>
+quant campaign run      <campaign_id> [--ticks N] # ResearchLoop tick(s), then advance
+quant campaign pause    <campaign_id>             # archive/shelve (reversible)
+quant campaign resume   <campaign_id>             # activate
+quant campaign complete <campaign_id>             # → COMPLETED
+quant campaign discard  <campaign_id>             # → DISCARDED (abandon)
+quant campaign stall    <campaign_id>             # → STALLED
+quant campaign eig      <campaign_id>             # refresh + show cached EIG (P6-14)
 
 quant portfolio list
-quant portfolio show <portfolio_id>
-quant portfolio plan <portfolio_id>               # PortfolioPlanner: admitted + cycles
-quant portfolio run  <portfolio_id>               # one tick per admitted campaign
+quant portfolio create [--id ID] [--name N] [--policy P] [--concurrency K]
+                       [--budget JSON] [--objective JSON] [--stopping JSON]
+quant portfolio show    <portfolio_id>
+quant portfolio plan    <portfolio_id>            # PortfolioPlanner: admitted + cycles
+quant portfolio budget  <portfolio_id>            # PortfolioPlanner: slot allocation
+quant portfolio run     <portfolio_id>            # one tick per admitted campaign
+quant portfolio pause   <portfolio_id>
+quant portfolio resume  <portfolio_id>
+quant portfolio archive <portfolio_id>
 
 quant report campaign  <campaign_id>              # markdown campaign board
 quant report portfolio <portfolio_id>             # concise portfolio summary
@@ -56,13 +69,23 @@ quant shell                                       # interactive command shell
 ```
 
 Notes:
-- **pause/resume** map to the existing campaign transitions: *pause* → `ARCHIVED`
-  ("paused / shelved, may be revisited"), *resume* → `ACTIVE`. Both are audited,
-  event-sourced transitions through `CampaignManager`.
+- Structured config is passed as inline **JSON** (e.g. `--scope '{"markets": ["US"]}'`,
+  `--budget '{"total": 20, "mode": "priority_proportional"}'`); `--depends` also
+  accepts a convenience comma-separated list of campaign ids. Malformed JSON exits
+  non-zero with a clear `--<flag>: invalid JSON` message. `create` auto-generates an id
+  when `--id` is omitted.
+- **Lifecycle commands** (campaign create/pause/resume/complete/discard/stall and
+  portfolio create/pause/resume/archive) are audited, event-sourced transitions through
+  `CampaignManager` — the sole writer. *pause* → `ARCHIVED` (campaign) / `PAUSED`
+  (portfolio), *resume* → `ACTIVE`. Illegal transitions (e.g. discarding a COMPLETED
+  campaign, resuming an ARCHIVED portfolio) fail clearly and change nothing.
 - **campaign run / portfolio run / factory run** execute real ticks via the existing
   `ResearchLoop` / `FactoryRunner` (append-only, deterministic, checkpoint-resumable);
   they honour the human approval gate and the Project 07 hand-off exactly as before.
 - Invalid ids exit non-zero with a clear `error: no such …` message on stderr.
+- **Reassigning** a campaign to a different portfolio after creation is intentionally
+  not exposed — set `--portfolio` at `campaign create` time (there is no existing
+  reassignment write path, and the CLI adds none).
 
 ### Examples
 
