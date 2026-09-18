@@ -142,12 +142,15 @@ def enqueue_proposal(
     bar_type: str,
     rationale: str,
     origin: str,
+    metadata: dict | None = None,
 ) -> Proposal:
     """Enqueue one ``pending`` idea via the SAME path the strategist uses
     (``approval_queue`` + campaign attribution) and return a uniform ``Proposal``.
 
     No new persistence: reuses ``make_idea_id`` / ``enqueue`` /
     ``link_idea_to_campaign``. The idea is ``pending`` — the human gate is intact.
+    ``metadata`` (optional) is written write-once into the idea's stored metadata —
+    used to attach immutable provenance (e.g. the historical-recovery origin chain).
     """
     idea = ProposedIdea(
         hypothesis=hypothesis,
@@ -159,7 +162,7 @@ def enqueue_proposal(
         bar_type=normalize_bar_type(bar_type),
     )
     idea_id = approval_queue.make_idea_id(idea, db_path=context.db_path)
-    approval_queue.enqueue(idea, idea_id, db_path=context.db_path)
+    approval_queue.enqueue(idea, idea_id, metadata=metadata, db_path=context.db_path)
     campaign_store.link_idea_to_campaign(idea_id, campaign_id, db_path=context.db_path)
     return Proposal(idea_id=idea_id, origin=origin)
 

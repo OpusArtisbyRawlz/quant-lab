@@ -34,14 +34,18 @@ _HISTORICAL_RECOVERY = "historical_recovery"
 
 def build_template(kind: str) -> dict[str, Any]:
     """Return the create_campaign kwargs for a recovery template. Raises ValueError
-    for an unknown template kind."""
+    for an unknown template kind. The scope carries ``recovery_manifest_version`` so
+    the campaign is traceable to the manifest that created it (campaign-level
+    provenance; per-hypothesis origin provenance is attached at enqueue)."""
+    version = manifest.load_manifest().get("version", "unknown")
     if kind == TEMPLATE_BASELINE:
         return {
             "theme": "Historical Strategy Recovery — baseline (Projects 03-06)",
             "campaign_type": _HISTORICAL_RECOVERY,
             "goal_spec": {"priority": 5},
             "priority": 5.0,
-            "scope": {"recovery_kind": manifest.KIND_BASELINE},
+            "scope": {"recovery_kind": manifest.KIND_BASELINE,
+                      "recovery_manifest_version": version},
         }
     if kind == TEMPLATE_ALTBAR:
         return {
@@ -50,7 +54,8 @@ def build_template(kind: str) -> dict[str, Any]:
             "goal_spec": {"priority": 4},
             "priority": 4.0,
             "scope": {"recovery_kind": manifest.KIND_BASELINE,
-                      "bar_types": list(ALT_BAR_CLOCKS)},
+                      "bar_types": list(ALT_BAR_CLOCKS),
+                      "recovery_manifest_version": version},
         }
     if kind == TEMPLATE_BLEND:
         return {
@@ -58,7 +63,8 @@ def build_template(kind: str) -> dict[str, Any]:
             "campaign_type": _HISTORICAL_RECOVERY,
             "goal_spec": {"priority": 3},
             "priority": 3.0,
-            "scope": {"recovery_kind": manifest.KIND_BLEND},
+            "scope": {"recovery_kind": manifest.KIND_BLEND,
+                      "recovery_manifest_version": version},
         }
     raise ValueError(f"unknown recovery template: {kind!r} (expected one of "
                      f"{ALL_TEMPLATES})")

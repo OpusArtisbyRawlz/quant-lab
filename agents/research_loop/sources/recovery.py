@@ -27,6 +27,7 @@ from typing import Any
 
 from agents.protocol import normalize_bar_type
 from agents import recovery
+from agents.storage import campaign_store
 from agents.research_loop.sources import (
     HypothesisSource,
     Proposal,
@@ -67,9 +68,18 @@ class HistoricalRecoverySource:
         sweep_clocks = sorted({normalize_bar_type(b) for b in sweep}) if sweep else None
         already = existing_specs(self._ctx, campaign_id)
 
+        # Immutable origin provenance for every recovered hypothesis. The manifest
+        # version + the campaign's own created_at (an existing, immutable value) make
+        # the timestamp a pure function of stored state — replay never regenerates it.
+        manifest_version = recovery.load_manifest().get("version", "unknown")
+        camp = campaign_store.get_campaign(campaign_id, db_path=self._ctx.db_path) or {}
+        recovery_ts = camp.get("created_at")
+
         out: list[Proposal] = []
         for s in strategies:
             hypothesis = s["hypothesis"]
+            prov = recovery.build_provenance(
+                s, manifest_version=manifest_version, recovery_timestamp=recovery_ts)
             # Alt-bar sweep applies only to strategies flagged eligible; others (and
             # the no-sweep case) use the strategy's own manifest bar_type.
             if sweep_clocks and s.get("alt_bar_eligible"):
@@ -89,6 +99,7 @@ class HistoricalRecoverySource:
                     rationale=f"recover {s['strategy_id']} from {s['project']}"
                               + (f" @ {bar_type} bars" if sweep_clocks else ""),
                     origin=_ORIGIN,
+                    metadata={"provenance": dict(prov, origin_bar_type=bar_type)},
                 ))
         return out
 
