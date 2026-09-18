@@ -459,3 +459,58 @@ def test_operator_commands_go_through_campaign_manager(tmp_path):
     _run(db, "campaign", "stall", "c1")
     after = len(campaign_store.list_state_events("c1", db_path=db))
     assert after == before + 1
+
+
+# --- init (DB bootstrap) ---------------------------------------------------
+
+def test_init_bootstraps_db(tmp_path, capsys):
+    db = tmp_path / "fresh.db"
+    assert main(["--db", str(db), "init"]) == 0
+    assert "initialized factory DB" in capsys.readouterr().out
+    # usable afterwards
+    assert main(["--db", str(db), "status"]) == 0
+
+
+def test_init_is_idempotent(tmp_path):
+    db = tmp_path / "fresh.db"
+    assert main(["--db", str(db), "init"]) == 0
+    assert main(["--db", str(db), "init"]) == 0        # safe to re-run
+
+
+# --- recovery --------------------------------------------------------------
+
+def test_recovery_list(tmp_path, capsys):
+    db = _db(tmp_path)
+    assert _run(db, "recovery", "list") == 0
+    out = capsys.readouterr().out
+    assert "p03_spy_5d_direction" in out
+    assert "strategies" in out
+
+
+def test_recovery_verify_gate(tmp_path, capsys):
+    db = _db(tmp_path)
+    assert _run(db, "recovery", "verify") == 0
+    out = capsys.readouterr().out
+    assert "OK — every in-scope project" in out
+    for proj in ("project_03", "project_04", "project_05", "project_06"):
+        assert proj in out
+
+
+def test_recovery_create_draft_does_not_launch(tmp_path, capsys):
+    db = _db(tmp_path)
+    assert _run(db, "recovery", "create", "baseline") == 0
+    out = capsys.readouterr().out
+    assert "created recovery campaign recovery-baseline (DRAFT" in out
+    assert "will recover" in out
+    # created in DRAFT — nothing ran (no experiments)
+    cm = CampaignManager(db_path=db)
+    assert cm.current_state("recovery-baseline") == "DRAFT"
+    from agents.storage import campaign_store
+    assert campaign_store.count_campaign_experiments("recovery-baseline", db_path=db) == 0
+
+
+def test_recovery_create_duplicate_fails(tmp_path, capsys):
+    db = _db(tmp_path)
+    _run(db, "recovery", "create", "baseline")
+    assert _run(db, "recovery", "create", "baseline") == 2
+    assert "already exists" in capsys.readouterr().err

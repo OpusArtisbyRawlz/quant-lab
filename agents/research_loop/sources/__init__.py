@@ -215,3 +215,4 @@ def _make_strategist_source(context: SourceContext) -> HypothesisSource:
 from agents.research_loop.sources import bar_type as _bar_type  # noqa: E402,F401
 from agents.research_loop.sources import overlay as _overlay    # noqa: E402,F401
 from agents.research_loop.sources import replay as _replay      # noqa: E402,F401
+from agents.research_loop.sources import recovery as _recovery  # noqa: E402,F401
