@@ -20,6 +20,9 @@ from .manifest import (
     KIND_OVERLAY,
     KIND_DEPLOYMENT,
 )
+from .provenance import (
+    build_provenance, is_complete, read_idea_provenance, PROVENANCE_FIELDS,
+)
 
 __all__ = [
     "load_manifest",
@@ -32,4 +35,8 @@ __all__ = [
     "KIND_BLEND",
     "KIND_OVERLAY",
     "KIND_DEPLOYMENT",
+    "build_provenance",
+    "is_complete",
+    "read_idea_provenance",
+    "PROVENANCE_FIELDS",
 ]

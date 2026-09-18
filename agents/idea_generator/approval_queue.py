@@ -57,10 +57,18 @@ def enqueue(
     idea_id: str,
     *,
     cycle_id: str | None = None,
+    metadata: dict | None = None,
     db_path: Path = DB_PATH,
 ) -> str:
-    """Persist a validation-passing idea as `pending`. Returns the idea_id."""
-    metadata = {"scores": idea.scores or {}}
+    """Persist a validation-passing idea as `pending`. Returns the idea_id.
+
+    ``metadata`` (optional) is merged into the stored metadata JSON write-once at
+    enqueue — used to attach immutable provenance (e.g. the historical-recovery
+    origin chain). Existing callers that omit it are unchanged."""
+    stored_metadata = {"scores": idea.scores or {}}
+    if metadata:
+        stored_metadata.update(metadata)
+    metadata = stored_metadata
     with get_connection(db_path) as conn:
         conn.execute(
             """

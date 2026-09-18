@@ -539,6 +539,25 @@ def cmd_recovery_verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_recovery_provenance(args: argparse.Namespace) -> int:
+    """Show the immutable origin provenance of a recovered hypothesis/idea — which
+    project/notebook/commit/repository it came from, and the manifest version."""
+    from agents import recovery
+    prov = recovery.read_idea_provenance(args.idea_id, db_path=_db_path(args))
+    if prov is None:
+        print(f"error: no recovery provenance for idea: {args.idea_id}",
+              file=sys.stderr)
+        return 2
+    print(f"Provenance for {args.idea_id}:")
+    for k in ("origin_project", "origin_strategy_name", "origin_repository",
+              "origin_commit", "origin_branch", "origin_notebook", "origin_artifact",
+              "vendored_snapshot", "recovery_manifest_version", "recovery_timestamp"):
+        if k in prov:
+            print(f"  {k}: {prov[k]}")
+    print(f"  complete: {recovery.is_complete(prov)}")
+    return 0
+
+
 def cmd_recovery_create(args: argparse.Namespace) -> int:
     """Create a recovery campaign from a template (DRAFT by default). Nothing runs
     until it is activated and launched — the launch is a separate, gated step."""
@@ -697,6 +716,9 @@ def build_parser() -> argparse.ArgumentParser:
                      ).set_defaults(func=cmd_recovery_list)
     rsubc.add_parser("verify", help="verify enumeration coverage (pre-launch gate)"
                      ).set_defaults(func=cmd_recovery_verify)
+    rpv = rsubc.add_parser("provenance", help="show a recovered idea's origin provenance")
+    rpv.add_argument("idea_id")
+    rpv.set_defaults(func=cmd_recovery_provenance)
     rcc = rsubc.add_parser("create", help="create a recovery campaign from a template")
     rcc.add_argument("kind", choices=["baseline", "altbar", "blend"])
     rcc.add_argument("--id", help="campaign id (default: recovery-<kind>)")

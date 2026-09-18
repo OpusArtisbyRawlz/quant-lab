@@ -68,6 +68,31 @@ quant recovery create blend
 `create` leaves the campaign **DRAFT** and prints the strategies it would recover.
 Launching (activate + run) is a separate, deliberate step.
 
+## Immutable origin provenance
+
+Every recovered hypothesis carries an **immutable origin-provenance record** so it stays
+permanently traceable to its exact source. It reuses existing storage — no new tables:
+
+- **Per hypothesis/idea** — the record is written **write-once** into the existing
+  `pending_ideas.metadata` JSON at enqueue (`metadata.provenance`). Experiments and
+  evidence reference the idea by id, so the whole downstream chain resolves through one
+  lookup (no duplication).
+- **Per campaign** — the recovery campaign's genesis-event `scope` carries
+  `recovery_manifest_version` (append-only, immutable).
+
+Fields: `origin_project`, `origin_repository`, `origin_commit`, `origin_branch`,
+`origin_notebook`, `origin_artifact`, `origin_strategy_name`,
+`recovery_manifest_version`, `recovery_timestamp`, `vendored_snapshot` (+ `vendored_path`
+and `origin_bar_type`). For **Project 02** these point at the vendored notebook **and**
+the authoritative external GitHub repo/commit (read from the snapshot's
+`provenance.json`); for in-repo projects (03-06) they point at the quant-lab experiment.
+
+**Determinism:** `recovery_timestamp` is the campaign's own `created_at` (an existing,
+immutable value), not a fresh wall-clock read — so replay never regenerates it. The
+source converges (skips already-proposed candidates), so provenance is never rewritten.
+
+Inspect a hypothesis's origin: `quant recovery provenance <idea_id>`.
+
 ## Determinism & isolation
 
 The source enumerates in sorted manifest order, sorts alt-bar clocks, and skips

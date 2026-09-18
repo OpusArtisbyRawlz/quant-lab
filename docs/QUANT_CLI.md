@@ -36,6 +36,7 @@ quant status                       # campaign/portfolio counts
 
 quant recovery list                # enumerate historical strategies (manifest)
 quant recovery verify              # verify enumeration coverage (pre-launch gate)
+quant recovery provenance <idea_id>  # show a recovered hypothesis's origin chain
 quant recovery create {baseline|altbar|blend} [--id ID] [--activate]
 
 
