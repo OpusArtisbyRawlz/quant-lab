@@ -68,6 +68,26 @@ quant recovery create blend
 `create` leaves the campaign **DRAFT** and prints the strategies it would recover.
 Launching (activate + run) is a separate, deliberate step.
 
+## Advancing recovered ideas (the human gate)
+
+A recovery tick's `generate` phase does two things per recovered strategy, mirroring
+the ResearchStrategist: it **registers a root `hypothesis_node`** (so the strategy is a
+first-class M11 hypothesis) and **enqueues a `pending` idea** linked to that node. So
+after one tick you see, e.g., *3 hypotheses (nodes) + 3 pending ideas + 0 experiments*.
+
+Zero experiments is **expected** — the human approval gate. Only `approved` ideas are
+dispatched/executed (recovered ideas are never auto-approved). To advance the queue:
+
+```bash
+quant idea list                       # the pending recovered ideas
+quant idea approve <idea_id>          # human decision → executable pool
+quant campaign run <campaign_id>      # a tick dispatches + executes approved ideas
+```
+
+On execution the loop stamps the experiment back onto the idea's hypothesis node, and
+M11 records evidence against it (then Project 07 evaluates, authoritatively). Reject an
+idea with `quant idea reject <idea_id>`.
+
 ## Immutable origin provenance
 
 Every recovered hypothesis carries an **immutable origin-provenance record** so it stays

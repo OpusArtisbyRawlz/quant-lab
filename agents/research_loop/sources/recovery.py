@@ -28,6 +28,7 @@ from typing import Any
 from agents.protocol import normalize_bar_type
 from agents import recovery
 from agents.storage import campaign_store
+from agents.hypothesis_manager import HypothesisTreeManager
 from agents.research_loop.sources import (
     HypothesisSource,
     Proposal,
@@ -58,6 +59,10 @@ def _selected(scope: dict[str, Any]) -> list[dict[str, Any]]:
 class HistoricalRecoverySource:
     def __init__(self, context: SourceContext) -> None:
         self._ctx = context
+        # Reuse the existing hypothesis-tree pipeline (sole writer of hypothesis_node)
+        # so recovered strategies become first-class M11 hypotheses — exactly as the
+        # ResearchStrategist does. No parallel path.
+        self._tree = HypothesisTreeManager(db_path=context.db_path)
 
     def propose(self, campaign_id: str) -> list[Proposal]:
         scope = campaign_scope(self._ctx, campaign_id)
@@ -89,18 +94,37 @@ class HistoricalRecoverySource:
             for bar_type in clocks:
                 if (bar_type, hypothesis) in already:
                     continue
-                out.append(enqueue_proposal(
+                rationale = (f"recover {s['strategy_id']} from {s['project']}"
+                             + (f" @ {bar_type} bars" if sweep_clocks else ""))
+                # Register the recovered strategy as a root hypothesis node (the
+                # existing hypothesis-generation pipeline) with a DETERMINISTIC id, so
+                # it enters the M11 tree and — once approved + executed — the loop
+                # stamps its experiment onto the node and evidence links back to it.
+                node_id = f"rec_{campaign_id}_{s['strategy_id']}_{bar_type}"
+                if self._tree.get_node(node_id) is None:
+                    self._tree.create_root(
+                        campaign_id, hypothesis, node_id=node_id,
+                        signals=list(s["signals"]),
+                        market=s.get("market", ""),
+                        universe=s.get("universe", ""),
+                        bar_type=bar_type,
+                        rationale=rationale,
+                    )
+                proposal = enqueue_proposal(
                     self._ctx, campaign_id,
                     hypothesis=hypothesis,
                     signals=list(s["signals"]),
                     market=s.get("market", ""),
                     universe=s.get("universe", ""),
                     bar_type=bar_type,
-                    rationale=f"recover {s['strategy_id']} from {s['project']}"
-                              + (f" @ {bar_type} bars" if sweep_clocks else ""),
+                    rationale=rationale,
                     origin=_ORIGIN,
                     metadata={"provenance": dict(prov, origin_bar_type=bar_type)},
-                ))
+                )
+                # Link idea -> node so the loop's _stamp_node_experiment propagates
+                # the executed experiment back onto the hypothesis node.
+                self._tree.link_idea(node_id, proposal.idea_id)
+                out.append(proposal)
         return out
 
 

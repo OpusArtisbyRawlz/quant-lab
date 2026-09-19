@@ -514,3 +514,39 @@ def test_recovery_create_duplicate_fails(tmp_path, capsys):
     _run(db, "recovery", "create", "baseline")
     assert _run(db, "recovery", "create", "baseline") == 2
     assert "already exists" in capsys.readouterr().err
+
+
+# --- idea approval gate (advances pending ideas) ---------------------------
+
+def test_idea_list_and_approve(tmp_path, capsys):
+    db = _db(tmp_path)
+    _seed(db)
+    from agents.storage import campaign_store
+    # a pending idea attributed to a campaign
+    from agents.idea_generator import approval_queue
+    from agents.protocol import ProposedIdea
+    idea = ProposedIdea(hypothesis="h", suggested_signals=("s",), source_model="m")
+    iid = approval_queue.make_idea_id(idea, db_path=db)
+    approval_queue.enqueue(idea, iid, db_path=db)
+    assert _run(db, "idea", "list") == 0
+    assert iid in capsys.readouterr().out
+    assert _run(db, "idea", "approve", iid) == 0
+    assert "approved" in capsys.readouterr().out
+    assert any(i["idea_id"] == iid for i in approval_queue.list_approved(db_path=db))
+
+
+def test_idea_approve_invalid_fails(tmp_path, capsys):
+    db = _db(tmp_path)
+    assert _run(db, "idea", "approve", "nope") == 2
+    assert "no pending idea to approve" in capsys.readouterr().err
+
+
+def test_idea_reject(tmp_path, capsys):
+    db = _db(tmp_path)
+    from agents.idea_generator import approval_queue
+    from agents.protocol import ProposedIdea
+    idea = ProposedIdea(hypothesis="h2", suggested_signals=("s",), source_model="m")
+    iid = approval_queue.make_idea_id(idea, db_path=db)
+    approval_queue.enqueue(idea, iid, db_path=db)
+    assert _run(db, "idea", "reject", iid) == 0
+    assert not approval_queue.list_pending(db_path=db)

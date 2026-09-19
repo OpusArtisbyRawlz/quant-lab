@@ -39,6 +39,10 @@ quant recovery verify              # verify enumeration coverage (pre-launch gat
 quant recovery provenance <idea_id>  # show a recovered hypothesis's origin chain
 quant recovery create {baseline|altbar|blend} [--id ID] [--activate]
 
+quant idea list [--status pending|approved|executing|executed|rejected]
+quant idea approve <idea_id> [--note ...]   # human gate → advances into the executable pool
+quant idea reject  <idea_id> [--note ...]
+
 
 quant campaign list                # id, state, type, priority, portfolio, progress
 quant campaign create [--id ID] [--theme T] [--priority P] [--budget N]

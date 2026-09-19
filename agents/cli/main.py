@@ -586,6 +586,45 @@ def cmd_recovery_create(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# idea (human approval gate — advances pending ideas into the executable pool)
+# --------------------------------------------------------------------------- #
+
+def cmd_idea_list(args: argparse.Namespace) -> int:
+    """List ideas by status (default: pending). Recovered strategies land here as
+    `pending` — the human approval gate — until approved."""
+    from agents.idea_generator import approval_queue
+    rows = approval_queue.list_by_status(args.status, db_path=_db_path(args))
+    out = [[r["idea_id"], r.get("status", ""), r.get("bar_type", ""),
+            r.get("campaign_id") or "-", (r.get("hypothesis") or "")[:60]]
+           for r in rows]
+    print(_fmt_table(out, ["IDEA", "STATUS", "BAR", "CAMPAIGN", "HYPOTHESIS"]))
+    print(f"\n{len(rows)} {args.status} idea(s)")
+    return 0
+
+
+def cmd_idea_approve(args: argparse.Namespace) -> int:
+    """Approve a pending idea (human decision) so a ResearchLoop tick can dispatch +
+    execute it via the unchanged executor. Reuses approval_queue.approve_idea."""
+    from agents.idea_generator import approval_queue
+    ok = approval_queue.approve_idea(args.idea_id, note=args.note, db_path=_db_path(args))
+    if not ok:
+        print(f"error: no pending idea to approve: {args.idea_id}", file=sys.stderr)
+        return 2
+    print(f"approved {args.idea_id} — run a tick (quant campaign run <id>) to execute")
+    return 0
+
+
+def cmd_idea_reject(args: argparse.Namespace) -> int:
+    from agents.idea_generator import approval_queue
+    ok = approval_queue.reject_idea(args.idea_id, note=args.note, db_path=_db_path(args))
+    if not ok:
+        print(f"error: no pending idea to reject: {args.idea_id}", file=sys.stderr)
+        return 2
+    print(f"rejected {args.idea_id}")
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # interactive shell (lightweight; NOT an LLM)
 # --------------------------------------------------------------------------- #
 
@@ -708,6 +747,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("init", help="bootstrap the factory DB (create tables; idempotent)"
                    ).set_defaults(func=cmd_init)
+
+    # idea (human approval gate)
+    idea = sub.add_parser("idea", help="review/approve pending ideas (the human gate)")
+    isub = idea.add_subparsers(dest="sub", required=True)
+    il = isub.add_parser("list", help="list ideas by status (default pending)")
+    il.add_argument("--status", default="pending",
+                    help="pending|approved|executing|executed|rejected")
+    il.set_defaults(func=cmd_idea_list)
+    ia = isub.add_parser("approve", help="approve a pending idea")
+    ia.add_argument("idea_id")
+    ia.add_argument("--note", default="")
+    ia.set_defaults(func=cmd_idea_approve)
+    ir = isub.add_parser("reject", help="reject a pending idea")
+    ir.add_argument("idea_id")
+    ir.add_argument("--note", default="")
+    ir.set_defaults(func=cmd_idea_reject)
 
     # recovery (Historical Strategy Recovery)
     rec = sub.add_parser("recovery", help="historical strategy recovery (manifest-driven)")
