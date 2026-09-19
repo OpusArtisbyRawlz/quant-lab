@@ -205,3 +205,47 @@ def test_recovery_modules_have_no_chrysos_coupling():
                 names.append(node.module or "")
         joined = " ".join(names).lower()
         assert "chrysos" not in joined
+
+
+# --- recovery connects ideas to the hypothesis-generation pipeline ----------
+
+def test_recovery_creates_linked_hypothesis_nodes(tmp_path):
+    """Recovered strategies become first-class hypothesis nodes (like the
+    strategist), linked to their pending idea — closing the pending-idea ->
+    hypothesis-tree connection."""
+    from agents.storage import hypothesis_store
+    db = _db(tmp_path)
+    cm = CampaignManager(db_path=db)
+    cm.create_campaign("c", **templates.build_template("baseline")); cm.activate("c")
+    props = _source(db).propose("c")
+    nodes = hypothesis_store.list_nodes("c", db_path=db)
+    assert len(nodes) == len(props)                    # one node per recovered idea
+    for p in props:
+        node = hypothesis_store.get_node_by_idea(p.idea_id, db_path=db)
+        assert node is not None                        # idea linked to a node
+        assert node["parent_id"] is None               # root hypothesis
+
+
+def test_recovery_nodes_are_deterministic_and_converge(tmp_path):
+    from agents.storage import hypothesis_store
+    db = _db(tmp_path)
+    cm = CampaignManager(db_path=db)
+    cm.create_campaign("c", **templates.build_template("baseline")); cm.activate("c")
+    src = _source(db)
+    src.propose("c")
+    ids1 = sorted(n["node_id"] for n in hypothesis_store.list_nodes("c", db_path=db))
+    src.propose("c")                                   # re-tick converges
+    ids2 = sorted(n["node_id"] for n in hypothesis_store.list_nodes("c", db_path=db))
+    assert ids1 == ids2                                # no duplicate nodes
+
+
+def test_recovery_ideas_start_pending(tmp_path):
+    """The experiments stay 0 until approval — the human gate is intact."""
+    from agents.idea_generator import approval_queue
+    db = _db(tmp_path)
+    cm = CampaignManager(db_path=db)
+    cm.create_campaign("c", **templates.build_template("baseline")); cm.activate("c")
+    props = _source(db).propose("c")
+    pending = {i["idea_id"] for i in approval_queue.list_pending(db_path=db)}
+    assert {p.idea_id for p in props} <= pending
+    assert approval_queue.list_approved(db_path=db) == []
