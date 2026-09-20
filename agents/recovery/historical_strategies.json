@@ -70,13 +70,14 @@
       "kind": "baseline",
       "hypothesis": "Cross-sectional long/short on ML 5-day return forecasts, top/bottom 20% (LS 20%).",
       "signals": [
-        "hist_p04_return_forecast_v1"
+        "hist_p04_ls20_v1"
       ],
       "market": "US_EQUITY",
-      "universe": "project_04_universe",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": true,
-      "mapping_status": "ml_model"
+      "mapping_status": "ported",
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p04_ls30",
@@ -85,13 +86,14 @@
       "kind": "baseline",
       "hypothesis": "Cross-sectional long/short on ML 5-day return forecasts, top/bottom 30% (LS 30%); more diversified, lower drawdown.",
       "signals": [
-        "hist_p04_return_forecast_v1"
+        "hist_p04_ls30_v1"
       ],
       "market": "US_EQUITY",
-      "universe": "project_04_universe",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": true,
-      "mapping_status": "ml_model"
+      "mapping_status": "ported",
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p05_risk_engine_smooth_dd",
@@ -130,13 +132,14 @@
       "kind": "blend",
       "hypothesis": "Blend 60% LS20 + 40% LS30 (the project's primary alpha driver \u2014 best risk/return balance).",
       "signals": [
-        "hist_p04_return_forecast_v1"
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
       ],
       "market": "US_EQUITY",
-      "universe": "project_04_universe",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "ml_model",
+      "mapping_status": "composition",
       "blend": {
         "components": [
           "p04_ls20",
@@ -146,7 +149,8 @@
           0.6,
           0.4
         ]
-      }
+      },
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p04_blend_50_50_ls20_ls30",
@@ -155,13 +159,14 @@
       "kind": "blend",
       "hypothesis": "Blend 50% LS20 + 50% LS30.",
       "signals": [
-        "hist_p04_return_forecast_v1"
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
       ],
       "market": "US_EQUITY",
-      "universe": "project_04_universe",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "ml_model",
+      "mapping_status": "composition",
       "blend": {
         "components": [
           "p04_ls20",
@@ -171,7 +176,8 @@
           0.5,
           0.5
         ]
-      }
+      },
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p04_blend_70_30_ls20_ls30",
@@ -180,13 +186,14 @@
       "kind": "blend",
       "hypothesis": "Blend 70% LS20 + 30% LS30.",
       "signals": [
-        "hist_p04_return_forecast_v1"
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
       ],
       "market": "US_EQUITY",
-      "universe": "project_04_universe",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "ml_model",
+      "mapping_status": "composition",
       "blend": {
         "components": [
           "p04_ls20",
@@ -196,7 +203,8 @@
           0.7,
           0.3
         ]
-      }
+      },
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p04_blend_40_60_ls20_ls30",
@@ -205,13 +213,14 @@
       "kind": "blend",
       "hypothesis": "Blend 40% LS20 + 60% LS30.",
       "signals": [
-        "hist_p04_return_forecast_v1"
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
       ],
       "market": "US_EQUITY",
-      "universe": "project_04_universe",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "ml_model",
+      "mapping_status": "composition",
       "blend": {
         "components": [
           "p04_ls20",
@@ -221,7 +230,8 @@
           0.4,
           0.6
         ]
-      }
+      },
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     }
   ]
 }

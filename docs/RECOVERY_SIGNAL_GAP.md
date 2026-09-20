@@ -72,7 +72,8 @@ None are registered, so **0 of 10 recovered strategies are executable today**
 | Strategy | mapping | missing signals | nature of the gap |
 | --- | --- | --- | --- |
 | p03_spy_5d_direction | clean | return_5d/10d/20d, rv20, ma_distance_20, **rsi_14**, **volume_ratio** | single-asset (SPY) technical features; `return_*`≈`ret_*`, `rv20`≈`vol_20`, `ma_distance_20`≈`ma_20_ratio`, but **rsi_14 and volume_ratio are computed nowhere in `src/`**, and P03 is a single-asset logistic classifier, not the cross-sectional LS the engine runs |
-| p04_ls20 / p04_ls30 / p04_blend_* | ml_model | **ml_return_forecast_5d** | an **ML model output**, not a raw signal — requires the P04 forecast model, not a registry entry |
+| p04_ls20 / p04_ls30 | ~~ml_model~~ **ported (2026-09-20)** | — (none) | **RESOLVED.** Ported as `hist_p04_ls20_v1` / `hist_p04_ls30_v1` — the authoritative `combined_signal` (z(v1.pred_flipped)+z(v2.pred)) ±1 LS membership. Replays exactly (LS20 1.516 / LS30 1.418) through the unmodified runner. See P04_FIDELITY_ANALYSIS.md. |
+| p04_blend_* | composition | — | blends are weighted combinations of the LS20/LS30 **return** series (a portfolio of the two ported books), not a standalone cross-sectional signal |
 | p05_risk_engine_smooth_dd | overlay | **smooth_drawdown_exposure** | a **risk overlay** on an equity curve — not a cross-sectional signal at all |
 | p06_deployment_candidate_v1 | deployment | **deployment_candidate_v1** | a **deployment config/validation**, not a signal |
 | p02_volatility_regime | ml_model | RV5_trail, RV20_trail, RV5_fwd_ann, VolRatio | the vendored vol-regime model (single-asset SPY); features exist only inside the vendored notebook |

@@ -1,5 +1,48 @@
 # P04 fidelity analysis — why recovered Sharpe ≈ 0.36 vs original ≈ 1.5
 
+> ## ⚠️ CORRECTION (2026-09-20) — this analysis's central conclusion was WRONG
+>
+> This document originally concluded that the authoritative LS20 construction (Sharpe
+> **1.516**) was **"under-specified in the repo"** and that no faithful reconstruction
+> from committed inputs correlated above **~0.10**. **That conclusion was incorrect.**
+> The authoritative generator was in the repository the whole time, at
+> `research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb`
+> (cells 4, 7, 9, 117-130).
+>
+> **Why the mistake happened.** The reconstructions here used the **v1 forecast alone**
+> (`pred_flipped`), ranked and equal-weighted. The authoritative strategy does **not**
+> trade `pred_flipped` alone — it trades a **combined signal**:
+> `combined_signal = z(v1.pred_flipped) + z(v2.pred)` over the **v1 ∩ v2** panel, where
+> `z` is the per-date z-score `(x - mean)/std`. Ranking that combined signal (top/bottom
+> 20 % for LS20, 30 % for LS30) and equal-weighting reproduces the published numbers.
+> The ~0.10 correlations reported below reflect the wrong (single-forecast) basket, not
+> a genuine evidence gap. Only the first ~30 of the notebook's 138 cells were read
+> during the original pass, so the `signal_v2` merge and the z-score/combine/rank cells
+> (7/9/117-130) were missed. See `docs/P04_RECOVERY_FORENSICS.md` for the same
+> correction on the forensic side.
+>
+> **Corrected, verified result (through the *unmodified* factory runner).** With the
+> ported books `hist_p04_ls20_v1` / `hist_p04_ls30_v1` (which encode the combined-signal
+> ±1 LS membership) run over the date-scoped recovery universe
+> (`data/raw/project_04_universe_recovery`, 2016-01-04…2026-03-06, 2558 dates):
+>
+> | Strategy | Notebook (published) | Factory replay | Δ |
+> | --- | --- | --- | --- |
+> | LS20 | Sharpe **1.5160**, MDD **-0.6553** | Sharpe **1.5160**, MDD **-0.6553** | **0.000 / 0.000** |
+> | LS30 | Sharpe **1.4176**, MDD **-0.5490** | Sharpe **1.4176**, MDD **-0.5490** | **0.000 / 0.000** |
+>
+> So of the two "causes" below, **cause #1 (un-reproduced construction) was a mistake of
+> ours, now closed** — the construction *is* fully specified and reproduces exactly.
+> **Cause #2 (date-window zero-padding) was real** and is resolved by scoping the
+> recovery universe to the strategy's own 2016-2026 window (recommendation **A**, now
+> implemented in `agents/recovery/build_p04_recovery_universe.py`). `max_weight=0.05` is
+> confirmed a no-op for the balanced 20-name book. No engine change was needed.
+>
+> Everything below this banner is the **original (superseded) analysis**, preserved
+> verbatim so the correction is auditable.
+
+---
+
 **Investigation only. No engine changes, no fixes, no methodology changes.** All
 numbers are reproducible via
 `research/project_04_return_forecast_alpha/fidelity_evidence.py`.

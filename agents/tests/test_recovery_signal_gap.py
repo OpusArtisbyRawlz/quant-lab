@@ -27,8 +27,9 @@ def test_registered_is_subset_of_known_signals():
 
 
 def test_project_04_executable_after_registration():
-    """P04's ML forecast is ported (hist_p04_return_forecast_v1), so all six P04
-    strategies are now executable; P02/P03/P05/P06 remain blocked pending their ports."""
+    """P04's authoritative books are ported (hist_p04_ls20_v1 / hist_p04_ls30_v1), so
+    all six P04 strategies are now executable; P02/P03/P05/P06 remain blocked pending
+    their ports."""
     r = signal_gap.executable_readiness()
     assert set(r["executable"]) == {
         "p04_ls20", "p04_ls30",
@@ -47,8 +48,9 @@ def test_missing_signals_are_the_original_names():
     for s in ("RV5_trail", "RV20_trail", "VolRatio", "rsi_14", "volume_ratio",
               "smooth_drawdown_exposure", "deployment_candidate_v1"):
         assert s in missing
-    # P04's forecast is now registered — no longer missing.
-    assert "hist_p04_return_forecast_v1" not in missing
+    # P04's ported books are now registered — no longer missing.
+    assert "hist_p04_ls20_v1" not in missing
+    assert "hist_p04_ls30_v1" not in missing
 
 
 def test_readiness_is_deterministic():
