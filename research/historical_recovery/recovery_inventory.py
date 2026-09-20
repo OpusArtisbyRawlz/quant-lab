@@ -30,13 +30,35 @@ MANIFEST = REPO_ROOT / "agents" / "recovery" / "historical_strategies.json"
 
 # Canonical column schema for every candidate row.
 COLUMNS = [
-    "recovery_id", "project", "strategy_name", "strategy_family", "variant",
+    "recovery_id", "project", "research_family", "layer", "underlying_base",
+    "strategy_name", "strategy_family", "variant",
     "source_notebook", "source_file", "source_commit", "historical_role",
     "historically_selected", "orig_sharpe", "orig_cagr", "orig_vol", "orig_mdd",
     "orig_calmar", "recovery_status", "executable_status", "fidelity_status",
     "factory_experiment_id", "factory_sharpe", "factory_mdd", "project07_status",
     "blocker", "provenance_link",
 ]
+
+# Research family per project (the five research programs).
+RESEARCH_FAMILY = {
+    "project_02_volatility_regime": "volatility_regime",
+    "project_03_directional_alpha": "directional_classification",
+    "project_04_return_forecast_alpha": "return_forecast_ls",
+    "project_05_risk_engine": "risk_overlay",
+    "project_06_deployment_validation": "deployment_validation",
+}
+
+# The recovery_ids that are genuine BASE strategies (position-generating roots).
+# Everything else in a family is a variant (signal modification / model alternative),
+# an overlay (risk layer on a base), a deployment (deployment config on the portfolio),
+# or a reference benchmark. Layer classification lives in ``_classify_layers``.
+_BASE_IDS = {
+    "p02_volatility_regime",
+    "p03_logistic_5d",
+    "p04_ls_20pct",
+    "p04_ls_30pct",
+}
+_REFERENCE_IDS = {"p03_naive_up_baseline"}
 
 _NA = None
 
@@ -281,10 +303,47 @@ def p06_candidates() -> list[dict[str, Any]]:
 # --------------------------------------------------------------------------- #
 # Assembly + enrichment from the authoritative manifest / factory DB
 # --------------------------------------------------------------------------- #
+def _classify_layers(df: pd.DataFrame) -> pd.DataFrame:
+    """Assign research_family, layer, and underlying_base with NO double counting:
+    every row is exactly one of base / variant / overlay / deployment / reference."""
+    for i, r in df.iterrows():
+        proj = r["project"]
+        rid = r["recovery_id"]
+        df.at[i, "research_family"] = RESEARCH_FAMILY.get(proj, proj)
+        if rid in _REFERENCE_IDS:
+            layer = "reference"
+        elif rid in _BASE_IDS:
+            layer = "base"
+        elif proj == "project_05_risk_engine":
+            layer = "overlay"
+        elif proj == "project_06_deployment_validation":
+            layer = "deployment"
+        else:
+            layer = "variant"          # P03 RF, all non-base P04 transforms/blends
+        df.at[i, "layer"] = layer
+        # underlying_base: which base book this row modifies/overlays (for traceability).
+        if layer == "base":
+            df.at[i, "underlying_base"] = rid
+        elif proj == "project_04_return_forecast_alpha":
+            nm = str(r["strategy_name"])
+            df.at[i, "underlying_base"] = (
+                "p04_ls_30pct" if ("LS 30" in nm and "LS 20" not in nm)
+                else "p04_ls_20pct+p04_ls_30pct" if "Blend" in nm
+                else "p04_ls_20pct")
+        elif proj == "project_05_risk_engine":
+            df.at[i, "underlying_base"] = f"p04::{r['variant']}"
+        elif proj == "project_06_deployment_validation":
+            df.at[i, "underlying_base"] = "p05_weighted_multi_strategy"
+        elif proj == "project_03_directional_alpha":
+            df.at[i, "underlying_base"] = "p03_logistic_5d"
+    return df
+
+
 def build_inventory() -> pd.DataFrame:
     rows = (p02_candidates() + p03_candidates() + p04_candidates()
             + p05_candidates() + p06_candidates())
     df = pd.DataFrame(rows, columns=COLUMNS)
+    df = _classify_layers(df)
     return _enrich(df)
 
 
@@ -347,6 +406,42 @@ def _enrich(df: pd.DataFrame) -> pd.DataFrame:
                     f"delta={round(abs(os_-fs_),4)}")
             df.at[i, "provenance_link"] = "docs/P04_RECOVERY_RESULT.md"
     return df
+
+
+def taxonomy(df: pd.DataFrame) -> dict[str, Any]:
+    """The non-overlapping category breakdown the recovery program is reported in.
+
+    Every catalogued row is exactly one layer, so the categories partition the total:
+        base + variant + overlay + deployment + reference == len(df)
+
+    - research_families: distinct research programs (a grouping label, orthogonal).
+    - base_strategies:   position-generating roots (layer == base).
+    - variants:          signal/model modifications of a base (layer == variant).
+    - overlay/deployment: risk-overlay & deployment permutations of the same
+                          underlyings ("merely overlays") — recorded separately.
+    - materially_distinct_strategies = base + variant.
+    - replay_candidates = base + variant + overlay + deployment (excludes reference).
+    """
+    def n(mask) -> int:
+        return int(mask.sum())
+    L = df["layer"]
+    base, var = n(L == "base"), n(L == "variant")
+    overlay, deploy = n(L == "overlay"), n(L == "deployment")
+    ref = n(L == "reference")
+    return {
+        "research_families": int(df["research_family"].nunique()),
+        "research_family_names": sorted(df["research_family"].dropna().unique().tolist()),
+        "historical_base_strategies": base,
+        "historical_variants": var,
+        "overlay_permutations": overlay,
+        "deployment_permutations": deploy,
+        "reference_benchmarks": ref,
+        "materially_distinct_strategies": base + var,
+        "replay_candidates": base + var + overlay + deploy,
+        "total_catalogued_rows": len(df),
+        "by_layer": df.groupby("layer").size().to_dict(),
+        "by_family_layer": df.groupby(["research_family", "layer"]).size().unstack(fill_value=0).to_dict(),
+    }
 
 
 def counts(df: pd.DataFrame) -> dict[str, Any]:

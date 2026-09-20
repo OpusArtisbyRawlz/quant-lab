@@ -42,10 +42,22 @@ Quick count without Jupyter:
 PYTHONPATH=../.. python recovery_inventory.py
 ```
 
-## Scope note
+## Scope note — how the inventory is counted
 
-The inventory enumerates **materially distinct strategies actually tested** across Projects
-02–06, including blends, transform variants, per-strategy overlay combinations, and
-deployment challengers. The recovery *manifest* is a curated subset (the human-approved
-recovery scope); the inventory is the full discovered set, so the two counts differ by
-design.
+The catalog is reported as a **non-overlapping taxonomy** (`recovery_inventory.taxonomy`).
+Every catalogued row is exactly one `layer`, so the categories partition the total and
+nothing is double-counted:
+
+- **Research families** — the distinct research programs (a grouping label, orthogonal to
+  the partition).
+- **Historical base strategies** — position-generating roots (`layer == base`).
+- **Historical variants** — signal/model modifications of a base (`layer == variant`).
+- **Overlay / deployment permutations** — risk-overlay (P05) and deployment (P06)
+  configurations of the *same* underlyings; these are "merely overlays," recorded
+  separately so they do not inflate the count of distinct strategies.
+- **Reference benchmarks** — non-tradable references (e.g. a naive baseline).
+
+From these: **materially distinct strategies = base + variants**, and **replay candidates
+= base + variants + overlay + deployment** (reference benchmarks excluded). The recovery
+*manifest* is a curated subset (the human-approved recovery scope); this inventory is the
+full discovered set, so the two counts differ by design.
