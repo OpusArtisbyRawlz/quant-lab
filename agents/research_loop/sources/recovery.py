@@ -110,6 +110,13 @@ class HistoricalRecoverySource:
                         bar_type=bar_type,
                         rationale=rationale,
                     )
+                # A recovered overlay strategy (Project 05) carries its exact
+                # {method, floor, k} in the idea metadata (write-once, beside
+                # provenance) so spec_builder threads it to the executor's overlay
+                # stage. Absent for non-overlay strategies ⇒ no overlay.
+                idea_meta = {"provenance": dict(prov, origin_bar_type=bar_type)}
+                if s.get("overlay"):
+                    idea_meta["overlay"] = dict(s["overlay"])
                 proposal = enqueue_proposal(
                     self._ctx, campaign_id,
                     hypothesis=hypothesis,
@@ -119,7 +126,7 @@ class HistoricalRecoverySource:
                     bar_type=bar_type,
                     rationale=rationale,
                     origin=_ORIGIN,
-                    metadata={"provenance": dict(prov, origin_bar_type=bar_type)},
+                    metadata=idea_meta,
                 )
                 # Link idea -> node so the loop's _stamp_node_experiment propagates
                 # the executed experiment back onto the hypothesis node.

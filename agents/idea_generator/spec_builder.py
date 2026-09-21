@@ -44,6 +44,12 @@ def idea_to_spec(
         except (json.JSONDecodeError, TypeError):
             signals = []
 
+    # Historical recovery: an optional risk overlay rides in the idea metadata
+    # (write-once, alongside provenance), so a recovered overlay strategy carries its
+    # exact {method, floor, k} through to the executor. Absent ⇒ no overlay.
+    meta = idea_row.get("metadata")
+    overlay = meta.get("overlay") if isinstance(meta, dict) else None
+
     return ExperimentSpec(
         hypothesis=idea_row.get("hypothesis", ""),
         market=idea_row.get("market", "") or "unknown",
@@ -55,6 +61,7 @@ def idea_to_spec(
         success_criteria=dict(success_criteria or _DEFAULT_SUCCESS_CRITERIA),
         expected_improvement="Positive net Sharpe vs. random (LLM-proposed idea)",
         bar_type=normalize_bar_type(idea_row.get("bar_type")),
+        overlay=overlay,
         project=project,
         notes=f"Auto-generated from approved idea {idea_row.get('idea_id', '?')} "
               f"(source_model={idea_row.get('source_model', '?')}).",
