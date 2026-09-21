@@ -36,6 +36,7 @@ def test_project_04_and_05_executable_after_registration():
         "p04_blend_40_60_ls20_ls30", "p04_blend_50_50_ls20_ls30",
         "p04_blend_60_40_ls20_ls30", "p04_blend_70_30_ls20_ls30",
         "p05_smooth_dd_ls20", "p05_smooth_dd_ls30",
+        "p05_final_portfolio",
     }
     assert set(r["blocked"]) == {
         "p02_volatility_regime", "p03_spy_5d_direction",

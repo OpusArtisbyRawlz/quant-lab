@@ -314,6 +314,88 @@ def _apply_overlay(portfolio_returns, overlay: dict):
     raise ValueError(f"Unknown overlay method: {method!r}")
 
 
+def _child_return_stream(child: dict, base_panel, periods_per_year) -> "pd.Series":
+    """Return one child's gross return stream, computed through the SAME pipeline.
+
+    Leaf child: apply its signal combo → optional weight-level overlay → portfolio
+    returns. Nested child: recursively compose its own children. Either way, an
+    optional per-child return-level overlay is applied last. No child signal is
+    recomputed here — leaf books reuse ``apply_signal_combo``/``_portfolio_returns``.
+    """
+    from src.portfolio.composite import combine_returns
+    nested = child.get("portfolio")
+    if nested:
+        sub = [
+            (c["child_id"], _child_return_stream(c, base_panel, periods_per_year), c["weight"])
+            for c in sorted(nested["children"], key=lambda x: x["child_id"])
+        ]
+        ret = combine_returns(sub)
+        if nested.get("overlay"):
+            ret = _apply_overlay(ret, nested["overlay"])
+    else:
+        panel = apply_signal_combo(base_panel, signal_names=child["features"])
+        if child.get("weight_overlay"):
+            from src.risk.weight_overlay import apply_weight_overlay
+            panel = apply_weight_overlay(panel, child["weight_overlay"])
+        ret = _portfolio_returns(panel)
+    if child.get("overlay"):
+        ret = _apply_overlay(ret, child["overlay"])
+    return ret
+
+
+def _run_portfolio_pipeline(spec: ExperimentSpec, data_dict, periods_per_year):
+    """Compose a multi-strategy portfolio from child return streams and build metrics.
+
+    The children execute through the normal pipeline (``_child_return_stream``); this
+    layer only weights, combines (deterministic child order), and applies the
+    portfolio-level overlay. Composite metrics are gross (the historical multi-strategy
+    portfolios are gross); net/turnover are not separately modelled for a composite and
+    are recorded as None rather than fabricated.
+    """
+    from src.portfolio.composite import PortfolioSpec, combine_returns
+    from agents.experiment_runner.metrics_writer import compute_metrics
+
+    pf = PortfolioSpec.from_dict(spec.portfolio)
+    pf.validate()
+    base_panel = run_market_alpha_pipeline(data_dict)
+
+    streams = [
+        (c.child_id, _child_return_stream(_child_to_dict(c), base_panel, periods_per_year), c.weight)
+        for c in pf.ordered_children()
+    ]
+    portfolio_returns = combine_returns(streams)
+    if pf.overlay:
+        portfolio_returns = _apply_overlay(portfolio_returns, pf.overlay)
+
+    gross = dict(compute_metrics(portfolio_returns, periods_per_year))
+    metrics = dict(gross)
+    # Composite costs are not separately modelled (historical portfolios are gross);
+    # record net == gross and null turnover/cost rather than inventing figures.
+    metrics["net"] = dict(gross)
+    for k in ("turnover_annualized", "turnover_average_period",
+              "transaction_cost_annualized", "slippage_annualized", "cost_drag_annualized"):
+        metrics[k] = None
+    metrics["robustness"] = {"subperiod_sharpes": [], "parameter_sensitivity": {}}
+    metrics["robustness_flags"] = {}
+
+    variant_row = {
+        "Strategy": pf.portfolio_id,
+        "Sharpe": gross.get("sharpe"), "MDD": gross.get("mdd"),
+        "CAGR": gross.get("cagr"), "Vol": gross.get("vol"), "Calmar": gross.get("calmar"),
+        "Net Sharpe": gross.get("sharpe"), "Net MDD": gross.get("mdd"),
+    }
+    return metrics, variant_row
+
+
+def _child_to_dict(c) -> dict:
+    """PortfolioChild → the plain dict shape _child_return_stream consumes."""
+    return {
+        "child_id": c.child_id, "weight": c.weight, "features": c.features,
+        "portfolio": c.portfolio.to_dict() if c.portfolio else None,
+        "overlay": c.overlay, "weight_overlay": c.weight_overlay,
+    }
+
+
 def _run_pipeline(
     spec: ExperimentSpec,
     data_dict: dict[str, pd.DataFrame],
@@ -339,6 +421,12 @@ def _run_pipeline(
     """
     if periods_per_year is None:
         periods_per_year = cost_config.periods_per_year
+
+    # Multi-strategy composite portfolio (default None ⇒ single-strategy path below,
+    # byte-for-byte unchanged). Children execute through this same pipeline.
+    if getattr(spec, "portfolio", None):
+        return _run_portfolio_pipeline(spec, data_dict, periods_per_year)
+
     # Build panel with features and forward returns
     base_panel = run_market_alpha_pipeline(data_dict)
 

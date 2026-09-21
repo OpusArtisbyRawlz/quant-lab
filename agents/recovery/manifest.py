@@ -32,7 +32,8 @@ KIND_BASELINE = "baseline"
 KIND_BLEND = "blend"
 KIND_OVERLAY = "overlay"
 KIND_DEPLOYMENT = "deployment"
-ALL_KINDS = (KIND_BASELINE, KIND_BLEND, KIND_OVERLAY, KIND_DEPLOYMENT)
+KIND_PORTFOLIO = "portfolio"   # composite multi-strategy portfolio (PortfolioSpec)
+ALL_KINDS = (KIND_BASELINE, KIND_BLEND, KIND_OVERLAY, KIND_DEPLOYMENT, KIND_PORTFOLIO)
 
 _REQUIRED_FIELDS = ("strategy_id", "project", "kind", "hypothesis", "signals",
                     "market", "universe", "bar_type")
