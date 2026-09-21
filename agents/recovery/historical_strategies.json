@@ -138,6 +138,97 @@
       "mapping_status": "ported"
     },
     {
+      "strategy_id": "p05_final_portfolio",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "portfolio",
+      "hypothesis": "P05 final weighted multi-strategy portfolio: 0.5 ls20+sqrt_partial_norm + 0.3 blend_60_40 + 0.2 ls30, strategy- and portfolio-level smooth-DD (k=5, floor=0.55).",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_final_portfolio",
+        "universe": "project_04_universe_recovery",
+        "weighting": "fixed",
+        "rebalance": "daily",
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        },
+        "children": [
+          {
+            "child_id": "a_ls20_sqrt_partial_norm",
+            "weight": 0.5,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime_partial",
+              "a": 0.5,
+              "b": 0.5
+            },
+            "overlay": {
+              "method": "smooth_dd",
+              "floor": 0.55,
+              "k": 5
+            }
+          },
+          {
+            "child_id": "b_blend_60_40",
+            "weight": 0.3,
+            "overlay": {
+              "method": "smooth_dd",
+              "floor": 0.55,
+              "k": 5
+            },
+            "portfolio": {
+              "portfolio_id": "blend_60_40",
+              "weighting": "fixed",
+              "children": [
+                {
+                  "child_id": "ls20",
+                  "weight": 0.6,
+                  "features": [
+                    "hist_p04_ls20_v1"
+                  ]
+                },
+                {
+                  "child_id": "ls30",
+                  "weight": 0.4,
+                  "features": [
+                    "hist_p04_ls30_v1"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "child_id": "c_ls30",
+            "weight": 0.2,
+            "features": [
+              "hist_p04_ls30_v1"
+            ],
+            "overlay": {
+              "method": "smooth_dd",
+              "floor": 0.55,
+              "k": 5
+            }
+          }
+        ],
+        "provenance": {
+          "note": "children reference recovered P04 books (hist_p04_ls20_v1/ls30_v1); strategy- and portfolio-level smooth-DD (k=5,floor=0.55); weight_overlay uses recovered P02 OOF"
+        }
+      }
+    },
+    {
       "strategy_id": "p06_deployment_candidate_v1",
       "project": "project_06_deployment_validation",
       "experiment_id": "exp_006_deployment_candidate_tournament",

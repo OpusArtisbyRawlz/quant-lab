@@ -117,6 +117,10 @@ class HistoricalRecoverySource:
                 idea_meta = {"provenance": dict(prov, origin_bar_type=bar_type)}
                 if s.get("overlay"):
                     idea_meta["overlay"] = dict(s["overlay"])
+                # A composite multi-strategy portfolio carries its PortfolioSpec so
+                # spec_builder threads it to the executor's composition path.
+                if s.get("portfolio"):
+                    idea_meta["portfolio"] = dict(s["portfolio"])
                 proposal = enqueue_proposal(
                     self._ctx, campaign_id,
                     hypothesis=hypothesis,

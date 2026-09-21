@@ -87,6 +87,12 @@ class ExperimentSpec:
     # the book's own drawdown) so it cannot be a cross-sectional signal; the
     # executor applies it via the existing src/risk code, not a new engine.
     overlay: dict[str, Any] | None = None
+    # Historical recovery (multi-strategy portfolios): an optional composite
+    # PortfolioSpec (serialised to a dict via PortfolioSpec.to_dict). Default None ⇒
+    # a single-strategy experiment, byte-for-byte unchanged. When set, the executor
+    # composes the child return streams through the SAME pipeline (no new engine);
+    # see src/portfolio/composite.py and runner._run_portfolio_pipeline.
+    portfolio: dict[str, Any] | None = None
 
 
 @dataclass
