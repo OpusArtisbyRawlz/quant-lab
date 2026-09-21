@@ -96,19 +96,46 @@
       "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
-      "strategy_id": "p05_risk_engine_smooth_dd",
+      "strategy_id": "p05_smooth_dd_ls20",
       "project": "project_05_risk_engine",
       "experiment_id": "exp_005_risk_engine_final",
       "kind": "overlay",
-      "hypothesis": "Smooth-drawdown exposure overlay (k=5, floor=0.55) applied at strategy and portfolio level to the LS book.",
+      "hypothesis": "Smooth-drawdown exposure overlay (k=5, floor=0.55) on the LS20 book.",
       "signals": [
-        "smooth_drawdown_exposure"
+        "hist_p04_ls20_v1"
       ],
+      "overlay": {
+        "method": "smooth_dd",
+        "floor": 0.55,
+        "k": 5
+      },
       "market": "US_EQUITY",
-      "universe": "book20",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "overlay"
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported"
+    },
+    {
+      "strategy_id": "p05_smooth_dd_ls30",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown exposure overlay (k=5, floor=0.55) on the LS30 book.",
+      "signals": [
+        "hist_p04_ls30_v1"
+      ],
+      "overlay": {
+        "method": "smooth_dd",
+        "floor": 0.55,
+        "k": 5
+      },
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported"
     },
     {
       "strategy_id": "p06_deployment_candidate_v1",

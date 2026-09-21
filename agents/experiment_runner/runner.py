@@ -292,6 +292,28 @@ def _portfolio_returns(panel: pd.DataFrame) -> pd.Series:
     )
 
 
+def _apply_overlay(portfolio_returns, overlay: dict):
+    """Apply a historical risk overlay to the gross portfolio return series.
+
+    Reuses Project 05's authoritative implementation verbatim (``src/risk``); this
+    function only dispatches. ``smooth_dd`` reproduces
+    ``src.risk.allocation.compare_base_vs_dd_overlay``: equity → drawdown → smooth
+    exposure ``floor + (1-floor)·exp(-k·|dd|)`` → lag-1 applied to returns.
+    """
+    method = (overlay or {}).get("method")
+    if method in ("smooth_dd", "smooth_drawdown_exposure"):
+        from src.risk import drawdown as dd
+        equity = (1 + portfolio_returns).cumprod()
+        drawdown = dd.compute_drawdown(equity)
+        exposure = dd.drawdown_exposure_smooth(
+            drawdown,
+            floor=float(overlay.get("floor", 0.55)),
+            k=float(overlay.get("k", 5)),
+        )
+        return dd.apply_exposure_to_return(portfolio_returns, exposure)
+    raise ValueError(f"Unknown overlay method: {method!r}")
+
+
 def _run_pipeline(
     spec: ExperimentSpec,
     data_dict: dict[str, pd.DataFrame],
@@ -325,6 +347,13 @@ def _run_pipeline(
 
     # Gross daily portfolio returns
     portfolio_returns = _portfolio_returns(panel)
+
+    # Historical recovery (Project 05): optional risk overlay on the portfolio return
+    # series. Path-dependent (reads the book's own drawdown), so it runs here — after
+    # the cross-sectional book is built — reusing the authoritative src/risk code. No
+    # overlay ⇒ unchanged behaviour.
+    if getattr(spec, "overlay", None):
+        portfolio_returns = _apply_overlay(portfolio_returns, spec.overlay)
 
     # Gross + net + turnover/cost bundle (preserves flat gross keys)
     metrics = build_metric_bundle(

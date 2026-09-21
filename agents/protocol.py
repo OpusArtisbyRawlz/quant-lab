@@ -80,6 +80,13 @@ class ExperimentSpec:
     # typed, serialised field — never hidden in `notes`. Defaults to 'time' so
     # every existing spec is unambiguously a time-bar experiment.
     bar_type: str = DEFAULT_BAR_TYPE
+    # Historical recovery (Project 05): an optional risk overlay applied to the
+    # portfolio return series *after* the cross-sectional book is built — e.g.
+    # {"method": "smooth_dd", "floor": 0.55, "k": 5}. Default None ⇒ no overlay,
+    # so every existing spec is unchanged. The overlay is path-dependent (it reads
+    # the book's own drawdown) so it cannot be a cross-sectional signal; the
+    # executor applies it via the existing src/risk code, not a new engine.
+    overlay: dict[str, Any] | None = None
 
 
 @dataclass
