@@ -1,0 +1,63 @@
+# Historical Strategy Recovery — source of truth
+
+This directory holds the **human-readable, reproducible report** for the Historical
+Strategy Recovery program (Projects 02–06).
+
+## What this is
+
+- **`HISTORICAL_STRATEGY_RECOVERY.ipynb`** — the report. It reads stored evidence and
+  regenerates every table: the complete strategy inventory, the counts, the fidelity
+  results, the Project 07 handoff status, the blockers, and the progress dashboard.
+- **`recovery_inventory.py`** — the shared, testable enumeration logic the notebook
+  imports (reading the result CSVs, project summaries, recovery manifest, and factory DB).
+
+## What this is NOT
+
+This is **not** a replacement for the database, the recovery manifest
+(`agents/recovery/historical_strategies.json`), the campaign/event log, or the provenance
+system. Those remain the authoritative sources. This notebook only *reads and summarizes*
+them, so the numbers you see are always derived from stored artifacts — never hand-typed.
+
+## Design rules
+
+- **Reproducible.** Re-run the notebook top-to-bottom to refresh; tables regenerate from
+  artifacts. Static explanatory prose is fine; final metrics are not hard-coded.
+- **Evidence-backed.** Every candidate row points at a concrete `source_file`. Nothing is
+  inferred; abandoned variants are enumerated, not collapsed into the one that was selected.
+- **Graceful.** The raw `data/` tree and the factory DB are git-ignored; when an artifact
+  is absent the corresponding rows are simply omitted, so the notebook runs on any checkout.
+
+## How to run
+
+```bash
+cd research/historical_recovery
+PYTHONPATH=../.. jupyter nbconvert --to notebook --execute --inplace \
+  HISTORICAL_STRATEGY_RECOVERY.ipynb
+# or open it in Jupyter and Run All
+```
+
+Quick count without Jupyter:
+
+```bash
+PYTHONPATH=../.. python recovery_inventory.py
+```
+
+## Scope note — how the inventory is counted
+
+The catalog is reported as a **non-overlapping taxonomy** (`recovery_inventory.taxonomy`).
+Every catalogued row is exactly one `layer`, so the categories partition the total and
+nothing is double-counted:
+
+- **Research families** — the distinct research programs (a grouping label, orthogonal to
+  the partition).
+- **Historical base strategies** — position-generating roots (`layer == base`).
+- **Historical variants** — signal/model modifications of a base (`layer == variant`).
+- **Overlay / deployment permutations** — risk-overlay (P05) and deployment (P06)
+  configurations of the *same* underlyings; these are "merely overlays," recorded
+  separately so they do not inflate the count of distinct strategies.
+- **Reference benchmarks** — non-tradable references (e.g. a naive baseline).
+
+From these: **materially distinct strategies = base + variants**, and **replay candidates
+= base + variants + overlay + deployment** (reference benchmarks excluded). The recovery
+*manifest* is a curated subset (the human-approved recovery scope); this inventory is the
+full discovered set, so the two counts differ by design.
