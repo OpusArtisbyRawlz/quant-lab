@@ -26,30 +26,30 @@ def test_registered_is_subset_of_known_signals():
         assert set(g["missing"]).isdisjoint(KNOWN_SIGNALS)
 
 
-def test_project_04_and_05_executable_after_registration():
-    """P04's books (hist_p04_ls20_v1 / hist_p04_ls30_v1) and the P05 smooth-DD overlay
-    strategies (which reuse those registered base signals) are executable; P02/P03/P06
-    remain blocked pending their ports."""
+def test_project_04_05_06_executable_after_registration():
+    """P04 books, the P05 overlays + final portfolio, and the P06 deployment tournament
+    (all reusing the registered base signals) are executable; P02/P03 remain blocked
+    pending the single-asset classifier path."""
     r = signal_gap.executable_readiness()
     assert set(r["executable"]) == {
         "p04_ls20", "p04_ls30",
         "p04_blend_40_60_ls20_ls30", "p04_blend_50_50_ls20_ls30",
         "p04_blend_60_40_ls20_ls30", "p04_blend_70_30_ls20_ls30",
         "p05_smooth_dd_ls20", "p05_smooth_dd_ls30",
-        "p05_final_portfolio",
+        "p05_final_portfolio", "p06_deployment_tournament",
     }
     assert set(r["blocked"]) == {
         "p02_volatility_regime", "p03_spy_5d_direction",
-        "p06_deployment_candidate_v1",
     }
 
 
 def test_missing_signals_are_the_original_names():
     missing = set(signal_gap.missing_signals())
-    # Still-unported P02/P03/P06 original signal/overlay/deployment names.
-    for s in ("RV5_trail", "RV20_trail", "VolRatio", "rsi_14", "volume_ratio",
-              "deployment_candidate_v1"):
+    # Still-unported P02/P03 single-asset classifier feature names.
+    for s in ("RV5_trail", "RV20_trail", "VolRatio", "rsi_14", "volume_ratio"):
         assert s in missing
+    # P06 is now ported (deployment tournament reuses registered signals).
+    assert "deployment_candidate_v1" not in missing
     # P04's ported books are now registered — no longer missing. P05 reuses them
     # (the overlay is applied by the executor, not a registry signal), so the old
     # 'smooth_drawdown_exposure' placeholder signal is gone.

@@ -121,6 +121,9 @@ class HistoricalRecoverySource:
                 # spec_builder threads it to the executor's composition path.
                 if s.get("portfolio"):
                     idea_meta["portfolio"] = dict(s["portfolio"])
+                # A deployment-validation strategy carries its deployment directive.
+                if s.get("deployment"):
+                    idea_meta["deployment"] = dict(s["deployment"])
                 proposal = enqueue_proposal(
                     self._ctx, campaign_id,
                     hypothesis=hypothesis,

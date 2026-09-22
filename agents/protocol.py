@@ -93,6 +93,11 @@ class ExperimentSpec:
     # composes the child return streams through the SAME pipeline (no new engine);
     # see src/portfolio/composite.py and runner._run_portfolio_pipeline.
     portfolio: dict[str, Any] | None = None
+    # Deployment validation: an optional directive to run the reusable deployment
+    # evaluation stage AFTER execution and BEFORE the Project 07 hand-off — e.g.
+    # {"mode": "tournament", "v2_source": ..., "adv_universe": "project_04_universe"}.
+    # Default None ⇒ no deployment stage. General; Project 06 is the first caller.
+    deployment: dict[str, Any] | None = None
 
 
 @dataclass
