@@ -26,6 +26,8 @@ KNOWN_SIGNALS: frozenset[str] = frozenset({
     "trend_ma_10", "trend_ma_20",
     "low_vol_5", "low_vol_20",
     "mr_blend", "mom_blend", "mr_lowvol_blend",
+    # Versioned historical signals (ported original project outputs).
+    "hist_p04_ls20_v1", "hist_p04_ls30_v1",
 })
 
 KNOWN_VALIDATION_METHODS: frozenset[str] = frozenset({

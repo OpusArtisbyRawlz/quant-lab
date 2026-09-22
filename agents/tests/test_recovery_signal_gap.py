@@ -26,21 +26,31 @@ def test_registered_is_subset_of_known_signals():
         assert set(g["missing"]).isdisjoint(KNOWN_SIGNALS)
 
 
-def test_current_reality_all_blocked():
-    """Documents today's state: no recovered strategy is executable because its
-    original signals are not registered. Flips as registrations land."""
+def test_project_04_executable_after_registration():
+    """P04's authoritative books are ported (hist_p04_ls20_v1 / hist_p04_ls30_v1), so
+    all six P04 strategies are now executable; P02/P03/P05/P06 remain blocked pending
+    their ports."""
     r = signal_gap.executable_readiness()
-    assert r["executable"] == []
-    assert len(r["blocked"]) == len(manifest.enumerate_strategies())
+    assert set(r["executable"]) == {
+        "p04_ls20", "p04_ls30",
+        "p04_blend_40_60_ls20_ls30", "p04_blend_50_50_ls20_ls30",
+        "p04_blend_60_40_ls20_ls30", "p04_blend_70_30_ls20_ls30",
+    }
+    assert set(r["blocked"]) == {
+        "p02_volatility_regime", "p03_spy_5d_direction",
+        "p05_risk_engine_smooth_dd", "p06_deployment_candidate_v1",
+    }
 
 
 def test_missing_signals_are_the_original_names():
     missing = set(signal_gap.missing_signals())
-    # Original P02/P03 technical features + P04/P05/P06 model/overlay/deployment names.
+    # Still-unported P02/P03/P05/P06 original signal/overlay/deployment names.
     for s in ("RV5_trail", "RV20_trail", "VolRatio", "rsi_14", "volume_ratio",
-              "ml_return_forecast_5d", "smooth_drawdown_exposure",
-              "deployment_candidate_v1"):
+              "smooth_drawdown_exposure", "deployment_candidate_v1"):
         assert s in missing
+    # P04's ported books are now registered — no longer missing.
+    assert "hist_p04_ls20_v1" not in missing
+    assert "hist_p04_ls30_v1" not in missing
 
 
 def test_readiness_is_deterministic():

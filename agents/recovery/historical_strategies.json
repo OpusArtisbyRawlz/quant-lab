@@ -1,6 +1,6 @@
 {
   "version": "recovery_manifest_v1",
-  "status": "DRAFT — for operator review before any recovery run",
+  "status": "DRAFT \u2014 for operator review before any recovery run",
   "note": [
     "Curated inventory of the historical strategies in Projects 03-06, grounded in",
     "experiments/completed/*/config.* + results_summary.md + strategy_comparison.csv.",
@@ -25,7 +25,12 @@
       "experiment_id": "spy_volatility_regime_model",
       "kind": "overlay",
       "hypothesis": "Future high-volatility regime (VolRatio = RV5_trail/RV20_trail > threshold) is predictable; a calibrated walk-forward OOF logistic model emits p_high_vol_calibrated, consumed by P04/P05.",
-      "signals": ["RV5_trail", "RV20_trail", "RV5_fwd_ann", "VolRatio"],
+      "signals": [
+        "RV5_trail",
+        "RV20_trail",
+        "RV5_fwd_ann",
+        "VolRatio"
+      ],
       "market": "US_EQUITY",
       "universe": "SPY",
       "bar_type": "time",
@@ -43,7 +48,15 @@
       "experiment_id": "EXP_001_DIR_ALPHA_SPY_5D",
       "kind": "baseline",
       "hypothesis": "SPY 5-day forward direction is predictable from momentum, volatility, and mean-reversion features (logistic regression).",
-      "signals": ["return_5d", "return_10d", "return_20d", "rsi_14", "rv20", "ma_distance_20", "volume_ratio"],
+      "signals": [
+        "return_5d",
+        "return_10d",
+        "return_20d",
+        "rsi_14",
+        "rv20",
+        "ma_distance_20",
+        "volume_ratio"
+      ],
       "market": "US_EQUITY",
       "universe": "SPY",
       "bar_type": "time",
@@ -56,12 +69,15 @@
       "experiment_id": "exp_004_project04_final",
       "kind": "baseline",
       "hypothesis": "Cross-sectional long/short on ML 5-day return forecasts, top/bottom 20% (LS 20%).",
-      "signals": ["ml_return_forecast_5d"],
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
       "market": "US_EQUITY",
-      "universe": "book20",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": true,
-      "mapping_status": "ml_model"
+      "mapping_status": "ported",
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p04_ls30",
@@ -69,12 +85,15 @@
       "experiment_id": "exp_004_project04_final",
       "kind": "baseline",
       "hypothesis": "Cross-sectional long/short on ML 5-day return forecasts, top/bottom 30% (LS 30%); more diversified, lower drawdown.",
-      "signals": ["ml_return_forecast_5d"],
+      "signals": [
+        "hist_p04_ls30_v1"
+      ],
       "market": "US_EQUITY",
-      "universe": "book20",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": true,
-      "mapping_status": "ml_model"
+      "mapping_status": "ported",
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p05_risk_engine_smooth_dd",
@@ -82,7 +101,9 @@
       "experiment_id": "exp_005_risk_engine_final",
       "kind": "overlay",
       "hypothesis": "Smooth-drawdown exposure overlay (k=5, floor=0.55) applied at strategy and portfolio level to the LS book.",
-      "signals": ["smooth_drawdown_exposure"],
+      "signals": [
+        "smooth_drawdown_exposure"
+      ],
       "market": "US_EQUITY",
       "universe": "book20",
       "bar_type": "time",
@@ -95,7 +116,9 @@
       "experiment_id": "exp_006_deployment_candidate_tournament",
       "kind": "deployment",
       "hypothesis": "Shipped deployment candidate V1 (LS book + smooth-dd overlay) validated under a tx-cost / rebalance / capacity battery.",
-      "signals": ["deployment_candidate_v1"],
+      "signals": [
+        "deployment_candidate_v1"
+      ],
       "market": "US_EQUITY",
       "universe": "book20",
       "bar_type": "time",
@@ -107,14 +130,27 @@
       "project": "project_04_return_forecast_alpha",
       "experiment_id": "exp_004_project04_final",
       "kind": "blend",
-      "hypothesis": "Blend 60% LS20 + 40% LS30 (the project's primary alpha driver — best risk/return balance).",
-      "signals": ["ml_return_forecast_5d"],
+      "hypothesis": "Blend 60% LS20 + 40% LS30 (the project's primary alpha driver \u2014 best risk/return balance).",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
       "market": "US_EQUITY",
-      "universe": "book20",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "ml_model",
-      "blend": {"components": ["p04_ls20", "p04_ls30"], "weights": [0.6, 0.4]}
+      "mapping_status": "composition",
+      "blend": {
+        "components": [
+          "p04_ls20",
+          "p04_ls30"
+        ],
+        "weights": [
+          0.6,
+          0.4
+        ]
+      },
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p04_blend_50_50_ls20_ls30",
@@ -122,13 +158,26 @@
       "experiment_id": "exp_004_project04_final",
       "kind": "blend",
       "hypothesis": "Blend 50% LS20 + 50% LS30.",
-      "signals": ["ml_return_forecast_5d"],
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
       "market": "US_EQUITY",
-      "universe": "book20",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "ml_model",
-      "blend": {"components": ["p04_ls20", "p04_ls30"], "weights": [0.5, 0.5]}
+      "mapping_status": "composition",
+      "blend": {
+        "components": [
+          "p04_ls20",
+          "p04_ls30"
+        ],
+        "weights": [
+          0.5,
+          0.5
+        ]
+      },
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p04_blend_70_30_ls20_ls30",
@@ -136,13 +185,26 @@
       "experiment_id": "exp_004_project04_final",
       "kind": "blend",
       "hypothesis": "Blend 70% LS20 + 30% LS30.",
-      "signals": ["ml_return_forecast_5d"],
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
       "market": "US_EQUITY",
-      "universe": "book20",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "ml_model",
-      "blend": {"components": ["p04_ls20", "p04_ls30"], "weights": [0.7, 0.3]}
+      "mapping_status": "composition",
+      "blend": {
+        "components": [
+          "p04_ls20",
+          "p04_ls30"
+        ],
+        "weights": [
+          0.7,
+          0.3
+        ]
+      },
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p04_blend_40_60_ls20_ls30",
@@ -150,13 +212,26 @@
       "experiment_id": "exp_004_project04_final",
       "kind": "blend",
       "hypothesis": "Blend 40% LS20 + 60% LS30.",
-      "signals": ["ml_return_forecast_5d"],
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
       "market": "US_EQUITY",
-      "universe": "book20",
+      "universe": "project_04_universe_recovery",
       "bar_type": "time",
       "alt_bar_eligible": false,
-      "mapping_status": "ml_model",
-      "blend": {"components": ["p04_ls20", "p04_ls30"], "weights": [0.4, 0.6]}
+      "mapping_status": "composition",
+      "blend": {
+        "components": [
+          "p04_ls20",
+          "p04_ls30"
+        ],
+        "weights": [
+          0.4,
+          0.6
+        ]
+      },
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     }
   ]
 }

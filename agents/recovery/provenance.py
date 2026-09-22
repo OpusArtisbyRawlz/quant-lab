@@ -92,6 +92,9 @@ def build_provenance(
         exp = strategy.get("experiment_id")
         record["origin_artifact"] = (
             f"experiments/completed/{exp}" if exp else None)
+        # The authoritative generator notebook, when the manifest records it (e.g.
+        # Project 04's 04_portfolio_research.ipynb, recovered 2026-09-20).
+        record["origin_notebook"] = strategy.get("origin_notebook")
     return record
 
 

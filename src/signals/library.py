@@ -26,4 +26,10 @@ def get_signal_series(panel, signal_name):
     elif signal_name == "mr_lowvol_blend":
         return (-panel["ret_5"] - panel["ret_10"] - panel["vol_20"]) / 3
     else:
+        # Versioned historical signals (ported original project outputs). Kept in a
+        # separate module so the historical library evolves independently of the
+        # native cross-sectional signals above.
+        from src.signals.historical import HISTORICAL_SIGNALS
+        if signal_name in HISTORICAL_SIGNALS:
+            return HISTORICAL_SIGNALS[signal_name](panel)
         raise ValueError(f"Unknown signal_name: {signal_name}")
