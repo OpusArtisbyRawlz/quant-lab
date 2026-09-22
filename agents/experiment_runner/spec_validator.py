@@ -75,6 +75,13 @@ def validate_spec(
     errors: list[str] = []
     warnings: list[str] = []
 
+    # --- Classifier experiments validate against their own contract ------------
+    # A single-asset directional classifier does not use cross-sectional signals or a
+    # universe directory; its features are model inputs (not KNOWN_SIGNALS) and its
+    # data is a single <asset>.csv. Validate that contract and return early.
+    if getattr(spec, "classifier", None):
+        return _validate_classifier(spec, data_root, skip_data_check)
+
     # --- Required string fields -----------------------------------------------
     for field_name in ("hypothesis", "market", "universe", "target", "model"):
         if not getattr(spec, field_name, "").strip():
@@ -125,4 +132,28 @@ def validate_spec(
                 f"{candidate}. Ingestion will upsert (overwrite) the existing row."
             )
 
+    return ValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)
+
+
+_CLASSIFIER_MODELS = frozenset({"logistic", "random_forest", "naive_up"})
+
+
+def _validate_classifier(spec, data_root: Path, skip_data_check: bool) -> "ValidationResult":
+    """Validate a single-asset directional classifier spec (its own contract)."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    cfg = spec.classifier or {}
+    for field_name in ("hypothesis", "market", "target", "model"):
+        if not getattr(spec, field_name, "").strip():
+            errors.append(f"spec.{field_name} is required and must be non-empty.")
+    if not cfg.get("features"):
+        errors.append("classifier.features must be a non-empty list.")
+    model = cfg.get("model", "logistic")
+    if model not in _CLASSIFIER_MODELS:
+        errors.append(f"Unknown classifier model {model!r}. Known: {sorted(_CLASSIFIER_MODELS)}")
+    asset = cfg.get("asset", "SPY")
+    if not skip_data_check:
+        csv = data_root / f"{asset}.csv"
+        if not csv.exists():
+            errors.append(f"Classifier asset data not found: {csv}")
     return ValidationResult(valid=len(errors) == 0, errors=errors, warnings=warnings)

@@ -124,6 +124,9 @@ class HistoricalRecoverySource:
                 # A deployment-validation strategy carries its deployment directive.
                 if s.get("deployment"):
                     idea_meta["deployment"] = dict(s["deployment"])
+                # A classifier strategy carries its single-asset classifier directive.
+                if s.get("classifier"):
+                    idea_meta["classifier"] = dict(s["classifier"])
                 proposal = enqueue_proposal(
                     self._ctx, campaign_id,
                     hypothesis=hypothesis,

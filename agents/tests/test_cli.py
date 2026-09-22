@@ -483,7 +483,7 @@ def test_recovery_list(tmp_path, capsys):
     db = _db(tmp_path)
     assert _run(db, "recovery", "list") == 0
     out = capsys.readouterr().out
-    assert "p03_spy_5d_direction" in out
+    assert "p03_logistic" in out
     assert "strategies" in out
 
 

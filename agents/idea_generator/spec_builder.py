@@ -51,6 +51,7 @@ def idea_to_spec(
     overlay = meta.get("overlay") if isinstance(meta, dict) else None
     portfolio = meta.get("portfolio") if isinstance(meta, dict) else None
     deployment = meta.get("deployment") if isinstance(meta, dict) else None
+    classifier = meta.get("classifier") if isinstance(meta, dict) else None
 
     return ExperimentSpec(
         hypothesis=idea_row.get("hypothesis", ""),
@@ -66,6 +67,7 @@ def idea_to_spec(
         overlay=overlay,
         portfolio=portfolio,
         deployment=deployment,
+        classifier=classifier,
         project=project,
         notes=f"Auto-generated from approved idea {idea_row.get('idea_id', '?')} "
               f"(source_model={idea_row.get('source_model', '?')}).",
