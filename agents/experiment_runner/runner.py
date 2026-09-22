@@ -327,6 +327,22 @@ def _apply_overlay(portfolio_returns, overlay: dict):
             k=float(overlay.get("k", 5)),
         )
         return dd.apply_exposure_to_return(portfolio_returns, exposure)
+    if method == "step_dd":
+        # Project 05 v1 step-drawdown overlay (src/risk/drawdown.drawdown_exposure,
+        # reproduced verbatim including its historical bucket definition).
+        from src.risk import drawdown as dd
+        exposure = dd.drawdown_exposure(dd.compute_drawdown((1 + portfolio_returns).cumprod()))
+        return dd.apply_exposure_to_return(portfolio_returns, exposure)
+    if method == "vol_target":
+        # Project 04 vol-targeting (notebook cells 195/198): scale by target/realised
+        # vol, clipped, lagged one day. Realised vol = rolling std × √PPY.
+        import numpy as np
+        tv = float(overlay["target_vol"])
+        lookback = int(overlay.get("lookback", 20))
+        clip_upper = float(overlay.get("clip_upper", 2.0))
+        realised = portfolio_returns.rolling(lookback).std() * np.sqrt(252)
+        scaling = (tv / realised).clip(upper=clip_upper)
+        return portfolio_returns * scaling.shift(1)
     raise ValueError(f"Unknown overlay method: {method!r}")
 
 

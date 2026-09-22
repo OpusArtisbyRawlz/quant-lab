@@ -31,16 +31,19 @@ def test_project_04_05_06_executable_after_registration():
     (all reusing the registered base signals) are executable; P02/P03 remain blocked
     pending the single-asset classifier path."""
     r = signal_gap.executable_readiness()
-    assert set(r["executable"]) == {
-        "p04_ls20", "p04_ls30",
-        "p04_blend_40_60_ls20_ls30", "p04_blend_50_50_ls20_ls30",
-        "p04_blend_60_40_ls20_ls30", "p04_blend_70_30_ls20_ls30",
-        "p05_smooth_dd_ls20", "p05_smooth_dd_ls30",
-        "p05_final_portfolio", "p06_deployment_tournament",
-    }
+    # Every recovered return-based strategy (P04 variants, P05 overlays, P05 final
+    # portfolio, P06 tournament) reuses the registered base signals and is executable;
+    # only the single-asset classifier projects P02/P03 remain blocked.
     assert set(r["blocked"]) == {
         "p02_volatility_regime", "p03_spy_5d_direction",
     }
+    execset = set(r["executable"])
+    assert {"p04_ls20", "p04_ls30", "p05_final_portfolio",
+            "p06_deployment_tournament"} <= execset
+    # all P04/P05/P06 strategies are executable (none blocked)
+    for g in signal_gap.signal_gap():
+        if g["strategy_id"] not in {"p02_volatility_regime", "p03_spy_5d_direction"}:
+            assert g["executable"], g["strategy_id"]
 
 
 def test_missing_signals_are_the_original_names():
