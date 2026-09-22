@@ -245,6 +245,22 @@ def run_experiment(
     # ------------------------------------------------------------------
     # 7. Write result artifacts
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # 7b. Deployment evaluation stage (general; runs AFTER execution, BEFORE the
+    #     Project 07 hand-off). Reuses the composed portfolio base + the reusable
+    #     src/analysis deployment battery/tournament. Records the deployment decision
+    #     into metrics (so it is persisted + ingested) and writes the master
+    #     comparison table into the experiment folder.
+    # ------------------------------------------------------------------
+    if getattr(spec, "deployment", None) and getattr(spec, "portfolio", None):
+        try:
+            metrics["deployment"] = _run_deployment_stage(
+                spec, data_dict, folder, data_root)
+        except Exception:
+            err = traceback.format_exc()
+            log.exception("Deployment stage failed for %s", experiment_id)
+            warnings.append(f"Deployment stage warning: {err.splitlines()[-1]}")
+
     write_metrics_json(metrics, folder)
     write_strategy_csv([variant_row], folder)
     write_results_summary(folder, metrics, spec, experiment_id)
@@ -312,6 +328,27 @@ def _apply_overlay(portfolio_returns, overlay: dict):
         )
         return dd.apply_exposure_to_return(portfolio_returns, exposure)
     raise ValueError(f"Unknown overlay method: {method!r}")
+
+
+def _run_deployment_stage(spec: ExperimentSpec, data_dict, folder, data_root) -> dict:
+    """Run the reusable deployment tournament on the composed base and persist it.
+
+    Returns the deployment decision dict (recorded in metrics); writes
+    ``master_comparison.csv`` + ``deployment_decision.json`` into the experiment folder.
+    """
+    from agents.experiment_runner.deployment_stage import run_deployment_tournament
+    import json as _json
+    cfg = spec.deployment
+    repo_root = data_root.parent.parent  # data_root is <repo>/data/raw
+    v2_rel = cfg.get("v2_source") or (
+        "experiments/completed/exp_005_risk_engine_final/final_returns_v2_with_dates.csv")
+    v2_source = Path(v2_rel) if Path(v2_rel).is_absolute() else repo_root / v2_rel
+    adv_dir = data_root / cfg.get("adv_universe", "project_04_universe")
+    comp, decision = run_deployment_tournament(
+        spec.portfolio, data_dict, v2_source=v2_source, adv_data_dir=adv_dir)
+    comp.to_csv(folder / "master_comparison.csv", index=False)
+    (folder / "deployment_decision.json").write_text(_json.dumps(decision, indent=2, default=float))
+    return decision
 
 
 def _child_return_stream(child: dict, base_panel, periods_per_year) -> "pd.Series":
