@@ -18,8 +18,20 @@ from agents.recovery import manifest
 
 
 def strategy_gap(strategy: dict[str, Any]) -> dict[str, Any]:
-    """Registered vs missing signals for one recovered strategy (deterministic)."""
+    """Registered vs missing signals for one recovered strategy (deterministic).
+
+    Classifier strategies execute through the single-asset classifier path, not the
+    cross-sectional signal registry, so KNOWN_SIGNALS does not gate them — their
+    ``signals`` list holds model feature names and is reported as registered.
+    """
+    is_classifier = strategy.get("kind") == "classifier"
     signals = list(strategy.get("signals", []))
+    if is_classifier:
+        return {
+            "strategy_id": strategy["strategy_id"], "project": strategy["project"],
+            "mapping_status": strategy.get("mapping_status"), "signals": signals,
+            "registered": signals, "missing": [], "executable": True,
+        }
     registered = [s for s in signals if s in KNOWN_SIGNALS]
     missing = [s for s in signals if s not in KNOWN_SIGNALS]
     return {

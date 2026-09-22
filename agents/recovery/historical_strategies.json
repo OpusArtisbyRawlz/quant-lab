@@ -43,27 +43,6 @@
       "replayable": "pending reproducibility verification"
     },
     {
-      "strategy_id": "p03_spy_5d_direction",
-      "project": "project_03_directional_alpha",
-      "experiment_id": "EXP_001_DIR_ALPHA_SPY_5D",
-      "kind": "baseline",
-      "hypothesis": "SPY 5-day forward direction is predictable from momentum, volatility, and mean-reversion features (logistic regression).",
-      "signals": [
-        "return_5d",
-        "return_10d",
-        "return_20d",
-        "rsi_14",
-        "rv20",
-        "ma_distance_20",
-        "volume_ratio"
-      ],
-      "market": "US_EQUITY",
-      "universe": "SPY",
-      "bar_type": "time",
-      "alt_bar_eligible": true,
-      "mapping_status": "clean"
-    },
-    {
       "strategy_id": "p04_ls20",
       "project": "project_04_return_forecast_alpha",
       "experiment_id": "exp_004_project04_final",
@@ -1766,6 +1745,111 @@
         "overlay": {
           "method": "step_dd"
         }
+      }
+    },
+    {
+      "strategy_id": "p03_logistic",
+      "project": "project_03_directional_alpha",
+      "experiment_id": "exp_001_dir_alpha_spy_5d",
+      "kind": "classifier",
+      "hypothesis": "SPY 5-day direction \u2014 logistic regression (StandardScaler + LR), chronological 80/20 split.",
+      "signals": [
+        "ret_5",
+        "ret_10",
+        "ret_20",
+        "ma_dist_20",
+        "rv20",
+        "volume_ratio"
+      ],
+      "market": "US_EQUITY",
+      "universe": "SPY",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_03_directional_alpha/notebooks/03_model_training.ipynb",
+      "mapping_status": "ported",
+      "classifier": {
+        "asset": "SPY",
+        "features": [
+          "ret_5",
+          "ret_10",
+          "ret_20",
+          "ma_dist_20",
+          "rv20",
+          "volume_ratio"
+        ],
+        "horizon": 5,
+        "model": "logistic",
+        "split_fraction": 0.8
+      }
+    },
+    {
+      "strategy_id": "p03_random_forest",
+      "project": "project_03_directional_alpha",
+      "experiment_id": "exp_001_dir_alpha_spy_5d",
+      "kind": "classifier",
+      "hypothesis": "SPY 5-day direction \u2014 random forest (200 trees, depth 4, seed 42).",
+      "signals": [
+        "ret_5",
+        "ret_10",
+        "ret_20",
+        "ma_dist_20",
+        "rv20",
+        "volume_ratio"
+      ],
+      "market": "US_EQUITY",
+      "universe": "SPY",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_03_directional_alpha/notebooks/03_model_training.ipynb",
+      "mapping_status": "ported",
+      "classifier": {
+        "asset": "SPY",
+        "features": [
+          "ret_5",
+          "ret_10",
+          "ret_20",
+          "ma_dist_20",
+          "rv20",
+          "volume_ratio"
+        ],
+        "horizon": 5,
+        "model": "random_forest",
+        "split_fraction": 0.8
+      }
+    },
+    {
+      "strategy_id": "p03_naive_baseline",
+      "project": "project_03_directional_alpha",
+      "experiment_id": "exp_001_dir_alpha_spy_5d",
+      "kind": "classifier",
+      "hypothesis": "SPY 5-day direction \u2014 naive always-up reference baseline.",
+      "signals": [
+        "ret_5",
+        "ret_10",
+        "ret_20",
+        "ma_dist_20",
+        "rv20",
+        "volume_ratio"
+      ],
+      "market": "US_EQUITY",
+      "universe": "SPY",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_03_directional_alpha/notebooks/03_model_training.ipynb",
+      "mapping_status": "ported",
+      "classifier": {
+        "asset": "SPY",
+        "features": [
+          "ret_5",
+          "ret_10",
+          "ret_20",
+          "ma_dist_20",
+          "rv20",
+          "volume_ratio"
+        ],
+        "horizon": 5,
+        "model": "naive_up",
+        "split_fraction": 0.8
       }
     }
   ]

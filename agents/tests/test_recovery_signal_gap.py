@@ -19,9 +19,15 @@ def test_gap_covers_every_recovered_strategy():
 
 
 def test_registered_is_subset_of_known_signals():
-    # The helper never invents: 'registered' is exactly the intersection with the
-    # executor's KNOWN_SIGNALS.
+    # The helper never invents: for cross-sectional strategies 'registered' is exactly
+    # the intersection with KNOWN_SIGNALS. Classifier strategies execute via the
+    # classifier path (their features are not cross-sectional signals), so they are
+    # exempt from the KNOWN_SIGNALS subset rule.
+    classifier_ids = {s["strategy_id"] for s in manifest.enumerate_strategies()
+                      if s.get("kind") == "classifier"}
     for g in signal_gap.signal_gap():
+        if g["strategy_id"] in classifier_ids:
+            continue
         assert set(g["registered"]) <= set(KNOWN_SIGNALS)
         assert set(g["missing"]).isdisjoint(KNOWN_SIGNALS)
 
@@ -31,27 +37,26 @@ def test_project_04_05_06_executable_after_registration():
     (all reusing the registered base signals) are executable; P02/P03 remain blocked
     pending the single-asset classifier path."""
     r = signal_gap.executable_readiness()
-    # Every recovered return-based strategy (P04 variants, P05 overlays, P05 final
-    # portfolio, P06 tournament) reuses the registered base signals and is executable;
-    # only the single-asset classifier projects P02/P03 remain blocked.
-    assert set(r["blocked"]) == {
-        "p02_volatility_regime", "p03_spy_5d_direction",
-    }
+    # P04/P05/P06 reuse registered signals; P03 executes via the classifier path.
+    # Only P02 (single-asset vol-regime model, not yet given a classifier port) remains
+    # blocked on signal registration.
+    assert set(r["blocked"]) == {"p02_volatility_regime"}
     execset = set(r["executable"])
     assert {"p04_ls20", "p04_ls30", "p05_final_portfolio",
-            "p06_deployment_tournament"} <= execset
-    # all P04/P05/P06 strategies are executable (none blocked)
+            "p06_deployment_tournament",
+            "p03_logistic", "p03_random_forest", "p03_naive_baseline"} <= execset
+    # everything except P02 is executable
     for g in signal_gap.signal_gap():
-        if g["strategy_id"] not in {"p02_volatility_regime", "p03_spy_5d_direction"}:
+        if g["strategy_id"] != "p02_volatility_regime":
             assert g["executable"], g["strategy_id"]
 
 
 def test_missing_signals_are_the_original_names():
     missing = set(signal_gap.missing_signals())
-    # Still-unported P02/P03 single-asset classifier feature names.
-    for s in ("RV5_trail", "RV20_trail", "VolRatio", "rsi_14", "volume_ratio"):
+    # Only P02's single-asset vol-regime feature names remain unregistered.
+    for s in ("RV5_trail", "RV20_trail", "VolRatio"):
         assert s in missing
-    # P06 is now ported (deployment tournament reuses registered signals).
+    # P06 ported (reuses registered signals); P03 executes via the classifier path.
     assert "deployment_candidate_v1" not in missing
     # P04's ported books are now registered — no longer missing. P05 reuses them
     # (the overlay is applied by the executor, not a registry signal), so the old

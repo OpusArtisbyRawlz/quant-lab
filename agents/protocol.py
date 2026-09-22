@@ -98,6 +98,13 @@ class ExperimentSpec:
     # {"mode": "tournament", "v2_source": ..., "adv_universe": "project_04_universe"}.
     # Default None ⇒ no deployment stage. General; Project 06 is the first caller.
     deployment: dict[str, Any] | None = None
+    # Classifier experiments (single-asset directional classification): an optional
+    # directive — e.g. {"asset": "SPY", "features": [...], "horizon": 5,
+    # "model": "logistic", "split_fraction": 0.8}. Default None ⇒ the return-based
+    # cross-sectional path, unchanged. When set the executor runs the classifier path
+    # (probabilities + classification metrics), never portfolio returns. General;
+    # Project 03 is the first caller.
+    classifier: dict[str, Any] | None = None
 
 
 @dataclass

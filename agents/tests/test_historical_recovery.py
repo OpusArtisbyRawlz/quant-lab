@@ -161,7 +161,7 @@ def test_explicit_strategy_ids_scope(tmp_path):
     db = _db(tmp_path)
     cm = CampaignManager(db_path=db)
     cm.create_campaign("c", theme="t", campaign_type="historical_recovery",
-                       scope={"strategy_ids": ["p03_spy_5d_direction"]})
+                       scope={"strategy_ids": ["p03_logistic"]})
     cm.activate("c")
     props = _source(db).propose("c")
     assert len(props) == 1

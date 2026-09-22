@@ -170,6 +170,17 @@ def run_experiment(
     write_config_json(folder, spec, experiment_id)
 
     # ------------------------------------------------------------------
+    # 4b. Classifier experiments (single-asset directional classification) run their
+    #     own path — no cross-sectional panel, no bar engine, no portfolio returns.
+    #     Ingestion auto-detects experiment_type="classification" from the metrics
+    #     keys and stores them in raw_metrics (named return columns stay NULL), so the
+    #     return-based path and M11 sharpe machinery are untouched.
+    # ------------------------------------------------------------------
+    if getattr(spec, "classifier", None):
+        return _run_classifier_experiment(spec, experiment_id, folder, data_root,
+                                          db_path, warnings)
+
+    # ------------------------------------------------------------------
     # 5. Load data (skip if caller supplied data_dict)
     # ------------------------------------------------------------------
     if data_dict is None:
@@ -344,6 +355,48 @@ def _apply_overlay(portfolio_returns, overlay: dict):
         scaling = (tv / realised).clip(upper=clip_upper)
         return portfolio_returns * scaling.shift(1)
     raise ValueError(f"Unknown overlay method: {method!r}")
+
+
+def _run_classifier_experiment(spec: ExperimentSpec, experiment_id, folder, data_root,
+                               db_path, warnings) -> "RunResult":
+    """Single-asset directional classifier path: probabilities + classification metrics,
+    written as ``metrics.json`` + ``predictions.csv`` and ingested (auto-detected as
+    experiment_type=classification). Never produces portfolio returns."""
+    import json as _json
+    from src.classifier.directional import run_directional_classifier
+    cfg = spec.classifier
+    asset = cfg.get("asset", "SPY")
+    csv_path = data_root / f"{asset}.csv"
+    try:
+        preds, metrics = run_directional_classifier(
+            csv_path,
+            features=cfg["features"],
+            horizon=int(cfg.get("horizon", 5)),
+            model=cfg.get("model", "logistic"),
+            split_fraction=float(cfg.get("split_fraction", 0.8)),
+        )
+    except Exception:
+        err = traceback.format_exc()
+        log.exception("Classifier experiment failed for %s", experiment_id)
+        write_error_txt(folder, err)
+        _ingest_failed(folder, db_path)
+        return RunResult(experiment_id=experiment_id, status="failed",
+                         artifact_path=folder, warnings=warnings, error=err)
+    metrics["asset"] = asset
+    metrics["horizon"] = int(cfg.get("horizon", 5))
+    (folder / "metrics.json").write_text(_json.dumps(metrics, indent=2, default=float))
+    preds.to_csv(folder / "predictions.csv")
+    (folder / "results_summary.md").write_text(
+        f"# {experiment_id}\n\nSingle-asset directional classifier ({asset}, "
+        f"model={metrics['model']}). AUC={metrics.get('roc_auc')}, "
+        f"accuracy={metrics.get('accuracy')}, n_test={metrics.get('n_test')}.\n")
+    ingest_result = ingest_one(folder, db_path=db_path)
+    if ingest_result.status == "failed":
+        warnings.append(f"Ingest warning: {ingest_result.error}")
+    log.info("%s completed — classifier auc=%s accuracy=%s",
+             experiment_id, metrics.get("roc_auc"), metrics.get("accuracy"))
+    return RunResult(experiment_id=experiment_id, status="success", metrics=metrics,
+                     artifact_path=folder, warnings=warnings)
 
 
 def _run_deployment_stage(spec: ExperimentSpec, data_dict, folder, data_root) -> dict:
