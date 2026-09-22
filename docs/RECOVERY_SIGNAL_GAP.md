@@ -1,5 +1,36 @@
 # Recovery signal-registration gap — analysis & plan
 
+## Progress — Project 04 ported & executing (option A)
+
+**P04 is done.** Its ML 5-day return forecast is ported into a **versioned historical
+signal library** (`src/signals/historical/p04_return_forecast.py`, signal
+`hist_p04_return_forecast_v1`) and registered through the existing signal registry
+(`get_signal_series` + `KNOWN_SIGNALS`) — no substitute, no definition change. The
+signal returns P04's authoritative historical forecast **`pred_flipped`** from
+`data/processed/v1.csv` (the column P04's own portfolio notebook trades on), verbatim.
+
+End-to-end validation (`p04_ls20`, isolated DB): generate → **hypothesis node + pending
+idea** → **approve** → **execute** (cross-sectional LS20 over `project_04_universe`) →
+**experiment** (linked to the node) → **evidence into M11** (hypothesis_state built) →
+Project 07 hand-off boundary intact. Gross Sharpe ≈ **+0.36**, net ≈ **+0.32**
+(direction correct after using `pred_flipped`).
+
+**Fidelity boundary (important):** the *signal* is faithful, but the *metrics* are the
+**factory's** cross-sectional engine (equal-weight LS20, its cost model, full-period
+panel, its annualisation) — not P04's own signal-weighted/capped notebook backtest — so
+they differ from P04's historical ~1.5 Sharpe. Recovery = replaying the faithful signal
+through the factory; Project 07 is the authoritative evaluator of the factory result.
+Note the factory executor applies LS **20%** (0.8/0.2) by default, so `p04_ls30` runs at
+LS20 until a quantile parameter is plumbed (a follow-up) — its definition is unchanged,
+only not yet fully parameterised.
+
+Remaining (still blocked, ported next in order): **P03** (single-asset classifier —
+needs the classifier execution path discussed), **P05** (smooth-drawdown overlay),
+**P06** (deployment validation). See below.
+
+---
+
+
 Prepared for the historical-recovery executability decision. **No signals were
 invented and no strategy definitions were changed** — this is a faithful gap analysis
 of what each recovered strategy needs versus what the executor knows today.
