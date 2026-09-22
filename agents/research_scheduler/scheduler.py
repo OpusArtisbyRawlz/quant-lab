@@ -589,11 +589,16 @@ class ResearchScheduler:
     # ------------------------------------------------------------------ #
     @staticmethod
     def _priority(camp: dict[str, Any]) -> float:
-        goal = camp.get("goal_spec") or {}
-        try:
-            return float(goal.get("priority", 0.0))
-        except (TypeError, ValueError):
-            return 0.0
+        """A campaign's effective static priority — the single source of truth
+        (``campaign_store.campaign_priority``): the first-class ``priority`` column
+        when set (P6-8+), else ``goal_spec.priority`` (pre-P6-8), else the default.
+
+        Previously this read only ``goal_spec.priority``, so a campaign that set the
+        first-class ``priority`` field scored 0.0 here and could lose the queue to a
+        lower-priority campaign that used the legacy ``goal_spec`` location. Delegating
+        keeps campaign_queue ordering consistent with every other priority consumer.
+        """
+        return campaign_store.campaign_priority(camp)
 
     def _effective_limit(self, limit: int | None) -> int | None:
         if limit is not None:
