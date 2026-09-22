@@ -1321,6 +1321,452 @@
         "v2_source": "experiments/completed/exp_005_risk_engine_final/final_returns_v2_with_dates.csv",
         "adv_universe": "project_04_universe"
       }
+    },
+    {
+      "strategy_id": "p05_step_dd_ls20",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the ls20 book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_ls20",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_ls30",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the ls30 book.",
+      "signals": [
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_ls30",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_blend_40_60",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the blend_40_60 book.",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_blend_40_60",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_blend_50_50",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the blend_50_50 book.",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_blend_50_50",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.5,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.5,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_blend_60_40",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the blend_60_40 book.",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_blend_60_40",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_blend_70_30",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the blend_70_30 book.",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_blend_70_30",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.7,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.3,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_ls20_linear",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the ls20_linear book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_ls20_linear",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "linear"
+            }
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_ls20_pow07",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the ls20_pow07 book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_ls20_pow07",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "pow",
+              "alpha": 0.7
+            }
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_ls20_sqrt",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the ls20_sqrt book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_ls20_sqrt",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt"
+            }
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_ls20_sqrt_partial",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the ls20_sqrt_partial book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_ls20_sqrt_partial",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true
+            }
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_ls20_sqrt_partial_norm",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the ls20_sqrt_partial_norm book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_ls20_sqrt_partial_norm",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true,
+              "normalize": true
+            }
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_step_dd_ls30_sqrt_partial_norm",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_v1",
+      "kind": "overlay",
+      "hypothesis": "Step-drawdown exposure overlay on the ls30_sqrt_partial_norm book.",
+      "signals": [
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_step_dd_ls30_sqrt_partial_norm",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls30_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true,
+              "normalize": true
+            }
+          }
+        ],
+        "overlay": {
+          "method": "step_dd"
+        }
+      }
     }
   ]
 }

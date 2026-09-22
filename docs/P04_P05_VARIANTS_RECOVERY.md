@@ -55,6 +55,25 @@ Smooth-DD overlay (floor 0.55, k 5) on each recovered P04 base variant. Verified
 (These join the previously-recovered `p05_smooth_dd_ls20` 1.860 / `p05_smooth_dd_ls30`
 1.663, completing all 12 per-strategy smooth-DD overlays.)
 
+## P05 step-DD overlays (12) — FIDELITY VERIFIED
+
+The earlier `drawdown_exposure` **step**-function overlay (v1 study) applied to the same
+12 base strategies. Reproduced verbatim (including the historical step-bucket definition
+in `src/risk/drawdown.drawdown_exposure`). Verified vs
+`exp_005_risk_engine_v1/dd_overlay_all_strategies_comparison.csv` (Sharpe_dd / MDD_dd):
+
+| Overlay | Sharpe | MDD |  | Overlay | Sharpe | MDD |
+| --- | --- | --- | --- | --- | --- | --- |
+| ls20 | 1.405 | -0.346 | | ls20_sqrt | 1.300 | -0.332 |
+| ls30 | 1.004 | -0.322 | | ls20_sqrt_partial | 1.391 | -0.322 |
+| blend_40_60 | 1.268 | -0.320 | | ls20_sqrt_partial_norm | 1.411 | -0.346 |
+| blend_50_50 | 1.344 | -0.326 | | ls30_sqrt_partial_norm | 1.108 | -0.322 |
+| blend_60_40 | 1.393 | -0.328 | | ls20_linear | 1.282 | -0.321 |
+| blend_70_30 | 1.408 | -0.325 | | ls20_pow07 | 1.266 | -0.328 |
+
+This completes P05: **12 smooth-DD + 12 step-DD + final portfolio (2.09) + deployment
+base (1.851) = 26** — the full taxonomy count.
+
 ## Capabilities used (all pre-existing / extended, none new)
 - `PortfolioSpec` composite (nested, deterministic).
 - `src/risk/weight_overlay.py` — generalised to the vol-regime family (linear/sqrt/pow,

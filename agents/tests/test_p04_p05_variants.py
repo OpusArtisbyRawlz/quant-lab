@@ -34,6 +34,8 @@ def test_manifest_has_all_p04_variants_and_p05_overlays():
             "p04_blend_60_40_vt_020", "p04_blend_60_40_vt_025"} <= p04
     assert {"p05_smooth_dd_blend_60_40", "p05_smooth_dd_ls20_sqrt_partial_norm",
             "p05_smooth_dd_ls30_sqrt_partial_norm"} <= p05
+    # all 12 step-DD overlays present too
+    assert len({s for s in p05 if s.startswith("p05_step_dd_")}) == 12
 
 
 def _replay(tmp_path, sid, eid):
@@ -61,6 +63,7 @@ def _replay(tmp_path, sid, eid):
     ("p04_blend_50_50", 1.503, -0.604),                  # blend composite
     ("p04_blend_60_40_vt_020", 1.256, -0.614),           # blend + vol target
     ("p05_smooth_dd_blend_60_40", 1.824, -0.469),        # P05 smooth-DD on a P04 variant
+    ("p05_step_dd_blend_60_40", 1.393, -0.328),          # P05 step-DD overlay (v1 study)
 ])
 def test_variant_replay_fidelity(tmp_path, sid, sharpe, mdd):
     m = _replay(tmp_path, sid, f"t_{sid}")
