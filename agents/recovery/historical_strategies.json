@@ -96,6 +96,602 @@
       "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
+      "strategy_id": "p04_ls20_linear",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 p04_ls20_linear (vol-regime weight overlay)",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_ls20_linear",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "linear"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_ls20_sqrt",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 p04_ls20_sqrt (vol-regime weight overlay)",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_ls20_sqrt",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_ls20_pow07",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 p04_ls20_pow07 (vol-regime weight overlay)",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_ls20_pow07",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "pow",
+              "alpha": 0.7
+            }
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_ls20_sqrt_partial",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 p04_ls20_sqrt_partial (vol-regime weight overlay)",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_ls20_sqrt_partial",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_ls20_sqrt_partial_norm",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 p04_ls20_sqrt_partial_norm (vol-regime weight overlay)",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_ls20_sqrt_partial_norm",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true,
+              "normalize": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_ls30_sqrt_partial_norm",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 p04_ls30_sqrt_partial_norm (vol-regime weight overlay)",
+      "signals": [
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_ls30_sqrt_partial_norm",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls30_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true,
+              "normalize": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_ls20_sqrt_partial_norm_neut",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 p04_ls20_sqrt_partial_norm_neut (vol-regime weight overlay)",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_ls20_sqrt_partial_norm_neut",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true,
+              "normalize": true,
+              "neutralize": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_ls30_sqrt_partial_norm_neut",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 p04_ls30_sqrt_partial_norm_neut (vol-regime weight overlay)",
+      "signals": [
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_ls30_sqrt_partial_norm_neut",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls30_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true,
+              "normalize": true,
+              "neutralize": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_blend_70_30",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "blend",
+      "hypothesis": "P04 p04_blend_70_30 return blend of LS20/LS30",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_blend_70_30",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.7,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.3,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_blend_60_40",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "blend",
+      "hypothesis": "P04 p04_blend_60_40 return blend of LS20/LS30",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_blend_60_40",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_blend_50_50",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "blend",
+      "hypothesis": "P04 p04_blend_50_50 return blend of LS20/LS30",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_blend_50_50",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.5,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.5,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_blend_40_60",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "blend",
+      "hypothesis": "P04 p04_blend_40_60 return blend of LS20/LS30",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_blend_40_60",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "strategy_id": "p04_blend_60_40_vt_015",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 blend 60/40 + vol target 0.15",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_blend_60_40_vt_015",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "vol_target",
+          "target_vol": 0.15,
+          "lookback": 20,
+          "clip_upper": 2.0
+        }
+      }
+    },
+    {
+      "strategy_id": "p04_blend_60_40_vt_018",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 blend 60/40 + vol target 0.18",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_blend_60_40_vt_018",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "vol_target",
+          "target_vol": 0.18,
+          "lookback": 20,
+          "clip_upper": 2.0
+        }
+      }
+    },
+    {
+      "strategy_id": "p04_blend_60_40_vt_020",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 blend 60/40 + vol target 0.2",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_blend_60_40_vt_020",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "vol_target",
+          "target_vol": 0.2,
+          "lookback": 20,
+          "clip_upper": 2.0
+        }
+      }
+    },
+    {
+      "strategy_id": "p04_blend_60_40_vt_025",
+      "project": "project_04_return_forecast_alpha",
+      "experiment_id": "exp_004_project04_final",
+      "kind": "portfolio",
+      "hypothesis": "P04 blend 60/40 + vol target 0.25",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p04_blend_60_40_vt_025",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "vol_target",
+          "target_vol": 0.25,
+          "lookback": 20,
+          "clip_upper": 2.0
+        }
+      }
+    },
+    {
       "strategy_id": "p05_smooth_dd_ls20",
       "project": "project_05_risk_engine",
       "experiment_id": "exp_005_risk_engine_final",
@@ -136,6 +732,408 @@
       "alt_bar_eligible": false,
       "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
       "mapping_status": "ported"
+    },
+    {
+      "strategy_id": "p05_smooth_dd_blend_40_60",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_blend_40_60 book.",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_blend_40_60",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_blend_50_50",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_blend_50_50 book.",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_blend_50_50",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.5,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.5,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_blend_60_40",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_blend_60_40 book.",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_blend_60_40",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.6,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.4,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_blend_70_30",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_blend_70_30 book.",
+      "signals": [
+        "hist_p04_ls20_v1",
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_blend_70_30",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "ls20",
+            "weight": 0.7,
+            "features": [
+              "hist_p04_ls20_v1"
+            ]
+          },
+          {
+            "child_id": "ls30",
+            "weight": 0.3,
+            "features": [
+              "hist_p04_ls30_v1"
+            ]
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_ls20_linear",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_ls20_linear book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_ls20_linear",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "linear"
+            }
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_ls20_pow07",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_ls20_pow07 book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_ls20_pow07",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "pow",
+              "alpha": 0.7
+            }
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_ls20_sqrt",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_ls20_sqrt book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_ls20_sqrt",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt"
+            }
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_ls20_sqrt_partial",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_ls20_sqrt_partial book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_ls20_sqrt_partial",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true
+            }
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_ls20_sqrt_partial_norm",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_ls20_sqrt_partial_norm book.",
+      "signals": [
+        "hist_p04_ls20_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_ls20_sqrt_partial_norm",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls20_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true,
+              "normalize": true
+            }
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
+    },
+    {
+      "strategy_id": "p05_smooth_dd_ls30_sqrt_partial_norm",
+      "project": "project_05_risk_engine",
+      "experiment_id": "exp_005_risk_engine_final",
+      "kind": "overlay",
+      "hypothesis": "Smooth-drawdown overlay (k=5, floor=0.55) on the p04_ls30_sqrt_partial_norm book.",
+      "signals": [
+        "hist_p04_ls30_v1"
+      ],
+      "market": "US_EQUITY",
+      "universe": "project_04_universe_recovery",
+      "bar_type": "time",
+      "alt_bar_eligible": false,
+      "origin_notebook": "research/project_05_risk_engine/notebooks/01_drawdown_overlay.ipynb",
+      "mapping_status": "ported",
+      "portfolio": {
+        "portfolio_id": "p05_smooth_dd_ls30_sqrt_partial_norm",
+        "weighting": "fixed",
+        "children": [
+          {
+            "child_id": "book",
+            "weight": 1.0,
+            "features": [
+              "hist_p04_ls30_v1"
+            ],
+            "weight_overlay": {
+              "method": "vol_regime",
+              "transform": "sqrt",
+              "partial": true,
+              "normalize": true
+            }
+          }
+        ],
+        "overlay": {
+          "method": "smooth_dd",
+          "floor": 0.55,
+          "k": 5
+        }
+      }
     },
     {
       "strategy_id": "p05_final_portfolio",
@@ -227,114 +1225,6 @@
           "note": "children reference recovered P04 books (hist_p04_ls20_v1/ls30_v1); strategy- and portfolio-level smooth-DD (k=5,floor=0.55); weight_overlay uses recovered P02 OOF"
         }
       }
-    },
-    {
-      "strategy_id": "p04_blend_60_40_ls20_ls30",
-      "project": "project_04_return_forecast_alpha",
-      "experiment_id": "exp_004_project04_final",
-      "kind": "blend",
-      "hypothesis": "Blend 60% LS20 + 40% LS30 (the project's primary alpha driver \u2014 best risk/return balance).",
-      "signals": [
-        "hist_p04_ls20_v1",
-        "hist_p04_ls30_v1"
-      ],
-      "market": "US_EQUITY",
-      "universe": "project_04_universe_recovery",
-      "bar_type": "time",
-      "alt_bar_eligible": false,
-      "mapping_status": "composition",
-      "blend": {
-        "components": [
-          "p04_ls20",
-          "p04_ls30"
-        ],
-        "weights": [
-          0.6,
-          0.4
-        ]
-      },
-      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
-    },
-    {
-      "strategy_id": "p04_blend_50_50_ls20_ls30",
-      "project": "project_04_return_forecast_alpha",
-      "experiment_id": "exp_004_project04_final",
-      "kind": "blend",
-      "hypothesis": "Blend 50% LS20 + 50% LS30.",
-      "signals": [
-        "hist_p04_ls20_v1",
-        "hist_p04_ls30_v1"
-      ],
-      "market": "US_EQUITY",
-      "universe": "project_04_universe_recovery",
-      "bar_type": "time",
-      "alt_bar_eligible": false,
-      "mapping_status": "composition",
-      "blend": {
-        "components": [
-          "p04_ls20",
-          "p04_ls30"
-        ],
-        "weights": [
-          0.5,
-          0.5
-        ]
-      },
-      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
-    },
-    {
-      "strategy_id": "p04_blend_70_30_ls20_ls30",
-      "project": "project_04_return_forecast_alpha",
-      "experiment_id": "exp_004_project04_final",
-      "kind": "blend",
-      "hypothesis": "Blend 70% LS20 + 30% LS30.",
-      "signals": [
-        "hist_p04_ls20_v1",
-        "hist_p04_ls30_v1"
-      ],
-      "market": "US_EQUITY",
-      "universe": "project_04_universe_recovery",
-      "bar_type": "time",
-      "alt_bar_eligible": false,
-      "mapping_status": "composition",
-      "blend": {
-        "components": [
-          "p04_ls20",
-          "p04_ls30"
-        ],
-        "weights": [
-          0.7,
-          0.3
-        ]
-      },
-      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
-    },
-    {
-      "strategy_id": "p04_blend_40_60_ls20_ls30",
-      "project": "project_04_return_forecast_alpha",
-      "experiment_id": "exp_004_project04_final",
-      "kind": "blend",
-      "hypothesis": "Blend 40% LS20 + 60% LS30.",
-      "signals": [
-        "hist_p04_ls20_v1",
-        "hist_p04_ls30_v1"
-      ],
-      "market": "US_EQUITY",
-      "universe": "project_04_universe_recovery",
-      "bar_type": "time",
-      "alt_bar_eligible": false,
-      "mapping_status": "composition",
-      "blend": {
-        "components": [
-          "p04_ls20",
-          "p04_ls30"
-        ],
-        "weights": [
-          0.4,
-          0.6
-        ]
-      },
-      "origin_notebook": "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb"
     },
     {
       "strategy_id": "p06_deployment_tournament",
