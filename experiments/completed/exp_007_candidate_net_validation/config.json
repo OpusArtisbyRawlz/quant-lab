@@ -1,0 +1,20 @@
+{
+  "experiment": "exp_007_candidate_net_validation",
+  "purpose": "apples-to-apples gross vs net daily returns for V1 / DD Only / Combined DD+Vol",
+  "candidates": [
+    "V1",
+    "DD Only",
+    "Combined DD+Vol"
+  ],
+  "source": "exp_006_deployment_candidate_tournament/candidates/<cand>/{equity_curve,turnover,exposure}.csv",
+  "cost_model": "net_t = gross_t - turnover_t * (cost_bps/10000); one-way turnover; cost_bps=10 (canonical P06 deployment-report assumption)",
+  "date_range": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "n_days": 2558,
+  "unmodeled_costs": [
+    "borrow/financing costs were NOT in the original P06 model \u2014 common unresolved limitation for all three"
+  ],
+  "validation": "reconstructed gross & net annualized Sharpe match each candidate metrics.json Sharpe and Cost-adj Sharpe (10bps) to 1e-4"
+}

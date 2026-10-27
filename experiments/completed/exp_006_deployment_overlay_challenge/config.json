@@ -5,7 +5,7 @@
     "exp_005_risk_engine_final/final_daily_weights.csv"
   ],
   "base_recovery": {
-    "base_return": "portfolio_return_t / exposure_{t-1} (lagged)",
+    "base_return": "portfolio_return_t / exposure_t (same-row; stored exposure already lagged)",
     "base_book": "final_weight_t / exposure_t (contemporaneous)"
   },
   "n_days": 2558,

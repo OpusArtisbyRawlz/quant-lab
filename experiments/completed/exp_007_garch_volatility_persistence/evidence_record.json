@@ -1,0 +1,52 @@
+{
+  "record_id": "p07_garch_persistence_audit_v1",
+  "strategy_version": "SPY vs V1 / DD Only / Combined DD+Vol (volatility-persistence audit)",
+  "project06_freeze_tag": "project-06-deployment-validation-frozen",
+  "experiment_id": "exp_007_garch_volatility_persistence",
+  "dataset": "SPY (data/raw/SPY.csv); exp_007 net+gross strategy returns; exp_005 base return",
+  "date_range": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "parameters": {
+    "garch": "GARCH(1,1) t & normal",
+    "seed": 20261023,
+    "persistence_0995_source": "SPY US market benchmark (confirmed)",
+    "SPY_full_persistence": 0.99474,
+    "SPY_full_nu": 5.4457,
+    "SPY_full_halflife_d": 131.5,
+    "V1net_persistence": 0.999,
+    "DDonly_persistence": 0.9987,
+    "Combined_persistence": 0.9984,
+    "strategy_fit_warning": "strategy GARCH-t fits hit nu~8 (near start), several non-convergent, sq-std-resid Ljung-Box p=0 => GARCH(1,1) misspecified for risk-controlled returns"
+  },
+  "random_seed": 20261023,
+  "notebook": "research/project_07_statistical_integrity/notebooks/03_monte_carlo.ipynb",
+  "source_module": "src/statistics/simulation.py",
+  "method": "monte_carlo",
+  "method_version": "stat_v1",
+  "assumptions": "GARCH(1,1) with constant mean; standardized Student-t innovations; MLE via scipy. Persistence compared across market vs raw-base vs risk-controlled strategy returns.",
+  "hypothesis": "Does volatility persistence differ materially between SPY, raw alpha and risk-controlled variants?",
+  "test_statistic": null,
+  "p_value": null,
+  "confidence_interval": null,
+  "confidence_level": null,
+  "bootstrap_iterations": null,
+  "monte_carlo_iterations": null,
+  "multiple_testing_correction": null,
+  "n_trials": null,
+  "deflated_sharpe_result": null,
+  "white_reality_check_result": null,
+  "paper_reference": null,
+  "research_reference": null,
+  "commit_hash": null,
+  "git_tag": null,
+  "implementation_version": null,
+  "decision": "inconclusive",
+  "limitations": "(1) Strategy GARCH-t fits are numerically unstable (nu pinned ~8, non-convergence, near-unit persistence) and MISSPECIFIED (squared standardized residuals remain autocorrelated), so strategy persistence estimates are not reliable point values. (2) NB03 Monte Carlo fits/resamples already risk-controlled returns directly (method B); it does NOT dynamically replay the drawdown overlay. A faithful dynamic replay (method A) gives LIGHTER tail drawdowns than B. (3) V1 dual-layer overlay not dynamically replayed (DD Only & Combined are, to 1e-15). (4) Near-unit persistence inflates GARCH tail-MDD dispersion.",
+  "timestamp": "2026-10-23T07:25:11.515626+00:00",
+  "extra": {
+    "status": "audit complete; no deployment candidate selected or changed",
+    "central_question_answer": "Persistence is materially higher & less stable for the risk-controlled strategy returns than for SPY, but this largely reflects GARCH(1,1) misspecification on endogenously risk-controlled series, not a clean risk signal."
+  }
+}

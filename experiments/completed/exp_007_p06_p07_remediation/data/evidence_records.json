@@ -1,0 +1,204 @@
+{
+  "ledger_backend_persisted": false,
+  "source": "regen_nb09 on corrected base",
+  "cost_model": "net=gross-turnover*(bps/1e4); bps=10 one-way",
+  "trial_sharpe_variance_used": 0.000492,
+  "records": [
+    {
+      "record_id": "p07_nb09_net_v1_v1",
+      "strategy_version": "V1",
+      "experiment_id": "exp_007_candidate_net_validation",
+      "dataset": "v1_daily_returns.csv",
+      "basis": "net-of-cost (10bps one-way)",
+      "test_statistic_net_ann_sharpe": 1.9988809075073375,
+      "signflip_p": 9.999000099990002e-05,
+      "boot_CI": [
+        0.8147218415433289,
+        3.1351332628327473
+      ],
+      "PSR0": 0.9999999999876876,
+      "DSR_scenarios": {
+        "2": 0.9999999993376967,
+        "5": 0.9999999329547685,
+        "100": 0.9998920928460182
+      },
+      "MinTRL_obs": {
+        "SR*0/95": 157,
+        "SR*0/99": 312,
+        "hurdle/95": 507,
+        "hurdle/99": 1012
+      },
+      "gross_metrics": {
+        "Ann Sharpe": 2.090112636607605,
+        "Ann Vol": 0.1591750575094341,
+        "CAGR": 0.3770208983898087,
+        "MDD": -0.366949488536633,
+        "Calmar": 1.027446311189422
+      },
+      "net_metrics": {
+        "Ann Sharpe": 1.9988809075073375,
+        "Ann Vol": 0.15911698053769904,
+        "CAGR": 0.3570464034298615,
+        "MDD": -0.3715249475916068,
+        "Calmar": 0.9610294160443281
+      },
+      "mean_turnover": 0.05808692331820345,
+      "ann_cost_drag": 0.01463790467618727,
+      "decision": "INCONCLUSIVE (no winner selected; V1 not replaced)"
+    },
+    {
+      "record_id": "p07_nb09_net_dd_v1",
+      "strategy_version": "DD Only",
+      "experiment_id": "exp_007_candidate_net_validation",
+      "dataset": "dd_only_daily_returns.csv",
+      "basis": "net-of-cost (10bps one-way)",
+      "test_statistic_net_ann_sharpe": 2.1396929083202707,
+      "signflip_p": 9.999000099990002e-05,
+      "boot_CI": [
+        0.9719910893834158,
+        3.2398360060261773
+      ],
+      "PSR0": 0.9999999999997893,
+      "DSR_scenarios": {
+        "2": 0.9999999999830471,
+        "5": 0.9999999971604034,
+        "100": 0.9999883111800927
+      },
+      "MinTRL_obs": {
+        "SR*0/95": 133,
+        "SR*0/99": 265,
+        "hurdle/95": 388,
+        "hurdle/99": 775
+      },
+      "gross_metrics": {
+        "Ann Sharpe": 2.2289551186473644,
+        "Ann Vol": 0.14679843854582358,
+        "CAGR": 0.3720794975210784,
+        "MDD": -0.29790594098264667,
+        "Calmar": 1.2489831397580367
+      },
+      "net_metrics": {
+        "Ann Sharpe": 2.1396929083202707,
+        "Ann Vol": 0.14671537814516883,
+        "CAGR": 0.3540138373092099,
+        "MDD": -0.30175747253748575,
+        "Calmar": 1.1731733909762005
+      },
+      "mean_turnover": 0.052703479553212,
+      "ann_cost_drag": 0.013281276847409422,
+      "decision": "INCONCLUSIVE (no winner selected; V1 not replaced)",
+      "net_family_A_sharpe_improvement": {
+        "SR_V1": 1.9988809075073375,
+        "SR_challenger": 2.1396929083202707,
+        "dSharpe": 0.1408120008129332,
+        "boot_mean_dSharpe": 0.13969218359142402,
+        "ci_lo": 0.017933406586919796,
+        "ci_hi": 0.27313646417693216,
+        "raw_p": 0.009998000399920015,
+        "bonferroni_adj": 0.01999600079984003,
+        "bonferroni_decision": "REJECT H0",
+        "bh_adj": 0.01999600079984003,
+        "bh_decision": "REJECT H0"
+      },
+      "net_family_MDD_improvement": {
+        "observed_dMDD": 0.06976747505412106,
+        "boot_mean": 0.051982823045725504,
+        "ci_lo": 0.019707012940044073,
+        "ci_hi": 0.09673201171091474,
+        "raw_p": 0.0004999500049995,
+        "bonferroni_adj": 0.000999900009999,
+        "bonferroni_decision": "REJECT H0",
+        "bh_adj": 0.000999900009999,
+        "bh_decision": "REJECT H0"
+      },
+      "net_family_CAGR_improvement": {
+        "observed_dCAGR": -0.003032566120651614,
+        "boot_mean": -0.004271372599880718,
+        "ci_lo": -0.04023934915983586,
+        "ci_hi": 0.026716598911500702,
+        "raw_p": 0.5815418458154185,
+        "bonferroni_adj": 1.0,
+        "bonferroni_decision": "fail to reject H0",
+        "bh_adj": 0.5815418458154185,
+        "bh_decision": "fail to reject H0"
+      }
+    },
+    {
+      "record_id": "p07_nb09_net_combined_v1",
+      "strategy_version": "Combined DD+Vol",
+      "experiment_id": "exp_007_candidate_net_validation",
+      "dataset": "combined_dd_vol_daily_returns.csv",
+      "basis": "net-of-cost (10bps one-way)",
+      "test_statistic_net_ann_sharpe": 2.0717399826073506,
+      "signflip_p": 9.999000099990002e-05,
+      "boot_CI": [
+        0.9121114013095531,
+        3.172611074105245
+      ],
+      "PSR0": 0.9999999999989213,
+      "DSR_scenarios": {
+        "2": 0.9999999999240383,
+        "5": 0.9999999892951404,
+        "100": 0.9999687159668457
+      },
+      "MinTRL_obs": {
+        "SR*0/95": 142,
+        "SR*0/99": 282,
+        "hurdle/95": 433,
+        "hurdle/99": 865
+      },
+      "gross_metrics": {
+        "Ann Sharpe": 2.1584474708727197,
+        "Ann Vol": 0.15747337951135737,
+        "CAGR": 0.38736203324671226,
+        "MDD": -0.3192133075551681,
+        "Calmar": 1.213489613617585
+      },
+      "net_metrics": {
+        "Ann Sharpe": 2.0717399826073506,
+        "Ann Vol": 0.15737138933995592,
+        "CAGR": 0.36830209135939174,
+        "MDD": -0.3232041433980647,
+        "Calmar": 1.1395339412644334
+      },
+      "mean_turnover": 0.05502150127783488,
+      "ann_cost_drag": 0.01386541832201439,
+      "decision": "INCONCLUSIVE (no winner selected; V1 not replaced)",
+      "net_family_A_sharpe_improvement": {
+        "SR_V1": 1.9988809075073375,
+        "SR_challenger": 2.0717399826073506,
+        "dSharpe": 0.0728590751000131,
+        "boot_mean_dSharpe": 0.07275196589087511,
+        "ci_lo": -0.09232262078185581,
+        "ci_hi": 0.24688791669790525,
+        "raw_p": 0.20055988802239552,
+        "bonferroni_adj": 0.40111977604479104,
+        "bonferroni_decision": "fail to reject H0",
+        "bh_adj": 0.20055988802239552,
+        "bh_decision": "fail to reject H0"
+      },
+      "net_family_MDD_improvement": {
+        "observed_dMDD": 0.04832080419354212,
+        "boot_mean": 0.03167712853245521,
+        "ci_lo": -0.018403758481798878,
+        "ci_hi": 0.0783095391049217,
+        "raw_p": 0.09809019098090191,
+        "bonferroni_adj": 0.19618038196180382,
+        "bonferroni_decision": "fail to reject H0",
+        "bh_adj": 0.09809019098090191,
+        "bh_decision": "fail to reject H0"
+      },
+      "net_family_CAGR_improvement": {
+        "observed_dCAGR": 0.011255687929530245,
+        "boot_mean": 0.011328052436478693,
+        "ci_lo": -0.029240676803784737,
+        "ci_hi": 0.056116551381415594,
+        "raw_p": 0.29857014298570145,
+        "bonferroni_adj": 0.5971402859714029,
+        "bonferroni_decision": "fail to reject H0",
+        "bh_adj": 0.5815418458154185,
+        "bh_decision": "fail to reject H0"
+      }
+    }
+  ]
+}

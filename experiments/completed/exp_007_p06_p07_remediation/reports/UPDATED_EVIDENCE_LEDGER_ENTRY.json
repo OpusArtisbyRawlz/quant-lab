@@ -1,0 +1,61 @@
+{
+  "record_id": "p07_remediation_return_lineage_v1",
+  "supersedes": "exp_007_research_integrity_audit (investigation baseline)",
+  "experiment_id": "exp_007_p06_p07_remediation",
+  "git_branch": "remediation/p06-p07-return-lineage",
+  "base_commit": "760f871",
+  "date": "2026-10-27",
+  "method": "controlled_source_remediation",
+  "defect": "exp_006 base-return recovery double-lagged (pr/exp.shift(1)); stored exposure already lagged",
+  "fix": "same-row inverse pr/exp == canonical port_pre from exp_004 (verified 1e-12), in 8 call sites",
+  "scope_guardrails": {
+    "parameters_optimised": false,
+    "production_logic_modified": false,
+    "candidate_promoted": false,
+    "promote_script_run": false,
+    "inputs_exp004_exp005_modified": false
+  },
+  "corrected_net_metrics": {
+    "V1": {"CAGR": 0.3570, "Sharpe": 1.999, "MDD": -0.3715},
+    "DD Only": {"CAGR": 0.3540, "Sharpe": 2.140, "MDD": -0.3018},
+    "Combined DD+Vol": {"CAGR": 0.3683, "Sharpe": 2.072, "MDD": -0.3232}
+  },
+  "significance_vs_v1_net": {
+    "DD Only": {"Sharpe": {"effect": 0.1408, "raw_p": 0.0100, "fwer": "REJECT H0"},
+                 "MDD": {"effect": 0.0698, "raw_p": 0.0005, "fwer": "REJECT H0"},
+                 "CAGR": {"effect": -0.0030, "raw_p": 0.5815, "fwer": "fail to reject H0"}},
+    "Combined DD+Vol": {"Sharpe": {"effect": 0.0729, "raw_p": 0.2006, "fwer": "fail to reject H0"},
+                         "MDD": {"effect": 0.0483, "raw_p": 0.0981, "fwer": "fail to reject H0"},
+                         "CAGR": {"effect": 0.0113, "raw_p": 0.2986, "fwer": "fail to reject H0"}}
+  },
+  "selection_aware": {
+    "white_reality_check": {"winner": "P04:ls_20pct", "statistic": 0.07760, "p_value": 0.0103,
+                             "change_vs_defective": "identical"},
+    "deflated_sharpe_V1": {"N100": 0.99999, "decision": "unchanged (saturated)"}
+  },
+  "monte_carlo_net": {
+    "P(MDD<-30%)_10bps": {"V1": 0.825, "DD Only": 0.487, "Combined": 0.614},
+    "dynamic_replay_fidelity": {"V1": "6.9e-16", "DD Only": "5.5e-16", "Combined": "0.0112 (year-1 vol warm-up)"}
+  },
+  "new_finding": "overlay-challenge promotion gate flipped PASS->FAIL on corrected base (OOS Sharpe 4/7 folds vs >=6/7 required; MDD 7/7)",
+  "classifications": {
+    "V1": "VALID (unchanged)",
+    "DD Only": "CORRECTED — credible drawdown + Sharpe improver over V1; no CAGR edge",
+    "Combined DD+Vol": "INVALID edge — not distinguishable from V1 on any axis; uses up to 1.28x leverage",
+    "turnover_and_cost": "VALID",
+    "white_reality_check / PSR / DSR / bootstrap / permutation": "VALID",
+    "nb03_dynamic_replay_drawdown": "VALID",
+    "nb03_combined_path_cagr_sharpe": "PROVISIONAL (vol-mult pre-window convention)",
+    "deployment_candidate_* (promote outputs)": "INVALID (defective-historical; superseded)",
+    "borrow_financing": "PROVISIONAL (bounded scenarios; not historically modelled)"
+  },
+  "tests": {"p06": "8 passed", "p07": "269 passed, 11 skipped",
+             "new_module": "test_remediation_source_fix.py (8 tests bound to fixed source)"},
+  "decision": "INCONCLUSIVE by design — no winner selected; V1 not replaced; rankings provisional",
+  "remaining_before_cpcv_pbo": [
+    "treat DD Only as drawdown-control variant of V1, not a higher-return strategy",
+    "do not treat Combined as superior to V1",
+    "add explicit short-borrow/financing model (and Combined leverage) before live go/no-go",
+    "run purging/embargo + CPCV/PBO on the corrected canonical series"
+  ]
+}

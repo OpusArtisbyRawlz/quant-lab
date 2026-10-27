@@ -1,0 +1,67 @@
+{
+  "experiment": "exp_006_deployment_overlay_challenge",
+  "base_files": [
+    "exp_005_risk_engine_final/final_weighted_multi_strategy_portfolio_dd.csv",
+    "exp_005_risk_engine_final/final_daily_weights.csv"
+  ],
+  "base_recovery": {
+    "base_return": "portfolio_return_t / exposure_{t-1} (lagged)",
+    "base_book": "final_weight_t / exposure_t (contemporaneous)"
+  },
+  "n_days": 2558,
+  "date_range": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "universe": [
+    "AAPL",
+    "AMZN",
+    "BAC",
+    "COST",
+    "CVX",
+    "GOOGL",
+    "GS",
+    "HD",
+    "JNJ",
+    "JPM",
+    "LLY",
+    "META",
+    "MSFT",
+    "NVDA",
+    "PFE",
+    "PG",
+    "TSLA",
+    "UNH",
+    "WMT",
+    "XOM"
+  ],
+  "tx_costs_bps": [
+    0,
+    2,
+    5,
+    10,
+    20,
+    50
+  ],
+  "rebalance_freqs": [
+    1,
+    5,
+    10,
+    21
+  ],
+  "capital_levels": [
+    10000.0,
+    50000.0,
+    100000.0,
+    500000.0,
+    1000000.0,
+    5000000.0
+  ],
+  "participation_cap": 0.1,
+  "cost_adj_bps": 10.0,
+  "incumbent_metrics": {
+    "Sharpe": 2.0901126366076075,
+    "CAGR": 0.37702089838981023,
+    "MDD": -0.36694948853663256
+  }
+}

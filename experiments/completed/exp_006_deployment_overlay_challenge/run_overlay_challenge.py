@@ -21,7 +21,8 @@ The portfolio-level overlay is the OUTERMOST scalar on both the return and the
 book (book gross |w| correlates 0.98 with the stored exposure). We strip it to
 recover the shared base, then re-apply each challenger overlay:
 
-    base_return_t = portfolio_return_t / exposure_{t-1}      (lagged, look-ahead-safe)
+    base_return_t = portfolio_return_t / exposure_t          (same-row; the stored exposure
+                                                              is already the lagged applied one)
     base_book_t   = final_weight_t    / exposure_t           (contemporaneous book scaling)
 
     candidate_return_t  = base_return_t * e_cand_{t-1}
@@ -105,10 +106,12 @@ def load_base():
 
     pr = dep["portfolio_return"].astype(float)
     exp = dep["portfolio_dd_exposure"].astype(float)
-    exp_lag = exp.shift(1).fillna(1.0)
 
-    # recover shared base (strip ONLY the portfolio-level overlay)
-    base_ret = pr / exp_lag                       # lagged application
+    # recover shared base (strip ONLY the portfolio-level overlay). portfolio_dd_exposure
+    # is ALREADY the lagged applied exposure, and portfolio_return[t] = port_pre[t]*exp[t]
+    # (same row), so the inverse is a SAME-ROW divide — identical to the book recovery.
+    # (A second .shift(1) double-lagged the base; see exp_007_research_integrity_audit.)
+    base_ret = pr / exp                           # same-row inverse (exp already lagged)
     base_book = wide.div(exp, axis=0)             # contemporaneous book scaling
 
     # incumbent (as shipped) — exact
@@ -345,7 +348,7 @@ def main():
             "exp_005_risk_engine_final/final_daily_weights.csv",
         ],
         "base_recovery": {
-            "base_return": "portfolio_return_t / exposure_{t-1} (lagged)",
+            "base_return": "portfolio_return_t / exposure_t (same-row; stored exposure already lagged)",
             "base_book": "final_weight_t / exposure_t (contemporaneous)",
         },
         "n_days": int(len(dates)),

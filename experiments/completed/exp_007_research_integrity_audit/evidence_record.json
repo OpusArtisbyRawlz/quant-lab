@@ -1,0 +1,57 @@
+{
+  "record_id": "p07_research_integrity_audit_v1",
+  "experiment_id": "exp_007_research_integrity_audit",
+  "title": "Return-lineage defect audit (Projects 04-07): DD Only / Combined DD+Vol",
+  "timestamp": "2026-10-26T23:15:38.570991+00:00",
+  "git_commit": "760f871a7e9c4a8596b72b7edee8015ff868ef8f",
+  "defect": {
+    "mechanism": "double-lag base-return recovery: base_ret = portfolio_return / portfolio_dd_exposure.shift(1), while the stored portfolio_dd_exposure is ALREADY the lagged applied exposure (exp_005 cell 82 persists portfolio_exp.shift(1)). Correct inverse is same-row divide.",
+    "spurious_factor": "portfolio_exp[t-1]/portfolio_exp[t-2] on each day exposure moved (2327/2558 days)",
+    "introduced_in": [
+      "exp_006_deployment_candidate_tournament/run_tournament.py:125",
+      "exp_006_deployment_overlay_challenge/run_overlay_challenge.py:111"
+    ],
+    "internal_contradiction": "same function recovers the BOOK with /exp (same-row, correct) but the RETURN with /exp.shift(1) (defect) \u2014 mutually inconsistent inverses of one scaling",
+    "why_v1_clean": "V1 uses the shipped portfolio_return directly (ret=pr.copy()); it never passes through the recovered base, so it is defect-free and reconstructs from exp_004 to ~1e-16."
+  },
+  "verification": {
+    "pr_eq_portpre_times_storedexp_maxabs": 9.975e-17,
+    "v1_recon_vs_shipped_maxabs": 9.975e-17,
+    "correct_recovery_vs_portpre_maxabs": 1.631e-16,
+    "defect_recovery_vs_portpre_maxabs": 0.009857,
+    "defect_reproduces_shipped_dd_maxabs": 5.516e-16,
+    "defect_reproduces_shipped_combined_maxabs": 5.889e-16
+  },
+  "impact": {
+    "V1": "VALID \u2014 unchanged on every metric",
+    "DD Only": "CORRECTED \u2014 gross CAGR 40.71%->37.21%; Sharpe improvement vs V1 SURVIVES (net p 0.0004->0.010); MDD improvement SURVIVES (~6.98pp, p=0.0009); CAGR advantage DISAPPEARS (+3.1pp->-0.3pp, p=0.58)",
+    "Combined": "CORRECTED/INVALIDATED edge \u2014 gross CAGR 42.56%->38.74%; Sharpe improvement vs V1 NO LONGER SIGNIFICANT (net p 0.011->0.20); CAGR edge collapses (+4.9pp->+1.1pp); MDD improvement weak (p=0.10)",
+    "turnover_costs": "VALID basis \u2014 computed from actual position books (compute_turnover(book)); correction shifts mean turnover <0.001 and cost drag <0.02pp/yr (second-order via exposure path)",
+    "white_reality_check": "VALID \u2014 winner P04:ls_20pct (raw, defect-free); p=0.0103 identical old vs corrected",
+    "deflated_sharpe": "VALID \u2014 candidate under test is V1; trial-variance input mildly corrected, DSR stays ~0.99999",
+    "bootstrap_nb01 / permutation_nb02": "VALID \u2014 operate on V1 only",
+    "monte_carlo_nb03": "drawdown conclusions VALID (dynamic replay already used canonical base); method-B CAGR/Sharpe for DD/Combined resampled the defective shipped series (documented)"
+  },
+  "source_hashes_sha256_16": {
+    "exp_004_ls20sqrtpn": "8f9339a68cdefb47",
+    "exp_004_blend6040": "3a606e2a68b1b477",
+    "exp_004_ls30": "ef9d50b36b2bef9f",
+    "exp_005_final_weighted": "d24eaa0aef722163",
+    "exp_005_daily_weights": "075e91912b315f21",
+    "exp_006_tournament_run": "aa13d8bd59107a80",
+    "exp_006_overlay_run": "6bdb6036dc4d2264",
+    "exp_006_overlay_equity": "b247eb7631f12322",
+    "exp_007_v1": "558c1f89aa6d2673",
+    "exp_007_dd": "1d3a7aa78d09c1d2",
+    "exp_007_combined": "2d776e13c1c00ab5"
+  },
+  "cost_convention": "one-way turnover * 10 bps; gross & net both reported; borrow/financing NOT modelled (pre-existing limitation)",
+  "data_period": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "n_days": 2558,
+  "ppy": 252,
+  "non_overwriting": "all upstream artifacts read-only; outputs isolated to exp_007_research_integrity_audit/",
+  "tests": "research/project_07_statistical_integrity/tests/test_return_lineage_audit.py (5 passed); full P07 suite 261 passed, 11 skipped"
+}

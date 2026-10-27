@@ -1,0 +1,156 @@
+{
+  "experiment": "exp_006_deployment_candidate_tournament",
+  "git_commit": "30a28f94eadc48b32017b807376d77d70665374f",
+  "n_days": 2558,
+  "date_range": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "universe_book_candidates": [
+    "AAPL",
+    "AMZN",
+    "BAC",
+    "COST",
+    "CVX",
+    "GOOGL",
+    "GS",
+    "HD",
+    "JNJ",
+    "JPM",
+    "LLY",
+    "META",
+    "MSFT",
+    "NVDA",
+    "PFE",
+    "PG",
+    "TSLA",
+    "UNH",
+    "WMT",
+    "XOM"
+  ],
+  "groups": {
+    "A": "Deployment Candidate V1 (shipped, has book)",
+    "B": "deployment-base overlay challengers (have book)",
+    "C": "historical v2 low-MDD challengers (return-only, NO book)"
+  },
+  "battery": {
+    "tx_costs_bps": [
+      0,
+      2,
+      5,
+      10,
+      20,
+      50
+    ],
+    "rebalance_freqs": [
+      1,
+      5,
+      10,
+      21
+    ],
+    "capital_levels": [
+      10000.0,
+      50000.0,
+      100000.0,
+      500000.0,
+      1000000.0,
+      5000000.0
+    ],
+    "participation_cap": 0.1,
+    "cost_adj_bps": 10.0,
+    "dd_threshold": 0.05
+  },
+  "roster": [
+    {
+      "slug": "candidate_v1_baseline",
+      "name": "Deployment Candidate V1 (baseline)",
+      "group": "A \u2014 V1 baseline",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_dd_only",
+      "name": "DD Only (floor0.3,k5)",
+      "group": "B \u2014 deployment-base challenger",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_combined",
+      "name": "Combined DD+Vol (floor0.3,k5,clip0.5-1.3)",
+      "group": "B \u2014 deployment-base challenger",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_floor03",
+      "name": "Floor 0.3 (m*smooth(0.3,5),clip0.5-1.3)",
+      "group": "B \u2014 deployment-base challenger",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_floor05",
+      "name": "Floor 0.5 (m*smooth(0.5,5),clip0.5-1.3)",
+      "group": "B \u2014 deployment-base challenger",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_clip_05_12",
+      "name": "Clip 0.5-1.2 (m*smooth(0.6,5))",
+      "group": "B \u2014 deployment-base challenger",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_clip_08_10",
+      "name": "Clip 0.8-1.0 (m*smooth(0.6,5))",
+      "group": "B \u2014 deployment-base challenger",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_dd_k1",
+      "name": "DD k=1 (m*smooth(0.6,1),clip0.3-1.5)",
+      "group": "B \u2014 deployment-base challenger",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_dd_k5",
+      "name": "DD k=5 (m*smooth(0.6,5),clip0.3-1.5)",
+      "group": "B \u2014 deployment-base challenger",
+      "has_book": true
+    },
+    {
+      "slug": "candidate_hist_base",
+      "name": "Historical v2 base (raw, no overlay)",
+      "group": "C \u2014 historical low-MDD challenger",
+      "has_book": false
+    },
+    {
+      "slug": "candidate_hist_dd_only",
+      "name": "Historical DD Only (floor0.3,k5)",
+      "group": "C \u2014 historical low-MDD challenger",
+      "has_book": false
+    },
+    {
+      "slug": "candidate_hist_combined",
+      "name": "Historical Combined (floor0.3,k5,clip0.5-1.3)",
+      "group": "C \u2014 historical low-MDD challenger",
+      "has_book": false
+    },
+    {
+      "slug": "candidate_hist_floor03",
+      "name": "Historical Floor 0.3 (clip0.5-1.3)",
+      "group": "C \u2014 historical low-MDD challenger",
+      "has_book": false
+    },
+    {
+      "slug": "candidate_hist_floor05",
+      "name": "Historical Floor 0.5 (clip0.5-1.3)",
+      "group": "C \u2014 historical low-MDD challenger",
+      "has_book": false
+    },
+    {
+      "slug": "candidate_hist_floor06",
+      "name": "Historical Floor 0.6 (clip0.5-1.3)",
+      "group": "C \u2014 historical low-MDD challenger",
+      "has_book": false
+    }
+  ],
+  "note": "Book-dependent stages (capacity, book turnover, transaction-cost stress, rebalance) are NOT EVALUABLE for Group C (no position book) and are recorded as N/A, treated as a deployment deficiency."
+}

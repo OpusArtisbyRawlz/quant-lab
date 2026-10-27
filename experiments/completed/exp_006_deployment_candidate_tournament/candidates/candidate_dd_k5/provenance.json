@@ -1,6 +1,6 @@
 {
   "experiment": "exp_006_deployment_candidate_tournament",
-  "git_commit": "30a28f94eadc48b32017b807376d77d70665374f",
+  "git_commit": "760f871a7e9c4a8596b72b7edee8015ff868ef8f",
   "candidate": "DD k=5 (m*smooth(0.6,5),clip0.3-1.5)",
   "group": "B \u2014 deployment-base challenger",
   "data_source": "recovered deployment base + overlay",

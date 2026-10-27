@@ -1,6 +1,6 @@
 {
   "experiment": "exp_006_deployment_candidate_tournament",
-  "git_commit": "30a28f94eadc48b32017b807376d77d70665374f",
+  "git_commit": "760f871a7e9c4a8596b72b7edee8015ff868ef8f",
   "candidate": "Historical DD Only (floor0.3,k5)",
   "group": "C \u2014 historical low-MDD challenger",
   "data_source": "final_returns_v2_with_dates.csv + overlay (robustness nb)",

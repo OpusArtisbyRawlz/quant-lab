@@ -1,0 +1,323 @@
+{
+  "ledger_backend_persisted": false,
+  "records": [
+    {
+      "record_id": "p07_nb09_net_v1_v1",
+      "strategy_version": "V1",
+      "project06_freeze_tag": "project-06-deployment-validation-frozen",
+      "experiment_id": "exp_007_candidate_net_validation",
+      "dataset": "experiments/completed/exp_007_candidate_net_validation/v1_daily_returns.csv",
+      "date_range": [
+        "2016-01-04",
+        "2026-03-06"
+      ],
+      "parameters": {
+        "cost_model": "net=gross-turnover*(bps/1e4)",
+        "cost_bps": 10.0,
+        "trial_sharpe_variance": 0.000492,
+        "n_trials_scenarios": [
+          2,
+          5,
+          100
+        ],
+        "dsr_hurdle_pp": 0.05613,
+        "scale": "per-period; net-of-cost"
+      },
+      "random_seed": 20260820,
+      "notebook": "research/project_07_statistical_integrity/notebooks/09_candidate_net_validation.ipynb",
+      "source_module": "src/statistics/{bootstrap,permutation,deflated_sharpe}.py",
+      "method": "deflated_sharpe",
+      "method_version": "stat_v1",
+      "assumptions": "Identical window/frequency/construction/cost (10bps one-way) for all 3; overlays of same base (near-duplicate); borrow/financing costs NOT modelled (common limitation).",
+      "hypothesis": "Does the candidate pass the P07 integrity stack on NET-of-cost returns?",
+      "test_statistic": 1.998880907507339,
+      "p_value": 9.999000099990002e-05,
+      "confidence_interval": [
+        0.8147218415433267,
+        3.1351332628327477
+      ],
+      "confidence_level": 0.95,
+      "bootstrap_iterations": 5000,
+      "monte_carlo_iterations": null,
+      "multiple_testing_correction": null,
+      "n_trials": null,
+      "deflated_sharpe_result": 0.9998920928460182,
+      "white_reality_check_result": null,
+      "paper_reference": null,
+      "research_reference": null,
+      "commit_hash": null,
+      "git_tag": null,
+      "implementation_version": null,
+      "decision": "inconclusive",
+      "limitations": "Net significance vs zero/selection established; net-differential multiple-testing not re-run; effective N and V from near-duplicate universe; borrow/financing unmodelled; no winner selected; V1 not replaced.",
+      "timestamp": "2026-09-24T20:32:08.299754+00:00",
+      "extra": {
+        "gross_metrics": {
+          "Ann Sharpe": 2.090112636607606,
+          "Ann Vol": 0.15917505750943356,
+          "CAGR": 0.37702089838981756,
+          "MDD": -0.3669494885366281,
+          "Calmar": 1.0274463111894598
+        },
+        "net_metrics": {
+          "Ann Sharpe": 1.998880907507339,
+          "Ann Vol": 0.15911698053769854,
+          "CAGR": 0.3570464034298604,
+          "MDD": -0.37152494759160615,
+          "Calmar": 0.9610294160443268
+        },
+        "mean_turnover": 0.05808692331820345,
+        "ann_cost_drag": 0.014637904676185212,
+        "PSR0": 0.9999999999876876,
+        "DSR_scenarios": {
+          "2": 0.9999999993376967,
+          "5": 0.9999999329547685,
+          "100": 0.9998920928460182
+        },
+        "MinTRL_obs": {
+          "SR*0/95": 157,
+          "SR*0/99": 312,
+          "hurdle/95": 507,
+          "hurdle/99": 1012
+        },
+        "status": "net validation completed"
+      }
+    },
+    {
+      "record_id": "p07_nb09_net_dd_v1",
+      "strategy_version": "DD Only",
+      "project06_freeze_tag": "project-06-deployment-validation-frozen",
+      "experiment_id": "exp_007_candidate_net_validation",
+      "dataset": "experiments/completed/exp_007_candidate_net_validation/dd_only_daily_returns.csv",
+      "date_range": [
+        "2016-01-04",
+        "2026-03-06"
+      ],
+      "parameters": {
+        "cost_model": "net=gross-turnover*(bps/1e4)",
+        "cost_bps": 10.0,
+        "trial_sharpe_variance": 0.000492,
+        "n_trials_scenarios": [
+          2,
+          5,
+          100
+        ],
+        "dsr_hurdle_pp": 0.05613,
+        "scale": "per-period; net-of-cost"
+      },
+      "random_seed": 20260820,
+      "notebook": "research/project_07_statistical_integrity/notebooks/09_candidate_net_validation.ipynb",
+      "source_module": "src/statistics/{bootstrap,permutation,deflated_sharpe}.py",
+      "method": "deflated_sharpe",
+      "method_version": "stat_v1",
+      "assumptions": "Identical window/frequency/construction/cost (10bps one-way) for all 3; overlays of same base (near-duplicate); borrow/financing costs NOT modelled (common limitation).",
+      "hypothesis": "Does the candidate pass the P07 integrity stack on NET-of-cost returns?",
+      "test_statistic": 2.263604838197482,
+      "p_value": 9.999000099990002e-05,
+      "confidence_interval": [
+        1.114906282943046,
+        3.345006961093708
+      ],
+      "confidence_level": 0.95,
+      "bootstrap_iterations": 5000,
+      "monte_carlo_iterations": null,
+      "multiple_testing_correction": null,
+      "n_trials": null,
+      "deflated_sharpe_result": 0.9999989695890442,
+      "white_reality_check_result": null,
+      "paper_reference": null,
+      "research_reference": null,
+      "commit_hash": null,
+      "git_tag": null,
+      "implementation_version": null,
+      "decision": "inconclusive",
+      "limitations": "Net significance vs zero/selection established; net-differential multiple-testing not re-run; effective N and V from near-duplicate universe; borrow/financing unmodelled; no winner selected; V1 not replaced.",
+      "timestamp": "2026-09-24T20:32:08.300357+00:00",
+      "extra": {
+        "gross_metrics": {
+          "Ann Sharpe": 2.3516331913608792,
+          "Ann Vol": 0.15006497562807156,
+          "CAGR": 0.4070989448361637,
+          "MDD": -0.29467536594337607,
+          "Calmar": 1.3815167193663234
+        },
+        "net_metrics": {
+          "Ann Sharpe": 2.263604838197482,
+          "Ann Vol": 0.14997874668546307,
+          "CAGR": 0.38840322339589073,
+          "MDD": -0.29857524727986595,
+          "Calmar": 1.3008554022290588
+        },
+        "mean_turnover": 0.053195083030656766,
+        "ann_cost_drag": 0.013405160923723678,
+        "PSR0": 0.9999999999999976,
+        "DSR_scenarios": {
+          "2": 0.9999999999996908,
+          "5": 0.9999999999096563,
+          "100": 0.9999989695890442
+        },
+        "MinTRL_obs": {
+          "SR*0/95": 114,
+          "SR*0/99": 227,
+          "hurdle/95": 308,
+          "hurdle/99": 615
+        },
+        "status": "net validation completed",
+        "net_family_A_sharpe_improvement": {
+          "SR_V1": 1.998880907507339,
+          "SR_challenger": 2.263604838197482,
+          "dSharpe": 0.264723930690143,
+          "boot_mean_dSharpe": 0.2640454301606855,
+          "ci_lo": 0.13604476071232208,
+          "ci_hi": 0.392170785745741,
+          "raw_p": 0.0003999200159968006,
+          "bonferroni_adj": 0.0007998400319936012,
+          "bonferroni_decision": "REJECT H0",
+          "bh_adj": 0.0007998400319936012,
+          "bh_decision": "REJECT H0"
+        },
+        "net_family_MDD_improvement": {
+          "observed_dMDD": 0.0729497003117402,
+          "boot_mean": 0.06063100739964973,
+          "ci_lo": 0.027165097059999442,
+          "ci_hi": 0.11356891678416103,
+          "raw_p": 9.999000099990002e-05,
+          "bonferroni_adj": 0.00019998000199980003,
+          "bonferroni_decision": "REJECT H0",
+          "bh_adj": 0.00019998000199980003,
+          "bh_decision": "REJECT H0"
+        },
+        "net_family_CAGR_improvement": {
+          "observed_dCAGR": 0.03135681996603035,
+          "boot_mean": 0.03077908671356661,
+          "boot_median": 0.03111249126663962,
+          "ci_lo": -0.0005129372324303704,
+          "ci_hi": 0.059650414068448655,
+          "raw_p": 0.027297270272972702,
+          "bonferroni_adj": 0.054594540545945404,
+          "bonferroni_decision": "fail to reject H0",
+          "bh_adj": 0.027297270272972702,
+          "bh_decision": "REJECT H0"
+        }
+      }
+    },
+    {
+      "record_id": "p07_nb09_net_combined_v1",
+      "strategy_version": "Combined DD+Vol",
+      "project06_freeze_tag": "project-06-deployment-validation-frozen",
+      "experiment_id": "exp_007_candidate_net_validation",
+      "dataset": "experiments/completed/exp_007_candidate_net_validation/combined_dd_vol_daily_returns.csv",
+      "date_range": [
+        "2016-01-04",
+        "2026-03-06"
+      ],
+      "parameters": {
+        "cost_model": "net=gross-turnover*(bps/1e4)",
+        "cost_bps": 10.0,
+        "trial_sharpe_variance": 0.000492,
+        "n_trials_scenarios": [
+          2,
+          5,
+          100
+        ],
+        "dsr_hurdle_pp": 0.05613,
+        "scale": "per-period; net-of-cost"
+      },
+      "random_seed": 20260820,
+      "notebook": "research/project_07_statistical_integrity/notebooks/09_candidate_net_validation.ipynb",
+      "source_module": "src/statistics/{bootstrap,permutation,deflated_sharpe}.py",
+      "method": "deflated_sharpe",
+      "method_version": "stat_v1",
+      "assumptions": "Identical window/frequency/construction/cost (10bps one-way) for all 3; overlays of same base (near-duplicate); borrow/financing costs NOT modelled (common limitation).",
+      "hypothesis": "Does the candidate pass the P07 integrity stack on NET-of-cost returns?",
+      "test_statistic": 2.1955027319313136,
+      "p_value": 9.999000099990002e-05,
+      "confidence_interval": [
+        1.0538248442529867,
+        3.271206277162772
+      ],
+      "confidence_level": 0.95,
+      "bootstrap_iterations": 5000,
+      "monte_carlo_iterations": null,
+      "multiple_testing_correction": null,
+      "n_trials": null,
+      "deflated_sharpe_result": 0.9999968620974105,
+      "white_reality_check_result": null,
+      "paper_reference": null,
+      "research_reference": null,
+      "commit_hash": null,
+      "git_tag": null,
+      "implementation_version": null,
+      "decision": "inconclusive",
+      "limitations": "Net significance vs zero/selection established; net-differential multiple-testing not re-run; effective N and V from near-duplicate universe; borrow/financing unmodelled; no winner selected; V1 not replaced.",
+      "timestamp": "2026-09-24T20:32:08.300874+00:00",
+      "extra": {
+        "gross_metrics": {
+          "Ann Sharpe": 2.2806991536673364,
+          "Ann Vol": 0.16122014954270222,
+          "CAGR": 0.4256160064885919,
+          "MDD": -0.3148105608912485,
+          "Calmar": 1.351974995005397
+        },
+        "net_metrics": {
+          "Ann Sharpe": 2.1955027319313136,
+          "Ann Vol": 0.1611114871241639,
+          "CAGR": 0.4058821148319818,
+          "MDD": -0.3188364098644981,
+          "Calmar": 1.273010554235249
+        },
+        "mean_turnover": 0.055452176545808356,
+        "ann_cost_drag": 0.013973948489541607,
+        "PSR0": 0.9999999999999855,
+        "DSR_scenarios": {
+          "2": 0.9999999999983997,
+          "5": 0.9999999996083067,
+          "100": 0.9999968620974105
+        },
+        "MinTRL_obs": {
+          "SR*0/95": 121,
+          "SR*0/99": 241,
+          "hurdle/95": 341,
+          "hurdle/99": 680
+        },
+        "status": "net validation completed",
+        "net_family_A_sharpe_improvement": {
+          "SR_V1": 1.998880907507339,
+          "SR_challenger": 2.1955027319313136,
+          "dSharpe": 0.19662182442397458,
+          "boot_mean_dSharpe": 0.19672858760502346,
+          "ci_lo": 0.02295252039066127,
+          "ci_hi": 0.3741309410494436,
+          "raw_p": 0.011197760447910418,
+          "bonferroni_adj": 0.022395520895820836,
+          "bonferroni_decision": "REJECT H0",
+          "bh_adj": 0.011197760447910418,
+          "bh_decision": "REJECT H0"
+        },
+        "net_family_MDD_improvement": {
+          "observed_dMDD": 0.05268853772710802,
+          "boot_mean": 0.04153604064828668,
+          "ci_lo": -0.008818826375118305,
+          "ci_hi": 0.09476678226364077,
+          "raw_p": 0.04989501049895011,
+          "bonferroni_adj": 0.09979002099790021,
+          "bonferroni_decision": "fail to reject H0",
+          "bh_adj": 0.04989501049895011,
+          "bh_decision": "REJECT H0"
+        },
+        "net_family_CAGR_improvement": {
+          "observed_dCAGR": 0.048835711402121396,
+          "boot_mean": 0.04976087248649395,
+          "boot_median": 0.047210999123546316,
+          "ci_lo": 0.0063208697339967364,
+          "ci_hi": 0.10758474906875944,
+          "raw_p": 0.0115988401159884,
+          "bonferroni_adj": 0.0231976802319768,
+          "bonferroni_decision": "REJECT H0",
+          "bh_adj": 0.0231976802319768,
+          "bh_decision": "REJECT H0"
+        }
+      }
+    }
+  ]
+}

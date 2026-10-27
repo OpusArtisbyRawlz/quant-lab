@@ -1,0 +1,11 @@
+{
+  "experiment": "exp_006_deployment_candidate_tournament",
+  "git_commit": "30a28f94eadc48b32017b807376d77d70665374f",
+  "candidate": "Historical DD Only (floor0.3,k5)",
+  "group": "C \u2014 historical low-MDD challenger",
+  "data_source": "final_returns_v2_with_dates.csv + overlay (robustness nb)",
+  "overlay_recipe": "smooth DD floor0.3 k5 (nb cell 20)",
+  "has_position_book": false,
+  "book_dependent_stages_evaluable": false,
+  "lookahead_safe": "exposure applied via apply_exposure_to_return (shift(1)); drawdown uses causal cummax"
+}

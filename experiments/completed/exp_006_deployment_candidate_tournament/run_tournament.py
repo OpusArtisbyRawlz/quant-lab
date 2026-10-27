@@ -122,7 +122,11 @@ def load_deployment_base():
     dep.index = dates
     pr = dep["portfolio_return"].astype(float)
     exp = dep["portfolio_dd_exposure"].astype(float)
-    base_ret = pr / exp.shift(1).fillna(1.0)
+    # portfolio_dd_exposure is ALREADY the lagged applied exposure (exp_005 stores
+    # portfolio_exp.shift(1)) and portfolio_return[t] = port_pre[t]*exp[t] same-row,
+    # so the correct inverse is a SAME-ROW divide — matching base_book below. (A
+    # second .shift(1) here double-lagged the base; see exp_007_research_integrity_audit.)
+    base_ret = pr / exp
     base_book = wide.div(exp, axis=0)
     return base_ret, base_book, pr, exp, wide, dates
 

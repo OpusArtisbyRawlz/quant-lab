@@ -1,0 +1,66 @@
+{
+  "record_id": "p07_nb03_dynamic_overlay_replay_v1",
+  "strategy_version": "V1 / DD Only / Combined DD+Vol (complete dynamic overlay replay)",
+  "project06_freeze_tag": "project-06-deployment-validation-frozen",
+  "experiment_id": "exp_007_nb03_dynamic_replay",
+  "dataset": "exp_004 strategy_timeseries (3 raw alpha); exp_005 risk engine; exp_007 shipped returns",
+  "date_range": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "parameters": {
+    "seed": 20261027,
+    "n_paths": 10000,
+    "canonical_block": 20,
+    "blocks": [
+      5,
+      10,
+      20,
+      30,
+      50
+    ],
+    "underlying_alpha": {
+      "ls_20pct_plus_sqrt_partial_normalized": 0.5,
+      "blend_60_40_ls20_plus_ls30": 0.3,
+      "ls_30pct": 0.2
+    },
+    "strategy_overlay": "smooth_dd floor0.55 k5 (per strategy, lag1)",
+    "portfolio_overlay": {
+      "V1": "smooth_dd 0.55/5",
+      "DD Only": "smooth_dd 0.3/5",
+      "Combined": "(volmult*smooth_dd 0.3/5).clip(0.5,1.3)"
+    },
+    "method_A": "dynamic replay (exposure recomputed from simulated states)",
+    "method_B": "direct block-bootstrap of shipped risk-controlled gross returns",
+    "V1_recon_max_abs_diff": 6.89e-16
+  },
+  "random_seed": 20261027,
+  "notebook": "research/project_07_statistical_integrity/notebooks/03_monte_carlo.ipynb",
+  "source_module": "src/statistics/simulation.py",
+  "method": "monte_carlo",
+  "method_version": "stat_v1",
+  "assumptions": "Shared-index block bootstrap of 3 raw alpha streams preserves cross-strategy dependence; all exposure layers recomputed per simulated path with 1-day lag (no look-ahead); comparison on gross returns (MDD cost-insensitive).",
+  "hypothesis": "Does a complete dynamic overlay replay (A) change the drawdown picture vs resampling already risk-controlled returns (B)?",
+  "test_statistic": null,
+  "p_value": null,
+  "confidence_interval": null,
+  "confidence_level": null,
+  "bootstrap_iterations": null,
+  "monte_carlo_iterations": null,
+  "multiple_testing_correction": null,
+  "n_trials": null,
+  "deflated_sharpe_result": null,
+  "white_reality_check_result": null,
+  "paper_reference": null,
+  "research_reference": null,
+  "commit_hash": null,
+  "git_tag": null,
+  "implementation_version": null,
+  "decision": "inconclusive",
+  "limitations": "(1) V1 reconstructs to 1e-16 on the clean common base, but shipped DD Only/Combined were built on an imperfectly-recovered base (extra-lag artifact: base_ret=pr/exp.shift(1) while pr=port_pre*exp), so their clean-base dynamic CAGR is ~3-5pp below the shipped series; the shipped exp_007 series are NOT altered. (2) Net cost not simulated (name-level book turnover unavailable); comparison is gross. (3) Tail-MDD is block-length sensitive.",
+  "timestamp": "2026-10-26T21:45:00.702149+00:00",
+  "extra": {
+    "status": "dynamic replay complete for all three incl V1 dual-layer; no candidate selected",
+    "finding": "Direct resample (B) overstates worst-tail MDD vs faithful dynamic replay (A); overlay cannot de-risk when frozen into resampled returns."
+  }
+}

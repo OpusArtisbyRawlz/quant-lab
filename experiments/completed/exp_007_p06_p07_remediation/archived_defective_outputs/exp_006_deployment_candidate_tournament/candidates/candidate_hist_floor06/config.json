@@ -1,0 +1,10 @@
+{
+  "slug": "candidate_hist_floor06",
+  "name": "Historical Floor 0.6 (clip0.5-1.3)",
+  "group": "C \u2014 historical low-MDD challenger",
+  "source": "final_returns_v2_with_dates.csv + overlay (robustness nb)",
+  "version": "-",
+  "overlay": "floor sweep 0.6 (nb cell 15)",
+  "is_v1": false,
+  "has_book": false
+}

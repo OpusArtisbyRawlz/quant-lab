@@ -1,0 +1,71 @@
+{
+  "record_id": "p07_nb03_monte_carlo_stress_v1",
+  "strategy_version": "V1 / DD Only / Combined DD+Vol (path-robustness stress)",
+  "project06_freeze_tag": "project-06-deployment-validation-frozen",
+  "experiment_id": "project_07_monte_carlo_path_robustness",
+  "dataset": "exp_007 net returns; SPY & NIFTY50 market series; P02 vol-regime",
+  "date_range": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "parameters": {
+    "n_paths": 10000,
+    "seed": 20260927,
+    "canonical_block": 20,
+    "blocks": [
+      5,
+      10,
+      20,
+      30,
+      50
+    ],
+    "markets_simulated": [
+      "US (SPY)",
+      "India (NIFTY50 EW)"
+    ],
+    "markets_unavailable": [
+      "Japan",
+      "Brazil"
+    ],
+    "market_models": {
+      "US (SPY)": "garch_t",
+      "India (NIFTY50 EW)": "garch_t"
+    },
+    "regime_scenarios": [
+      "Baseline regime mix",
+      "More frequent high-vol",
+      "Longer crises",
+      "Heavier negative tails",
+      "Persistence + frequency"
+    ]
+  },
+  "random_seed": 20260927,
+  "notebook": "research/project_07_statistical_integrity/notebooks/03_monte_carlo.ipynb",
+  "source_module": "src/statistics/simulation.py",
+  "method": "monte_carlo",
+  "method_version": "stat_v1",
+  "assumptions": "Monte Carlo used for path robustness/stress, NOT significance. Gaussian baseline; dependence-preserving block bootstrap; per-market GARCH-t; 2-state regime stress. Cross-market/regime rows preserve the strategy edge and transplant the risk environment (not a strategy replay).",
+  "hypothesis": "Descriptive robustness \u2014 no null hypothesis is tested here.",
+  "test_statistic": null,
+  "p_value": null,
+  "confidence_interval": null,
+  "confidence_level": null,
+  "bootstrap_iterations": null,
+  "monte_carlo_iterations": null,
+  "multiple_testing_correction": null,
+  "n_trials": null,
+  "deflated_sharpe_result": null,
+  "white_reality_check_result": null,
+  "paper_reference": null,
+  "research_reference": null,
+  "commit_hash": null,
+  "git_tag": null,
+  "implementation_version": null,
+  "decision": "inconclusive",
+  "limitations": "Japan/Brazil have no return series (excluded, not approximated); strategies cannot be replayed cross-market (US-only signals); GARCH(1,1) only partially reproduces the most extreme drawdowns/kurtosis; regime stress uses a 2-state (not 5-state) taxonomy.",
+  "timestamp": "2026-09-27T01:04:21.510122+00:00",
+  "extra": {
+    "gaussian_understates_drawdown": true,
+    "note": "path robustness / stress framework; no winner selected"
+  }
+}

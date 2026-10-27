@@ -1,0 +1,66 @@
+{
+  "record_id": "p07_nb06_white_reality_check_v1",
+  "strategy_version": "best-of-family (White RC) = P04:ls_20pct",
+  "project06_freeze_tag": "project-06-deployment-validation-frozen",
+  "experiment_id": "project_07_reconstructed_strategy_universe",
+  "dataset": "exp_004 strategy_timeseries + exp_006 overlay_equity_curves (23 series, gross)",
+  "date_range": [
+    "2016-01-05",
+    "2026-03-06"
+  ],
+  "parameters": {
+    "test": "white_reality_check",
+    "statistic": "sqrt(T)*mean(d_k)",
+    "benchmark": 0.0,
+    "n_strategies": 23,
+    "n_resamples": 10000,
+    "block_canonical": 20,
+    "blocks_tested": [
+      5,
+      10,
+      20,
+      30,
+      50
+    ],
+    "p_value_estimator": "add-one (k+1)/(B+1)",
+    "returns_basis": "gross"
+  },
+  "random_seed": 20260820,
+  "notebook": "research/project_07_statistical_integrity/notebooks/06_white_reality_check.ipynb",
+  "source_module": "src/statistics/white_reality_check.py",
+  "method": "white_reality_check",
+  "method_version": "stat_v1",
+  "assumptions": "Strategy-vs-zero mean-return differential; recentred composite null; shared stationary-bootstrap indices (cross-strategy dependence preserved); GROSS returns across a highly-correlated near-duplicate universe (mean corr ~0.94).",
+  "hypothesis": "H0: max_k E[d_k] <= 0 (best searched strategy no better than benchmark after selection).",
+  "test_statistic": 0.0776048330466929,
+  "p_value": 0.010298970102989701,
+  "confidence_interval": null,
+  "confidence_level": null,
+  "bootstrap_iterations": null,
+  "monte_carlo_iterations": null,
+  "multiple_testing_correction": null,
+  "n_trials": 23,
+  "deflated_sharpe_result": null,
+  "white_reality_check_result": 0.010298970102989701,
+  "paper_reference": null,
+  "research_reference": null,
+  "commit_hash": null,
+  "git_tag": null,
+  "implementation_version": null,
+  "decision": "significant",
+  "limitations": "Conditional on the reconstructed universe and block scheme; missing historical trials remain a limitation; gross (not net); not a deployment test; best-by-mean-return differs from the risk-adjusted deployment candidates.",
+  "timestamp": "2026-09-25T03:55:01.448706+00:00",
+  "extra": {
+    "block_sensitivity": {
+      "5": 0.0037996200379962005,
+      "10": 0.006899310068993101,
+      "20": 0.010298970102989701,
+      "30": 0.011898810118988102,
+      "50": 0.0160983901609839
+    },
+    "null_max_q95_block20": 0.055926413704449014,
+    "null_max_q99_block20": 0.07776890521171818,
+    "mean_pairwise_corr": 0.9389,
+    "status": "white reality check completed"
+  }
+}

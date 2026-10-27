@@ -1,0 +1,42 @@
+{
+  "record_id": "p07_nb06_white_reality_check_v1",
+  "strategy_version": "best-of-family (White RC) = P04:ls_20pct",
+  "experiment_id": "project_07_reconstructed_strategy_universe",
+  "dataset": "exp_004 strategy_timeseries + exp_006 overlay_equity_curves (CORRECTED base, 23 series, gross)",
+  "parameters": {
+    "test": "white_reality_check",
+    "statistic": "sqrt(T)*mean(d_k)",
+    "benchmark": 0.0,
+    "n_strategies": 23,
+    "n_resamples": 10000,
+    "block_canonical": 20,
+    "blocks_tested": [
+      5,
+      10,
+      20,
+      30,
+      50
+    ],
+    "p_value_estimator": "add-one (k+1)/(B+1)",
+    "returns_basis": "gross"
+  },
+  "random_seed": 20260820,
+  "method": "white_reality_check",
+  "test_statistic": 0.0776048330466929,
+  "p_value": 0.010298970102989701,
+  "white_reality_check_result": 0.010298970102989701,
+  "n_trials": 23,
+  "decision": "SIGNIFICANT",
+  "mean_pairwise_corr": 0.9405,
+  "block_sensitivity": {
+    "5": 0.0037996200379962005,
+    "10": 0.006899310068993101,
+    "20": 0.010298970102989701,
+    "30": 0.0117988201179882,
+    "50": 0.015998400159984
+  },
+  "null_max_q95_block20": 0.055895586208573975,
+  "null_max_q99_block20": 0.07776890521171818,
+  "timestamp": "2026-10-27T00:57:15.264643+00:00",
+  "note": "regenerated on corrected base; winner is a raw P04 (defect-free) strategy"
+}
