@@ -10,8 +10,8 @@
     "shipped_CAGR": 0.37207949752108815
   },
   "Combined": {
-    "max_abs_diff_vs_shipped_gross": 0.011225553770388304,
+    "max_abs_diff_vs_shipped_gross": 5.568462357885551e-16,
     "recon_CAGR": 0.38532137556450263,
-    "shipped_CAGR": 0.38736203324671914
+    "shipped_CAGR": 0.3853213755645106
   }
 }

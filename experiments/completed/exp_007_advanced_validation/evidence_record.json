@@ -1,0 +1,64 @@
+{
+  "experiment": "exp_007_advanced_validation",
+  "purpose": "Stage A remediation finalization (warm-up correction, financing review, fold investigation, commit) + Stage B purged/embargoed CV, CPCV, PBO.",
+  "git": {
+    "branch": "remediation/p06-p07-return-lineage",
+    "head_commit": "8a3f9e0605c6493b750ce23c92c37d65ca749dda",
+    "remediation_commit": "8a3f9e0"
+  },
+  "seeds": {
+    "model_cv_leaky_shuffle": 20261028,
+    "cpcv_model": "deterministic (no RNG)",
+    "pbo_cscv": "deterministic (no RNG)",
+    "a3_diagnostics": "deterministic"
+  },
+  "config": {
+    "model_cv": {
+      "object": "project_04_features_v2 -> fwd_ret_5",
+      "horizon": 5,
+      "forecaster": "closed-form ridge alpha=10 (representative, not production)",
+      "n_splits": 6,
+      "embargo_sensitivity": [
+        0,
+        5,
+        10,
+        21
+      ],
+      "cpcv": {
+        "n_groups": 8,
+        "k_test": 2,
+        "embargo": 5
+      }
+    },
+    "pbo": {
+      "universe": "71 overlay candidates (floor{0.2,0.25,0.3,0.35,0.4,0.5,0.6} x k{3..7} x {dd,combined} + V1)",
+      "S": 16,
+      "objectives": [
+        "sharpe",
+        "calmar"
+      ]
+    },
+    "warmup_fix": "vol_multiplier pre-window -> 1.0 (multiplicative identity)"
+  },
+  "source_sha256": {
+    "src/statistics/cross_validation.py": "b48b1ee416c6c72ee909c50516b5247705219f6888d3a6946a044e563e6202fd",
+    "src/statistics/backtest_overfitting.py": "93244cdda31e40a058c89b892673de436cbfdc47511d75b67b3b9560bf639f19",
+    "research/project_07_statistical_integrity/tests/test_cross_validation.py": "1d914cb7f3d32bbabc6349a075843779871ae2ff84c4a206e7b578f52682a47e",
+    "research/project_07_statistical_integrity/tests/test_backtest_overfitting.py": "7195d9765a2ccbab7273cf0c6baecd1c5025c71465636861ec094a02b9e5121a",
+    "experiments/completed/exp_006_deployment_candidate_tournament/run_tournament.py": "19e82690d59cab34e328aecdd662f83abef9a0948560ca30c6327544452ac9ff",
+    "experiments/completed/exp_006_deployment_overlay_challenge/run_overlay_challenge.py": "3b8d582b303095d0dc65be1c0b726c89fe4c497a387d366cb5f68728fe78204e"
+  },
+  "input_sha256": {
+    "data/processed/project_04_features_v2.csv": "1e7c2fa30592ffba73bfafbc94ace1e1e8cb55c9d970475d7c098d93f66d5f2c",
+    "experiments/completed/exp_005_risk_engine_final/final_weighted_multi_strategy_portfolio_dd.csv": "d24eaa0aef7221637398dd8d1503267d1f6b494bd8e03b2af01d98b84e39723e",
+    "experiments/completed/exp_005_risk_engine_final/final_daily_weights.csv": "075e91912b315f21f648e02276a6693af6e1a11bdf6923f784900dee4096c449"
+  },
+  "tests": {
+    "full_suite": "296 passed, 11 skipped",
+    "new": {
+      "cross_validation": 12,
+      "backtest_overfitting": 7
+    }
+  },
+  "guardrails": "no params optimized; no overlay optimized; 6/7 gate unchanged; no candidate promoted; PBO not used to tune; P04/P05 inputs immutable (checksums verified)."
+}

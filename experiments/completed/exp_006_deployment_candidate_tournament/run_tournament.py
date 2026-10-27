@@ -142,7 +142,13 @@ def load_historical_base():
 def vol_multiplier(base_ret, window=252):
     rv = base_ret.rolling(window).std() * np.sqrt(PPY)
     m = (rv / rv.mean()) ** 0.5
-    return m.clip(0.7, 1.3)
+    # Pre-window (first `window`-1 days) rv is NaN -> multiplier undefined. The neutral value
+    # of a MULTIPLICATIVE factor is 1.0 (identity), which keeps the computable DD overlay active
+    # during warm-up and matches the first-principles MC reconstruction (sim.rolling_vol_multiplier).
+    # Previously the NaN propagated through (m*smooth) and was filled to 1.0 only after the clip,
+    # which disabled the DD overlay too in year 1 — a warm-up side effect, not an intended rule.
+    # See exp_007_advanced_validation/reports/REMEDIATION_FINALIZATION.md (A2).
+    return m.clip(0.7, 1.3).fillna(1.0)
 
 
 # ---------------------------------------------------------------------------

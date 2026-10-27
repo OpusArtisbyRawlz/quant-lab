@@ -136,7 +136,9 @@ def test_dd_only_and_combined_reconstruct_from_canonical():
     port_pre.index = dates
     dd = compute_drawdown((1 + port_pre).cumprod())
     rv = port_pre.rolling(252).std() * np.sqrt(PPY)
-    m = ((rv / rv.mean()) ** 0.5).clip(0.7, 1.3)
+    # pre-window multiplier -> neutral 1.0 (A2 warm-up correction; multiplicative identity),
+    # matching the corrected vol_multiplier in run_tournament.py / run_overlay_challenge.py
+    m = ((rv / rv.mean()) ** 0.5).clip(0.7, 1.3).fillna(1.0)
 
     e_dd = drawdown_exposure_smooth(dd, 0.3, 5)
     e_comb = (m * drawdown_exposure_smooth(dd, 0.3, 5)).clip(0.5, 1.3)

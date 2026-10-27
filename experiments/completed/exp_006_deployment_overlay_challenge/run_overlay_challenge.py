@@ -132,7 +132,10 @@ def load_base():
 def vol_multiplier(base_ret, window=252):
     rv = base_ret.rolling(window).std() * np.sqrt(PPY)
     m = (rv / rv.mean()) ** 0.5
-    return m.clip(0.7, 1.3)
+    # Pre-window rv is NaN -> multiplier undefined; fill with the multiplicative identity 1.0 so the
+    # computable DD overlay stays active during warm-up and the result matches the first-principles MC
+    # reconstruction. See exp_007_advanced_validation/reports/REMEDIATION_FINALIZATION.md (A2).
+    return m.clip(0.7, 1.3).fillna(1.0)
 
 
 def build_overlays(base_ret):
