@@ -1,0 +1,29 @@
+{
+  "v1": {
+    "saved_rows": 51160,
+    "test_rows": 51160,
+    "matched_rows": 51160,
+    "max_abs_pred_diff": 7.439185791685565e-09,
+    "max_abs_flip_diff": 7.439185791685565e-09
+  },
+  "v2": {
+    "saved_rows": 174101,
+    "test_rows": 51160,
+    "matched_rows": 51160,
+    "max_abs_pred_diff": 2.13470624763068e-06
+  },
+  "combined_ls20": {
+    "repro": {
+      "sharpe": 1.115019358929923,
+      "mdd": -0.7116861329009108,
+      "n_days": 2558
+    },
+    "saved_rows": 2558,
+    "repro_rows": 2558,
+    "saved_sharpe_ref": 1.516,
+    "saved_mdd_ref": -0.655,
+    "aligned_first_n": 2558,
+    "aligned_max_abs_return_diff": 0.029591191067594114,
+    "return_corr": 0.9650946858156274
+  }
+}

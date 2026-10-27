@@ -1,0 +1,14 @@
+{
+  "n_folds": 7,
+  "sharpe_pass": 4,
+  "mdd_shallower_all": true,
+  "miss_folds": [
+    0,
+    2,
+    6
+  ],
+  "miss_are_negative_regime": 2,
+  "miss_opportunity_cost": 1,
+  "all_folds_vol_reduced": true,
+  "note": "Folds overlap via 5-day labels and share regime -> not independent; 4/7 is not a binomial."
+}
