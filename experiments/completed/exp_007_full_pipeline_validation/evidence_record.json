@@ -1,0 +1,102 @@
+{
+  "experiment": "exp_007_full_pipeline_validation",
+  "purpose": "Reconstruct & reproduce the ACTUAL P04 OLS model; full-model purged CPCV vs representative ridge; reconstruct the research trial universe; expanded PBO & selection-bias sensitivity; reconcile integrity evidence; DD Only fold attribution; paper/shadow-trading readiness.",
+  "git": {
+    "branch": "remediation/p06-p07-return-lineage",
+    "head_commit_before_this": "9f0cef02d8e8e931c1ea9f122fee89f128cc1868",
+    "prior_remediation_commit": "8a3f9e0",
+    "prior_advanced_commit": "9f0cef0"
+  },
+  "key_findings": {
+    "model_reproduction": {
+      "v1_max_abs_pred_diff": 7.44e-09,
+      "v2_max_abs_pred_diff": 2.13e-06,
+      "verdict": "EXACT at prediction level"
+    },
+    "portfolio_finalizer": "NOT bit-reproducible (empty config/metrics; exploratory finalizer) -> saved ls_20pct classified inferred/approx (corr ~0.97). Documented blocker.",
+    "cpcv_full_sample_rank_ic": {
+      "combined": -0.0012,
+      "v1_flipped": -0.0116,
+      "v2": 0.0141,
+      "ridge": 0.03
+    },
+    "cpcv_deployment_era_rank_ic": {
+      "combined": 0.0094,
+      "v1_flipped": 0.0063,
+      "v2": 0.0002,
+      "ridge": 0.0096
+    },
+    "pbo": {
+      "overlay71_sharpe": 0.0016,
+      "overlay71_calmar": 0.0112,
+      "expanded83_sharpe": 0.0014,
+      "expanded83_calmar": 0.0043,
+      "p04_family12_sharpe": 0.7689,
+      "p04_family12_calmar": 0.4629,
+      "overlay_effective_dim": 1.01,
+      "mean_abs_corr": 0.993,
+      "note": "overlay PBO low but ~1 effective dim -> LOWER BOUND; P04 construction layer overfits"
+    },
+    "dd_only_folds": {
+      "sharpe_pass": "4/7",
+      "mdd_shallower": "7/7",
+      "vol_reduced": "7/7",
+      "miss_folds": [
+        0,
+        2,
+        6
+      ],
+      "miss_negative_regime_artifact": 2,
+      "miss_opportunity_cost": 1
+    },
+    "trial_ledger_rows": 51,
+    "shadow_harness": "built + smoke-tested; SIMULATION_ONLY; refuses on broker env; feeds not yet wired"
+  },
+  "deliverables": [
+    "PROJECT04_MODEL_LINEAGE.md",
+    "FULL_MODEL_CPCV_REPORT.md",
+    "CPCV_MODEL_RESULTS.csv",
+    "CPCV_MODEL_RESULTS_era2016.csv",
+    "HISTORICAL_TRIAL_LEDGER.csv",
+    "PBO_SELECTION_SENSITIVITY.md",
+    "PBO_EXPANDED_RESULTS.csv",
+    "STATISTICAL_INTEGRITY_RECONCILIATION.md",
+    "DD_ONLY_FOLD_ATTRIBUTION.md",
+    "DD_ONLY_FOLD_ATTRIBUTION.csv",
+    "PAPER_TRADING_PROTOCOL.md",
+    "SHADOW_TRADING_READINESS.md",
+    "FINAL_VALIDATION_REPORT.md"
+  ],
+  "tests": {
+    "new_file": "research/project_07_statistical_integrity/tests/test_full_pipeline_validation.py",
+    "new_tests": 8,
+    "full_suite": "304 passed, 11 skipped"
+  },
+  "input_sha256": {
+    "data/processed/project_04_features.csv": "48807d1b1c411480e56982bb6d1609081b413013079755e40a42e2150a12dea9",
+    "data/processed/project_04_features_v2.csv": "1e7c2fa30592ffba73bfafbc94ace1e1e8cb55c9d970475d7c098d93f66d5f2c",
+    "data/processed/v1.csv": "20c8a1a075357cbcd50f81447db81cd7aab872605225c0f633908d34a720ab60",
+    "data/processed/v2.csv": "6e67b98f56b1377ca08638604d01f136b98f1eea17eb83d63975c606f03f4e36",
+    "experiments/completed/exp_004_project04_final/strategy_timeseries/ls_20pct.csv": "a58bb53978561acf51879b9dc99d00c0da905403f252104127ab0def0f97bf7d",
+    "experiments/completed/exp_005_risk_engine_final/final_weighted_multi_strategy_portfolio_dd.csv": "d24eaa0aef7221637398dd8d1503267d1f6b494bd8e03b2af01d98b84e39723e",
+    "experiments/completed/exp_005_risk_engine_final/final_daily_weights.csv": "075e91912b315f21f648e02276a6693af6e1a11bdf6923f784900dee4096c449"
+  },
+  "source_sha256": {
+    "research/project_04_return_forecast_alpha/notebooks/03_model_training.ipynb": "d02b7bfb625e99d7bed22c78564bc1d0f4c98e4b53b1f1cccd281ebec7a37656",
+    "research/project_04_return_forecast_alpha/notebooks/03_model_training_v2.ipynb": "e2f5bf0d9cde27ae73d087bd7b1bd50bfb042b1fbd1f5058628368098e1b0754",
+    "research/project_04_return_forecast_alpha/notebooks/04_portfolio_research.ipynb": "240f6845cfb707f53ad02639a9f6be6847e5bdc7be1dc6efa323278ece56e461",
+    "research/project_07_statistical_integrity/tests/test_full_pipeline_validation.py": "81173b0e79d535e09ffe9ea0cef107e957ff12c725b4d54b288c58cba1ae1be1"
+  },
+  "guardrails": {
+    "parameters_optimized": false,
+    "new_signals": false,
+    "overlay_optimized": false,
+    "gate_changed": false,
+    "candidate_promoted": false,
+    "pbo_used_to_tune": false,
+    "live_orders": false,
+    "earlier_reports_altered": false,
+    "p04_p05_inputs_modified": false,
+    "branch_merged": false
+  }
+}

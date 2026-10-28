@@ -1,0 +1,33 @@
+{
+  "experiment": "exp_007_nb03_dynamic_replay",
+  "seed": 20261027,
+  "n_paths": 10000,
+  "horizon": 2558,
+  "canonical_block": 20,
+  "blocks": [
+    5,
+    10,
+    20,
+    30,
+    50
+  ],
+  "underlying_alpha": {
+    "ls_20pct_plus_sqrt_partial_normalized": 0.5,
+    "blend_60_40_ls20_plus_ls30": 0.3,
+    "ls_30pct": 0.2
+  },
+  "underlying_source": "exp_004_project04_final/strategy_timeseries/*.csv (portfolio_return)",
+  "overlay_rules": {
+    "strategy_level": "smooth_dd floor0.55 k5 (per strategy, lag1)",
+    "portfolio_level": {
+      "V1": "smooth_dd floor0.55 k5",
+      "DD Only": "smooth_dd floor0.3 k5",
+      "Combined": "(vol_mult*smooth_dd floor0.3 k5).clip(0.5,1.3)"
+    },
+    "lag": "exposure applied t-1 -> t (no look-ahead), matches src.risk.drawdown"
+  },
+  "method_A": "dynamic replay on recomputed exposure from simulated states",
+  "method_B": "direct block-bootstrap resample of shipped risk-controlled gross returns",
+  "cost": "comparison on GROSS (MDD is cost-insensitive); net cost not simulated (book turnover unavailable)",
+  "non_overwriting": "exp_007_candidate_net_validation and NB03 untouched"
+}

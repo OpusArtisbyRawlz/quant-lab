@@ -1,0 +1,55 @@
+{
+  "record_id": "p07_advanced_validation_v1",
+  "supersedes_caveats_in": "exp_007_p06_p07_remediation (Combined warm-up PROVISIONAL now cleared)",
+  "experiment_id": "exp_007_advanced_validation",
+  "git_branch": "remediation/p06-p07-return-lineage",
+  "remediation_commit": "8a3f9e0",
+  "date": "2026-10-28",
+  "stage_A": {
+    "remediation_verified": true,
+    "committed_not_merged": "8a3f9e0 (183 files)",
+    "combined_warmup_fix": {
+      "change": "vol_multiplier pre-window -> multiplicative identity 1.0 (run_tournament.py, run_overlay_challenge.py)",
+      "combined_gross_cagr": {"before": 0.3874, "after": 0.3853},
+      "combined_gross_sharpe": {"before": 2.158, "after": 2.171},
+      "nb03_combined_mc_fidelity": {"before": 0.0112, "after": 5.57e-16},
+      "v1_and_dd_only": "unchanged",
+      "classification": "PROVISIONAL (Combined path stats) -> CLEARED"
+    },
+    "financing_review": {"double_counting": false, "leverage_explicit": true,
+      "combined_max_gross_notional": 1.283, "borrow_fees": "bounded scenarios only (PROVISIONAL)"},
+    "promotion_gate": {"threshold": "6/7 Sharpe", "status": "preserved as FAILURE",
+      "dd_only_sharpe_folds": "4/7", "dd_only_mdd_folds": "7/7",
+      "sharpe_miss_folds": [0, 2, 6],
+      "miss_fold_note": "2 of 3 misses are losing-regime de-risking where DD Only lost less and drew down less; 1 is a Sharpe tie with 6pp shallower MDD"}
+  },
+  "stage_B": {
+    "modules_added": ["src/statistics/cross_validation.py", "src/statistics/backtest_overfitting.py"],
+    "tests_added": {"test_cross_validation.py": 12, "test_backtest_overfitting.py": 7},
+    "purged_cv_model": {"object": "P04 features -> fwd_ret_5 (horizon 5)", "forecaster": "representative ridge (not production model)",
+      "mean_OOS_rank_IC": 0.0373, "embargo_robust": true, "leaky_baseline_IC": 0.0421},
+    "cpcv_model": {"n_paths": 28, "mean_OOS_IC": 0.0354, "frac_paths_positive": 1.0},
+    "cpcv_selection_oos_rank": {"sharpe": 0.974, "calmar": 0.964},
+    "pbo_cscv": {"universe": "71 overlay candidates (floor x k x 2 forms + V1)", "S": 16, "n_splits": 12870,
+      "pbo_sharpe": 0.0016, "pbo_calmar": 0.0112, "most_selected_IS": "dd_f0.2_k7",
+      "critical_limitation": "overlay grid only; P04 model-search and P05 overlay-form search not reconstructable -> LOWER BOUND on selection complexity; candidates ~0.94 correlated"},
+    "full_sample_ranks_of_71": {"V1_sharpe": "51/71", "DD_Only_sharpe": "17/71", "Combined_sharpe": "31/71"}
+  },
+  "reconciliation": "CPCV/PBO complement (do not replace) bootstrap, permutation, PSR, DSR, MinTRL, White's RC, MC, walk-forward; each addresses a distinct failure mode.",
+  "classifications": {
+    "V1": "Validated baseline (alpha real; selection-aware tests pass)",
+    "DD Only": "Risk-controlled candidate; promotion-gate FAILURE (4/7); robust drawdown edge; requires additional evidence",
+    "Combined DD+Vol": "Research candidate; no incremental edge; 1.28x leverage; not eligible for promotion",
+    "overlay_selection": "not overfit within grid (PBO 0.002-0.011) but LOWER BOUND",
+    "dd_f0.2_k7 (grid IS-winner)": "NOT a candidate; frozen family; not promoted"
+  },
+  "tests": {"full_suite": "296 passed, 11 skipped", "p06": 8},
+  "guardrails": {"parameters_optimized": false, "overlay_optimized": false, "gate_changed": false,
+    "candidate_promoted": false, "pbo_used_to_tune": false, "p04_p05_modified": false},
+  "remaining_before_deployment": [
+    "defined paper-trading observation protocol (info collection != real-capital approval)",
+    "explicit short-borrow/financing + Combined leverage in net returns",
+    "reconstruct full P04/P05 trial ledger to certify pipeline-wide PBO",
+    "6/7 chronological gate remains the production rule and remains failed by DD Only"
+  ]
+}

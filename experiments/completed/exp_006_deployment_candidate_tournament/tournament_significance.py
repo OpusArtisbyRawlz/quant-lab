@@ -64,7 +64,7 @@ def load():
     dep.index = dates
     pr = dep["portfolio_return"].astype(float)
     exp = dep["portfolio_dd_exposure"].astype(float)
-    base_ret = pr / exp.shift(1).fillna(1.0)
+    base_ret = pr / exp                           # same-row inverse (exp already lagged; see exp_007_research_integrity_audit)
     v2 = pd.read_csv(EXP5 / "final_returns_v2_with_dates.csv")
     v2["date"] = pd.to_datetime(v2["date"])
     v2 = v2.set_index("date")["returns"].astype(float)

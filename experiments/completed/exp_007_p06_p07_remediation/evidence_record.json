@@ -1,0 +1,105 @@
+{
+  "experiment": "exp_007_p06_p07_remediation",
+  "purpose": "Controlled remediation of the exp_006 double-lag return-lineage defect: fix at source, regenerate affected P06/P07 evidence, reconcile.",
+  "git": {
+    "branch": "remediation/p06-p07-return-lineage",
+    "head_commit": "760f871a7e9c4a8596b72b7edee8015ff868ef8f",
+    "status_short": "M experiments/completed/exp_006_deployment_candidate_tournament/base_apples_to_apples.csv\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_clip_05_12/metrics.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_clip_05_12/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_clip_08_10/metrics.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_clip_08_10/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_combined/metrics.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_combined/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_dd_k1/metrics.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_dd_k1/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_dd_k5/metrics.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_dd_k5/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_dd_only/metrics.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_dd_only/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_floor03/metrics.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_floor03/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_floor05/metrics.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_floor05/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_hist_base/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_hist_combined/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_hist_dd_only/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_hist_floor03/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_hist_floor05/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_hist_floor06/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/candidates/candidate_v1_baseline/provenance.json\n M experiments/completed/exp_006_deployment_candidate_tournament/leakage_check.csv\n M experiments/completed/exp_006_deployment_candidate_tournament/master_comparison.csv\n M experiments/completed/exp_006_deployment_candidate_tournament/monte_carlo_metrics.csv\n M experiments/completed/exp_006_deployment_candidate_tournament/param_grid_stability.csv\n M experiments/completed/exp_006_deployment_candidate_tournament/run_tournament.py\n M experiments/completed/exp_006_deployment_candidate_tournament/significance_vs_v1.csv\n M experiments/completed/exp_006_deployment_candidate_tournament/tournament_config.json\n M experiments/completed/exp_006_deployment_candidate_tournament/tournament_significance.py\n M experiments/completed/exp_006_deployment_candidate_tournament/tournament_stability.py\n M experiments/completed/exp_006_deployment_candidate_tournament/walk_forward_stability.csv\n M experiments/completed/exp_006_deployment_overlay_challenge/config.json\n M experiments/completed/exp_006_deployment_overlay_challenge/overlay_comparison.csv\n M experiments/completed/exp_006_deployment_overlay_challenge/param_sensitivity_grid.csv\n M experiments/completed/exp_006_deployment_overlay_challenge/promote_deployment_candidate.py\n M experiments/completed/exp_006_deployment_overlay_challenge/promotion_gate_result.json\n M experiments/completed/exp_006_deployment_overlay_challenge/reproduction_check.csv\n M experiments/completed/exp_006_deployment_overlay_challenge/run_overlay_challenge.py\n M experiments/completed/exp_006_deployment_overlay_challenge/significance_dd_only_vs_incumbent.csv\n M experiments/completed/exp_006_deployment_overlay_challenge/statistical_significance.py\n M experiments/completed/exp_006_deployment_overlay_challenge/walk_forward_folds.csv\n M experiments/completed/exp_006_deployment_overlay_challenge/walk_forward_sensitivity.py\n M research/project_05_risk_engine/README.md"
+  },
+  "defect": "base_ret = portfolio_return / portfolio_dd_exposure.shift(1)  (double lag; stored exposure already lagged). Fix: same-row inverse base_ret = portfolio_return / portfolio_dd_exposure, equal to canonical port_pre rebuilt from exp_004 (1e-12).",
+  "fixed_source_files": [
+    "experiments/completed/exp_006_deployment_candidate_tournament/run_tournament.py",
+    "experiments/completed/exp_006_deployment_candidate_tournament/tournament_significance.py",
+    "experiments/completed/exp_006_deployment_candidate_tournament/tournament_stability.py",
+    "experiments/completed/exp_006_deployment_overlay_challenge/run_overlay_challenge.py",
+    "experiments/completed/exp_006_deployment_overlay_challenge/statistical_significance.py",
+    "experiments/completed/exp_006_deployment_overlay_challenge/walk_forward_sensitivity.py",
+    "experiments/completed/exp_006_deployment_overlay_challenge/promote_deployment_candidate.py",
+    "experiments/completed/exp_007_garch_volatility_persistence/analysis_overlay_replay.py"
+  ],
+  "source_sha256_before": {
+    "experiments/completed/exp_006_deployment_candidate_tournament/run_tournament.py": "aa13d8bd59107a80adb330a45f87852e8c004b3c1af07033e89d0b196c00e272",
+    "experiments/completed/exp_006_deployment_candidate_tournament/tournament_significance.py": "97d1e2cd0ed39246424697949fe1757388d863f08fb2f13b3f3bcc435b8d7b36",
+    "experiments/completed/exp_006_deployment_candidate_tournament/tournament_stability.py": "d8a68fefaa7c679b26101c47832f83e3a602a4a9e986953b2e4e134e62306c59",
+    "experiments/completed/exp_006_deployment_overlay_challenge/run_overlay_challenge.py": "6bdb6036dc4d22649ee505239732b478e177ef4bc509909976332908e3fa1c7d",
+    "experiments/completed/exp_006_deployment_overlay_challenge/statistical_significance.py": "5d4ec3b7eb483fd05983ce5ba77c0924ac0604e166feeae3bc794f719745cd98",
+    "experiments/completed/exp_006_deployment_overlay_challenge/walk_forward_sensitivity.py": "e742798989659921e221e33c5a26a82bf9c6a7a95e7f90aa0c600cbf934412fb",
+    "experiments/completed/exp_006_deployment_overlay_challenge/promote_deployment_candidate.py": "81aadab2d4920217eded2768c53e0a3260ed7c344c41ed889eb8dae5c738ef34",
+    "experiments/completed/exp_007_garch_volatility_persistence/analysis_overlay_replay.py": "4edc3c673c495214a7e3911c2cf26f67b29c1c1f9b93ad58a87ae641e2ab1eed"
+  },
+  "source_sha256_after": {
+    "experiments/completed/exp_006_deployment_candidate_tournament/run_tournament.py": "f138acdc89b0225d9faf948bbbf61d92e5471f742ec831de502b89c97d734a33",
+    "experiments/completed/exp_006_deployment_candidate_tournament/tournament_significance.py": "9669cd935b516f1781b0a5ee7a51cb1e1b6a628393015fed24014a035485aeac",
+    "experiments/completed/exp_006_deployment_candidate_tournament/tournament_stability.py": "16ba9c3a086ea5a783c2c52796acb5b42dd621183face538bf1ce055f7bdb0da",
+    "experiments/completed/exp_006_deployment_overlay_challenge/run_overlay_challenge.py": "7d72e5ba521b4bf69e65682a6396d8d72f406d6817259b66c5e75605a8828451",
+    "experiments/completed/exp_006_deployment_overlay_challenge/statistical_significance.py": "4e7370568c460ffa19f8f9a4b5019a76f15135f7a5d783cd1e76924d285d3dfd",
+    "experiments/completed/exp_006_deployment_overlay_challenge/walk_forward_sensitivity.py": "1fa7fa1ab38fb2d258b48983c153ed1b401e13b0b3de46490d245c362b8b0dea",
+    "experiments/completed/exp_006_deployment_overlay_challenge/promote_deployment_candidate.py": "f88fe4ae168378eb8a16de767b2ccad22cfc183744ffbb6f02ebcf43aef81fca",
+    "experiments/completed/exp_007_garch_volatility_persistence/analysis_overlay_replay.py": "1bc2a98c12e610582ef47f771261d2707e799fc922ee88d5529d8efd4d89b596",
+    "research/project_07_statistical_integrity/tests/test_remediation_source_fix.py": "5a1b365234426251f2935f6b03a7063043d56f3fb453c79be770b236e7206da7"
+  },
+  "promote_script_fixed_but_not_run": "experiments/completed/exp_006_deployment_overlay_challenge/promote_deployment_candidate.py (running it would promote a candidate \u2014 prohibited; its historical outputs classified INVALID)",
+  "immutable_input_sha256": {
+    "experiments/completed/exp_005_risk_engine_final/final_weighted_multi_strategy_portfolio_dd.csv": "d24eaa0aef7221637398dd8d1503267d1f6b494bd8e03b2af01d98b84e39723e",
+    "experiments/completed/exp_005_risk_engine_final/final_daily_weights.csv": "075e91912b315f21f648e02276a6693af6e1a11bdf6923f784900dee4096c449",
+    "experiments/completed/exp_005_risk_engine_final/final_returns_v2_with_dates.csv": "ae3995db87073e7dc91da44399a860363bf49f7cfca0f6c604a99a615dc8a18d"
+  },
+  "regenerated_artifact_sha256": {
+    "experiments/completed/exp_006_deployment_candidate_tournament/master_comparison.csv": "1c43ba49f1127b47bec7958440b5287de9a434075d72521d569e4040daa5413a",
+    "experiments/completed/exp_006_deployment_candidate_tournament/significance_vs_v1.csv": "01ea24e8176f02573321df1f24a1d785ac7741cf209b9f6ccb3d54bf83e2e291",
+    "experiments/completed/exp_006_deployment_candidate_tournament/walk_forward_stability.csv": "133c24d4df4f19a92a318bb4832a6d42d11899d70ca28e7325d07f6b1d179e00",
+    "experiments/completed/exp_006_deployment_overlay_challenge/overlay_comparison.csv": "0ee688fcddcdcdf4a07f242a0a23af340c6c5ce0cdb358610e6c31c19b08b9e9",
+    "experiments/completed/exp_006_deployment_overlay_challenge/overlay_equity_curves.csv": "23cb80836e5bc3d063c0714323e30b5e025b17bc2370305fff873b4fb707d628",
+    "experiments/completed/exp_006_deployment_overlay_challenge/promotion_gate_result.json": "1802a5e620606200ae7e471ee4286096e9c0dce6c813270732bd4d0f5f814786",
+    "experiments/completed/exp_007_candidate_net_validation/v1_daily_returns.csv": "558c1f89aa6d26730efeea03ee67c647ddd595a52b28eab44bdebbc5ef461d2b",
+    "experiments/completed/exp_007_candidate_net_validation/dd_only_daily_returns.csv": "ea175ba19be41765f7560e98d0196c946042330dcfb9b81074a1cfff2562dd13",
+    "experiments/completed/exp_007_candidate_net_validation/combined_dd_vol_daily_returns.csv": "168f7b0ba302921a1a2973f33e2872c308cfcc472272c4d39e8822dcaedfcc94",
+    "experiments/completed/exp_007_candidate_net_validation/net_sharpe_significance_vs_v1.csv": "b13fe2f9f8b90541d62b2f5e447fdc62e8d7d9298559c7f51ca7b800faa31b7d",
+    "experiments/completed/exp_007_candidate_net_validation/net_mdd_significance_vs_v1.csv": "486fec47201f163a36663bc65ea590d03fb2ef6fe94ceff3e643e1c5b967da7e",
+    "experiments/completed/exp_007_candidate_net_validation/net_cagr_significance_vs_v1.csv": "3fb4fd8436b1c89351c06cdafedc27119e733495f2603c8f218eaedafef07789",
+    "experiments/completed/exp_007_candidate_net_validation/white_reality_check_record.json": "b9a8865867aad0b758c4259e566a272901e8686807980bf41366cc5920a73780",
+    "experiments/completed/exp_007_nb03_dynamic_replay/reconstruction_fidelity.json": "74ae3d1882b2c9767261244584b6aab5d74fd4ee2c3dbee6f4db3ab84809b5be",
+    "experiments/completed/exp_007_nb03_dynamic_replay/dynamic_replay_A_vs_B.csv": "bf62fdd94e49cf1113c16c7d1c2b4a2b8c932cb2c81d1fc74c18a13122009239",
+    "experiments/completed/exp_007_garch_volatility_persistence/overlay_replay_A_vs_B.csv": "dc4de0c0110b4dcbd09f9e3b58aca8130e4e22d699c947e65f0011485ca7ed48"
+  },
+  "seeds": {
+    "tournament_significance_sharpe": {
+      "block": 21,
+      "n_boot": 5000,
+      "seed": 7
+    },
+    "net_mdd_and_cagr_families": {
+      "block": 20,
+      "n_boot": 10000,
+      "seed": 20260820
+    },
+    "stat_bundle_bootstrap": {
+      "block": 20,
+      "n_boot": 10000,
+      "seed": 20260820
+    },
+    "white_reality_check": {
+      "block": 20,
+      "n_resamples": 10000,
+      "seed": 20260820
+    },
+    "dynamic_replay_mc": {
+      "block": 20,
+      "n_paths": 10000,
+      "seed": 20261027
+    },
+    "garch_overlay_replay": {
+      "block": 20,
+      "n_paths": 10000,
+      "seed": 20261023
+    }
+  },
+  "cost_model": "net = gross - turnover*(bps/1e4); bps=10 one-way (commission+spread+slippage blended). Borrow/financing on short book handled via bounded scenarios (not historically modelled).",
+  "regression_tests": {
+    "test_return_lineage_audit.py": "5 tests (analytic + canonical identities)",
+    "test_remediation_source_fix.py": "8 tests (bound to the fixed source loaders/builders)",
+    "p06_suite": "8 passed",
+    "p07_suite": "269 passed, 11 skipped"
+  },
+  "reproduction": "PYTHONPATH=. venv/bin/python <script> for each file in scripts/; notebooks' persisted artifacts regenerated by faithful transcription scripts with identical seeds."
+}

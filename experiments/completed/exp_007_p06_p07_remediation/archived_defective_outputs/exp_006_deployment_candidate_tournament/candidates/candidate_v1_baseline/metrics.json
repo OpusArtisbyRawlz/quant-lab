@@ -1,0 +1,22 @@
+{
+  "Sharpe": 2.0901126366076075,
+  "Sortino": 3.6191401223336594,
+  "CAGR": 0.37702089838981023,
+  "Volatility": 0.15917505750943411,
+  "MDD": -0.36694948853663256,
+  "Calmar": 1.0274463111894274,
+  "Ulcer": 0.16604543096364155,
+  "MaxDD_duration_d": 439,
+  "MaxDD_recovery_d": null,
+  "Longest_underwater_d": 439,
+  "Time_underwater_frac": 0.8921032056293979,
+  "DD_frequency_gt5pct": 27,
+  "Avg Exposure": 0.7969786068609283,
+  "Mean Turnover": 0.05808692331820349,
+  "Cost-adj Sharpe (10bps)": 1.99888090750734,
+  "Capacity @10% median ($)": 2603298844.2758055,
+  "Capacity @10% p05 ($)": 696539144.231795,
+  "Ops worst Sharpe": 1.9000573777444136,
+  "Ops Sharpe drop": 0.0988235297629263,
+  "Deployable (has book)": true
+}

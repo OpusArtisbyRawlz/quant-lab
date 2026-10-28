@@ -1,0 +1,10 @@
+{
+  "slug": "candidate_clip_05_12",
+  "name": "Clip 0.5-1.2 (m*smooth(0.6,5))",
+  "group": "B \u2014 deployment-base challenger",
+  "source": "recovered deployment base + overlay",
+  "version": "-",
+  "overlay": "clip sweep 0.5-1.2",
+  "is_v1": false,
+  "has_book": true
+}

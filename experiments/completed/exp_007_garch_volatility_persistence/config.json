@@ -1,0 +1,58 @@
+{
+  "experiment": "exp_007_garch_volatility_persistence",
+  "purpose": "GARCH(1,1)-t source verification of the 0.995 persistence + comparative volatility-persistence analysis across SPY vs V1/DD Only/Combined, and Monte Carlo overlay-integrity check.",
+  "parent_campaign": "Project 07 Statistical Integrity, Notebook 03 (Monte Carlo)",
+  "seed": 20261023,
+  "source_module": "src/statistics/simulation.py (fit_garch, select_return_model, block_bootstrap_paths)",
+  "overlay_rules_module": "src/risk/drawdown.py (compute_drawdown, drawdown_exposure_smooth, apply_exposure_to_return)",
+  "series": {
+    "SPY_full": {
+      "file": "data/raw/SPY.csv",
+      "col": "Close->pct_change",
+      "range": [
+        "2005-02-28",
+        "2026-03-06"
+      ],
+      "n": 5288,
+      "basis": "gross market index"
+    },
+    "strategies": {
+      "file": "experiments/completed/exp_007_candidate_net_validation/*_daily_returns.csv",
+      "cols": [
+        "net_return",
+        "gross_return"
+      ],
+      "range": [
+        "2016-01-04",
+        "2026-03-06"
+      ],
+      "n": 2558
+    }
+  },
+  "common_window": [
+    "2016-01-04",
+    "2026-03-06"
+  ],
+  "garch_spec": "GARCH(1,1), constant conditional mean mu, standardized Student-t or Normal innovations; fit by MLE in percent units (x100) via scipy L-BFGS-B; unit-variance t standardization.",
+  "outputs": [
+    "garch_fit_comparison.csv",
+    "return_diagnostics.csv",
+    "window_sensitivity.csv",
+    "risk_comparison.csv",
+    "overlay_replay_A_vs_B.csv"
+  ],
+  "non_overwriting": "NB03 and exp_007_candidate_net_validation left untouched; all new outputs isolated here.",
+  "source_verification": {
+    "0.995_belongs_to": "SPY US market benchmark (NOT V1 or any strategy)",
+    "fitted": {
+      "alpha": 0.143,
+      "beta": 0.8518,
+      "persistence": 0.99474,
+      "nu": 5.4457,
+      "omega": 1.9015e-06,
+      "half_life_days": 131.5,
+      "converged": true
+    },
+    "evidence": "NB03 cell 19 runs select_return_model on markets['US (SPY)']; reproduced exactly."
+  }
+}

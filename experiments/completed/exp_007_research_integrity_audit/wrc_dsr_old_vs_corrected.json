@@ -1,0 +1,17 @@
+{
+  "WRC_old_defective_universe": {
+    "best_strategy": "P04:ls_20pct",
+    "stat": 0.0776048330466929,
+    "p": 0.010298970102989701
+  },
+  "WRC_corrected_universe": {
+    "best_strategy": "P04:ls_20pct",
+    "stat": 0.0776048330466929,
+    "p": 0.010298970102989701
+  },
+  "DSR_V1_trial_variance_old": 0.000493488171732033,
+  "DSR_V1_trial_variance_corrected": 0.0003495168191129258,
+  "DSR_V1_N100_old": 0.9999692465656361,
+  "DSR_V1_N100_corrected": 0.9999962665488737,
+  "n_strategies": 23
+}

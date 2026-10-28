@@ -1,0 +1,82 @@
+[
+  {
+    "which": "combined",
+    "embargo": 5,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": -0.0011653491913227205,
+    "pooled_median_rank_ic": 0.0,
+    "per_path_mean_rank_ic": -0.0011650523410158338,
+    "per_path_ic_dispersion": 0.01290570698557252,
+    "frac_paths_positive": 0.5357142857142857,
+    "mean_pearson_ic": -0.0009380870372320011,
+    "recon_oos_sharpe_mean": -0.16951481208198746,
+    "recon_oos_sharpe_frac_pos": 0.39285714285714285,
+    "recon_oos_mdd_median": -0.9344815320773254
+  },
+  {
+    "which": "v1",
+    "embargo": 5,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": -0.011595445383424958,
+    "pooled_median_rank_ic": -0.007518796992481202,
+    "per_path_mean_rank_ic": -0.0115973079010402,
+    "per_path_ic_dispersion": 0.016738390554086865,
+    "frac_paths_positive": 0.21428571428571427,
+    "mean_pearson_ic": -0.008909263662121174
+  },
+  {
+    "which": "v2",
+    "embargo": 5,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.014093277054998554,
+    "pooled_median_rank_ic": 0.01098901098901099,
+    "per_path_mean_rank_ic": 0.014095375874602373,
+    "per_path_ic_dispersion": 0.013645180077705191,
+    "frac_paths_positive": 0.7857142857142857,
+    "mean_pearson_ic": 0.008904902432526915
+  },
+  {
+    "which": "ridge",
+    "embargo": 5,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.030033176340024986,
+    "pooled_median_rank_ic": 0.02982456140350877,
+    "per_path_mean_rank_ic": 0.03003567156743177,
+    "per_path_ic_dispersion": 0.014232786178798399,
+    "frac_paths_positive": 1.0,
+    "mean_pearson_ic": 0.03037911507577921
+  },
+  {
+    "which": "combined",
+    "embargo": 0,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": -0.0011653491913227205,
+    "pooled_median_rank_ic": 0.0,
+    "per_path_mean_rank_ic": -0.0011650523410158338,
+    "per_path_ic_dispersion": 0.01290570698557252,
+    "frac_paths_positive": 0.5357142857142857,
+    "mean_pearson_ic": -0.0009380870372320011
+  },
+  {
+    "which": "combined",
+    "embargo": 10,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": -0.0012310696477762693,
+    "pooled_median_rank_ic": 0.0,
+    "per_path_mean_rank_ic": -0.0012307363977992446,
+    "per_path_ic_dispersion": 0.012928867285076712,
+    "frac_paths_positive": 0.5357142857142857,
+    "mean_pearson_ic": -0.00116306995789183
+  },
+  {
+    "which": "combined",
+    "embargo": 21,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": -0.0013852556278492968,
+    "pooled_median_rank_ic": 0.0010319917440660476,
+    "per_path_mean_rank_ic": -0.0013848668060302692,
+    "per_path_ic_dispersion": 0.013090668730232078,
+    "frac_paths_positive": 0.5357142857142857,
+    "mean_pearson_ic": -0.0014813081861736184
+  }
+]

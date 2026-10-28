@@ -1,0 +1,82 @@
+[
+  {
+    "which": "combined",
+    "embargo": 5,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.00937455552599178,
+    "pooled_median_rank_ic": 0.007518796992481202,
+    "per_path_mean_rank_ic": 0.009380046937354475,
+    "per_path_ic_dispersion": 0.016331706024125994,
+    "frac_paths_positive": 0.7142857142857143,
+    "mean_pearson_ic": 0.010450464067063464,
+    "recon_oos_sharpe_mean": 0.46140060292430485,
+    "recon_oos_sharpe_frac_pos": 0.7142857142857143,
+    "recon_oos_mdd_median": -0.5405317094725399
+  },
+  {
+    "which": "v1",
+    "embargo": 5,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.006285352722107241,
+    "pooled_median_rank_ic": 0.0015037593984962405,
+    "per_path_mean_rank_ic": 0.006297773864571052,
+    "per_path_ic_dispersion": 0.03031061145737481,
+    "frac_paths_positive": 0.5357142857142857,
+    "mean_pearson_ic": 0.008970787276565001
+  },
+  {
+    "which": "v2",
+    "embargo": 5,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.00024281402121373907,
+    "pooled_median_rank_ic": -0.0015037593984962405,
+    "per_path_mean_rank_ic": 0.00023255819780295558,
+    "per_path_ic_dispersion": 0.025043667139163558,
+    "frac_paths_positive": 0.5714285714285714,
+    "mean_pearson_ic": 0.0017632764330452442
+  },
+  {
+    "which": "ridge",
+    "embargo": 5,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.009569761549022372,
+    "pooled_median_rank_ic": 0.013533834586466165,
+    "per_path_mean_rank_ic": 0.009558978780838561,
+    "per_path_ic_dispersion": 0.02977017900715403,
+    "frac_paths_positive": 0.6071428571428571,
+    "mean_pearson_ic": 0.00977373431176442
+  },
+  {
+    "which": "combined",
+    "embargo": 0,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.00937455552599178,
+    "pooled_median_rank_ic": 0.007518796992481202,
+    "per_path_mean_rank_ic": 0.009380046937354475,
+    "per_path_ic_dispersion": 0.016331706024125994,
+    "frac_paths_positive": 0.7142857142857143,
+    "mean_pearson_ic": 0.010450464067063464
+  },
+  {
+    "which": "combined",
+    "embargo": 10,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.00933315073934552,
+    "pooled_median_rank_ic": 0.007518796992481202,
+    "per_path_mean_rank_ic": 0.009338840308869669,
+    "per_path_ic_dispersion": 0.016905296237885347,
+    "frac_paths_positive": 0.7142857142857143,
+    "mean_pearson_ic": 0.009770980519007261
+  },
+  {
+    "which": "combined",
+    "embargo": 21,
+    "n_paths": 28,
+    "pooled_mean_rank_ic": 0.008940206239958245,
+    "pooled_median_rank_ic": 0.006015037593984962,
+    "per_path_mean_rank_ic": 0.008944973035501647,
+    "per_path_ic_dispersion": 0.016189670491176932,
+    "frac_paths_positive": 0.6785714285714286,
+    "mean_pearson_ic": 0.00940126345031005
+  }
+]

@@ -40,7 +40,7 @@ def main():
     exp_inc = dep["portfolio_dd_exposure"].astype(float)
 
     # recovered shared base (strip ONLY the portfolio-level overlay)
-    base_ret = pr / exp_inc.shift(1).fillna(1.0)
+    base_ret = pr / exp_inc                       # same-row inverse (exp already lagged; see exp_007_research_integrity_audit)
     base_book = wide.div(exp_inc, axis=0)
 
     # DD-Only overlay
@@ -85,7 +85,7 @@ def main():
         },
         "base": {
             "source": "exp_005 dual-layer product, portfolio-level overlay stripped",
-            "base_return": "portfolio_return_t / exposure_{t-1}",
+            "base_return": "portfolio_return_t / exposure_t (same-row; stored exposure already lagged)",
             "base_book": "final_weight_t / exposure_t",
         },
         "n_days": int(len(dates)),

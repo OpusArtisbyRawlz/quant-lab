@@ -1,0 +1,20 @@
+{
+  "A_overlay71": {
+    "n_nominal": 71,
+    "participation_ratio_eff": 1.01,
+    "kaiser_eff": 1,
+    "mean_abs_pairwise_corr": 0.993
+  },
+  "B_expanded": {
+    "n_nominal": 83,
+    "participation_ratio_eff": 1.07,
+    "kaiser_eff": 2,
+    "mean_abs_pairwise_corr": 0.966
+  },
+  "P04_family": {
+    "n_nominal": 12,
+    "participation_ratio_eff": 1.08,
+    "kaiser_eff": 1,
+    "mean_abs_pairwise_corr": 0.957
+  }
+}

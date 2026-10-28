@@ -1,0 +1,23 @@
+{
+  "phase2_reconciliation": {
+    "id_A_port_pre_times_stored_exp_eq_shipped_pr": 9.974659986866641e-17,
+    "id_B_v1_recon_vs_shipped_pr": 9.974659986866641e-17,
+    "id_C_stored_exp_eq_port_exp_lag1": 1.1102230246251565e-16,
+    "md5_canonical_port_pre": "811b53352fa1fb65",
+    "md5_canonical_v1": "ced5817ea616d42a",
+    "md5_shipped_pr": "f0611a91ea93dc0a"
+  },
+  "phase3_root_cause": {
+    "correct_recovery_pr_div_exp_vs_port_pre_maxabs": 1.6306400674181987e-16,
+    "defect_recovery_pr_div_expshift1_vs_port_pre_maxabs": 0.009857026631553453,
+    "defect_spurious_factor": "base_defect[t] = port_pre[t] * stored_exp[t]/stored_exp[t-1]",
+    "n_days_factor_ne_1": 2327,
+    "book_recovery_uses": "wide.div(exp)      (same-row, CORRECT inverse)",
+    "return_recovery_uses": "pr / exp.shift(1) (extra shift, DEFECT) \u2014 inconsistent with book recovery"
+  },
+  "defective_recon_reproduces_shipped_maxabs": {
+    "V1": 0.014224156013907543,
+    "DD Only": 5.516420653606247e-16,
+    "Combined": 5.88938620094126e-16
+  }
+}

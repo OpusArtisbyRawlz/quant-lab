@@ -1,0 +1,11 @@
+{
+  "experiment": "exp_006_deployment_candidate_tournament",
+  "git_commit": "30a28f94eadc48b32017b807376d77d70665374f",
+  "candidate": "Combined DD+Vol (floor0.3,k5,clip0.5-1.3)",
+  "group": "B \u2014 deployment-base challenger",
+  "data_source": "recovered deployment base + overlay",
+  "overlay_recipe": "(m*smooth(0.3,5)).clip(0.5,1.3)",
+  "has_position_book": true,
+  "book_dependent_stages_evaluable": true,
+  "lookahead_safe": "exposure applied via apply_exposure_to_return (shift(1)); drawdown uses causal cummax"
+}

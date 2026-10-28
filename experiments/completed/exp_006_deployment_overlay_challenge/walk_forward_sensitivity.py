@@ -65,7 +65,7 @@ def load_base():
     dep.index = dates
     pr = dep["portfolio_return"].astype(float)
     exp = dep["portfolio_dd_exposure"].astype(float)
-    base_ret = pr / exp.shift(1).fillna(1.0)
+    base_ret = pr / exp                           # same-row inverse (exp already lagged; see exp_007_research_integrity_audit)
     return base_ret, pr, exp, dates
 
 
@@ -94,7 +94,9 @@ def dd_only_return(base_ret, floor, k):
 # CHECK 1 — exact reproduction
 # ---------------------------------------------------------------------------
 def check_reproduction(base_ret, pr, exp):
-    repro = apply_exposure_to_return(base_ret, exp)  # base * exp.shift(1).fillna(1)
+    # exp (portfolio_dd_exposure) is already the lagged applied exposure, so the
+    # incumbent is reproduced by a SAME-ROW multiply (not a second apply/shift).
+    repro = base_ret * exp
     abs_err = (repro - pr).abs()
     max_err = float(abs_err.max())
     passed = max_err < REPRO_TOL

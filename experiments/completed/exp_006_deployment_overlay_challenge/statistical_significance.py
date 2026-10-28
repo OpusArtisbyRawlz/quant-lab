@@ -40,7 +40,7 @@ def main():
     pr = dep["portfolio_return"].astype(float)
     exp = dep["portfolio_dd_exposure"].astype(float)
 
-    base_ret = pr / exp.shift(1).fillna(1.0)
+    base_ret = pr / exp                           # same-row inverse (exp already lagged; see exp_007_research_integrity_audit)
     base_eq = (1 + base_ret).cumprod()
     dd = compute_drawdown(base_eq)
 

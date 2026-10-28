@@ -1,0 +1,17 @@
+{
+  "V1": {
+    "max_abs_diff_vs_shipped_gross": 6.886852199627924e-16,
+    "recon_CAGR": 0.37702089838980957,
+    "shipped_CAGR": 0.37702089838981756
+  },
+  "DD Only": {
+    "max_abs_diff_vs_shipped_gross": 5.477389375396768e-16,
+    "recon_CAGR": 0.37207949752108016,
+    "shipped_CAGR": 0.37207949752108815
+  },
+  "Combined": {
+    "max_abs_diff_vs_shipped_gross": 5.568462357885551e-16,
+    "recon_CAGR": 0.38532137556450263,
+    "shipped_CAGR": 0.3853213755645106
+  }
+}
